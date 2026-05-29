@@ -1,1 +1,0 @@
-import{j as t}from"./react-vendor-BrqJ8f5J.js";import{P as i}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function n(){return t.jsx(i,{title:"Profit Analysis",description:"Profit margins and cost analysis."})}export{n as default};

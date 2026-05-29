@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
@@ -19,6 +19,7 @@ from app.schemas.production import (
     MachineStatusEventCreate,
     ProductionOrderCreate,
     WorkOrderCreate,
+    WorkOrderQuickCreate,
 )
 
 
@@ -52,6 +53,35 @@ def list_production_orders(db: Session, tenant_id: int) -> list[ProductionOrder]
 
 def create_work_order(db: Session, payload: WorkOrderCreate) -> WorkOrder:
     work_order = WorkOrder(**payload.model_dump())
+    db.add(work_order)
+    db.commit()
+    db.refresh(work_order)
+    return work_order
+
+
+def quick_create_work_order(db: Session, payload: WorkOrderQuickCreate) -> WorkOrder:
+    """Create production order + work order in one call (3-field UX)."""
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    order_number = f"PO-Q-{ts}"
+    prod_order = ProductionOrder(
+        tenant_id=payload.tenant_id,
+        product_id=payload.product_id,
+        order_number=order_number,
+        planned_quantity=payload.planned_quantity,
+        status="planned",
+    )
+    db.add(prod_order)
+    db.flush()
+
+    wo_number = f"WO-{ts}"
+    work_order = WorkOrder(
+        tenant_id=payload.tenant_id,
+        production_order_id=prod_order.id,
+        machine_id=payload.machine_id,
+        work_order_number=wo_number,
+        planned_quantity=payload.planned_quantity,
+        status="planned",
+    )
     db.add(work_order)
     db.commit()
     db.refresh(work_order)

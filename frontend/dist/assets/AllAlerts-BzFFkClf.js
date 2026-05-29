@@ -1,1 +1,0 @@
-import{j as t}from"./react-vendor-BrqJ8f5J.js";import{P as e}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function a(){return t.jsx(e,{title:"All Alerts",description:"View low stock, machine failure, production delay, and maintenance alerts."})}export{a as default};

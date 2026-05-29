@@ -1,1 +1,0 @@
-import{j as s}from"./react-vendor-BrqJ8f5J.js";import{P as t}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function a(){return s.jsx(t,{title:"Access Logs",description:"Audit trail of user access and actions."})}export{a as default};

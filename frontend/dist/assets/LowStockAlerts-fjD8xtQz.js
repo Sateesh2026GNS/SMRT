@@ -1,0 +1,1 @@
+import{j as t}from"./react-vendor-BgZRF-UL.js";import{P as o}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function l(){return t.jsx(o,{title:"Low Stock Alerts",description:"Alerts for items below minimum stock level."})}export{l as default};

@@ -1,1 +1,0 @@
-import{j as o}from"./react-vendor-BrqJ8f5J.js";import{P as t}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function m(){return o.jsx(t,{title:"Compliance Logs",description:"Track compliance and audit logs."})}export{m as default};

@@ -1,1 +1,0 @@
-import{j as r}from"./react-vendor-BrqJ8f5J.js";import{P as e}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function s(){return r.jsx(e,{title:"Reports Archive",description:"Archived reports and exported files."})}export{s as default};

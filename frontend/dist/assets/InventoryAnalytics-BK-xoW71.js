@@ -1,1 +1,0 @@
-import{j as t}from"./react-vendor-BrqJ8f5J.js";import{P as r}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function a(){return t.jsx(r,{title:"Inventory Analytics",description:"Inventory turnover and stock analytics."})}export{a as default};

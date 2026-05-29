@@ -1,1 +1,0 @@
-import{a as r}from"./axios-42ANG6Sg.js";const a=r.create({baseURL:"http://localhost:8000",timeout:3e4});a.interceptors.request.use(t=>{try{const e=localStorage.getItem("smrt-token");e&&(t.headers.Authorization=`Bearer ${e}`)}catch{}return t});export{a};

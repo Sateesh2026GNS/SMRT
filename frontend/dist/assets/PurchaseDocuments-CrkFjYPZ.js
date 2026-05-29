@@ -1,1 +1,0 @@
-import{j as e}from"./react-vendor-BrqJ8f5J.js";import{P as r}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function i(){return e.jsx(r,{title:"Purchase Documents",description:"Purchase orders, invoices, and related documents."})}export{i as default};

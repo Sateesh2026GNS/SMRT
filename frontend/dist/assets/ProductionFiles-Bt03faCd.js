@@ -1,0 +1,1 @@
+import{j as o}from"./react-vendor-BgZRF-UL.js";import{P as r}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function n(){return o.jsx(r,{title:"Production Files",description:"Work orders, batch records, and production documents."})}export{n as default};

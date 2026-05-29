@@ -19,6 +19,7 @@ from app.schemas.production import (
     ProductionOrderRead,
     WorkOrderCreate,
     WorkOrderRead,
+    WorkOrderQuickCreate,
     WorkOrderUpdate,
 )
 from app.services.production_service import (
@@ -86,6 +87,15 @@ def create_work_order_endpoint(
     return create_work_order(db, payload)
 
 
+@router.post("/work-orders/quick", response_model=WorkOrderRead)
+def quick_create_work_order_endpoint(
+    payload: WorkOrderQuickCreate, db: Session = Depends(get_db)
+) -> WorkOrderRead:
+    from app.services.production_service import quick_create_work_order
+
+    return quick_create_work_order(db, payload)
+
+
 @router.patch("/work-orders/{work_order_id}", response_model=WorkOrderRead)
 def update_work_order_endpoint(
     work_order_id: int,
@@ -97,6 +107,7 @@ def update_work_order_endpoint(
         db, work_order_id, tenant_id,
         actual_quantity=payload.actual_quantity,
         status=payload.status,
+        machine_id=payload.machine_id,
     )
     if not wo:
         from fastapi import HTTPException

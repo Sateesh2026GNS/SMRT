@@ -22,6 +22,9 @@ export const getWorkOrders = (tenantId, productionOrderId) =>
 export const createWorkOrder = (payload) =>
   api.post("/production/work-orders", payload);
 
+export const quickCreateWorkOrder = (payload) =>
+  api.post("/production/work-orders/quick", payload);
+
 export const updateWorkOrder = (workOrderId, tenantId, payload) =>
   api.patch(`/production/work-orders/${workOrderId}`, payload, {
     params: { tenant_id: tenantId },

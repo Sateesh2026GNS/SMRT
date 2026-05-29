@@ -1,17 +1,62 @@
-import { createContext, useMemo, useState } from "react";
+import { createContext, useEffect, useMemo, useState } from "react";
+
+import { getCurrentUser } from "../api/authApi";
 
 export const AuthContext = createContext(null);
 
-const storedUser = () => {
+function normalizeUser(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  return {
+    ...raw,
+    name: raw.full_name ?? raw.name ?? "User",
+    role: raw.role ?? "Operator",
+  };
+}
+
+function readStoredUser() {
   try {
     const stored = localStorage.getItem("smrt-user");
-    if (stored) return JSON.parse(stored);
+    if (stored) return normalizeUser(JSON.parse(stored));
   } catch {}
   return null;
-};
+}
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(storedUser);
+  const [user, setUser] = useState(readStoredUser);
+
+  useEffect(() => {
+    let cancelled = false;
+    let token = null;
+    try {
+      token = localStorage.getItem("smrt-token");
+    } catch {
+      return undefined;
+    }
+    if (!token) return undefined;
+
+    getCurrentUser()
+      .then((data) => {
+        if (cancelled || !data) return;
+        const u = normalizeUser(data);
+        setUser(u);
+        try {
+          localStorage.setItem("smrt-user", JSON.stringify(u));
+        } catch {}
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (err.response?.status === 401) {
+          try {
+            localStorage.removeItem("smrt-token");
+            localStorage.removeItem("smrt-user");
+          } catch {}
+          setUser(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = (authData) => {
     let u;
@@ -20,11 +65,7 @@ export function AuthProvider({ children }) {
       const userPayload = authData.user ?? authData;
       const rest = { ...userPayload };
       delete rest.access_token;
-      u = {
-        ...rest,
-        name: userPayload.full_name ?? userPayload.name ?? "User",
-        role: userPayload.role ?? rest.role ?? "Operator",
-      };
+      u = normalizeUser(rest);
       if (token) {
         try {
           localStorage.setItem("smrt-token", token);
@@ -47,12 +88,26 @@ export function AuthProvider({ children }) {
     } catch {}
   };
 
+  const refreshUser = async () => {
+    try {
+      const token = localStorage.getItem("smrt-token");
+      if (!token) return;
+      const data = await getCurrentUser();
+      const u = normalizeUser(data);
+      setUser(u);
+      localStorage.setItem("smrt-user", JSON.stringify(u));
+    } catch {
+      /* ignore */
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
       isAuthenticated: Boolean(user),
       login,
       logout,
+      refreshUser,
     }),
     [user]
   );

@@ -61,6 +61,14 @@ class WorkOrderRead(WorkOrderBase):
 class WorkOrderUpdate(BaseModel):
     actual_quantity: float | None = None
     status: str | None = None
+    machine_id: int | None = None
+
+
+class WorkOrderQuickCreate(BaseModel):
+    tenant_id: int
+    product_id: int
+    planned_quantity: float
+    machine_id: int | None = None
 
 
 class BatchBase(BaseModel):

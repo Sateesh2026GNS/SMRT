@@ -1,0 +1,1 @@
+import{j as e}from"./react-vendor-BgZRF-UL.js";import{P as n}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function m(){return e.jsx(n,{title:"Maintenance Reminders",description:"Upcoming and overdue maintenance reminders."})}export{m as default};

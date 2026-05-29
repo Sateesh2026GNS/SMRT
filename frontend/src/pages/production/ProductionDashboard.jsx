@@ -5,10 +5,10 @@ import {
   Plus,
   Play,
   Square,
-  Search,
   ClipboardList,
   Package,
   Cpu,
+  ArrowRight,
 } from "lucide-react";
 
 import { useToast } from "../../context/ToastContext";
@@ -41,7 +41,7 @@ const cardSkeleton = (
   </div>
 );
 
-export default function ProductionDashboard() {
+export default function ProductionDashboard({ title = "Production Dashboard" }) {
   const { t } = useTranslation();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,7 @@ export default function ProductionDashboard() {
   const [statusFilter, setStatusFilter] = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editingQty, setEditingQty] = useState("");
+  const [assigningMachineId, setAssigningMachineId] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
   const productMap = useMemo(() => {
@@ -150,6 +151,22 @@ export default function ProductionDashboard() {
     }
   };
 
+  const handleAssignMachine = async (wo, machineId) => {
+    if (!machineId) return;
+    setAssigningMachineId(wo.id);
+    try {
+      await updateWorkOrder(wo.id, TENANT_ID, { machine_id: Number(machineId) });
+      setWorkOrders((prev) =>
+        prev.map((w) => (w.id === wo.id ? { ...w, machine_id: Number(machineId) } : w))
+      );
+      addToast("Machine assigned successfully");
+    } catch (e) {
+      addToast("Failed to assign machine", "error");
+    } finally {
+      setAssigningMachineId(null);
+    }
+  };
+
   const handleMachineAction = async (machine, newStatus) => {
     setActionLoading(`m-${machine.id}`);
     try {
@@ -179,7 +196,7 @@ export default function ProductionDashboard() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-            Production Dashboard
+            {title}
           </h1>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -197,11 +214,29 @@ export default function ProductionDashboard() {
       {/* Title + Quick Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-          Production Dashboard
+          {title}
         </h1>
         <div className="flex flex-wrap gap-2">
+          {title === "Production Dashboard" && (
+            <>
+              <Link
+                to="/factory-monitor/live-production"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+              >
+                Live Production
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                to="/factory-monitor/machine-status"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors"
+              >
+                Machine Status
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </>
+          )}
           <Link
-            to="/production/create"
+            to="/production/work-orders/create-quick"
             className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-teal-700"
           >
             <Plus className="h-4 w-4" />
@@ -284,7 +319,20 @@ export default function ProductionDashboard() {
                         {wo.product_name}
                       </td>
                       <td className="py-3 px-4 text-slate-700 dark:text-slate-300">
-                        {wo.machine_name}
+                        {!wo.machine_id && ["planned", "pending"].includes(wo.status) ? (
+                          <select
+                            onChange={(e) => handleAssignMachine(wo, e.target.value)}
+                            disabled={assigningMachineId === wo.id}
+                            className="rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-1 text-sm min-w-[120px]"
+                          >
+                            <option value="">Assign machine...</option>
+                            {machines.map((m) => (
+                              <option key={m.id} value={m.id}>{m.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          wo.machine_name
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <StatusBadge status={wo.status} />

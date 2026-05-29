@@ -1,17 +1,9 @@
-/**
- * Route-level code splitting – each page loads only when navigated to.
- * Keeps initial bundle small and makes first paint + auth fast.
- */
 import { lazy } from "react";
 
-// Auth & public – small; still lazy so main chunk excludes them until needed
 export const Landing = lazy(() => import("../pages/Landing"));
 export const Login = lazy(() => import("../pages/auth/Login"));
 export const Register = lazy(() => import("../pages/auth/Register"));
-
-// Dashboard pulls recharts – isolating it defers heavy chart code
 export const Dashboard = lazy(() => import("../pages/dashboard/Dashboard"));
-
 export const ProductionPlanning = lazy(() => import("../pages/production/ProductionPlanning"));
 export const ProductionDashboard = lazy(() => import("../pages/production/ProductionDashboard"));
 export const WorkOrders = lazy(() => import("../pages/production/WorkOrders"));
@@ -20,7 +12,7 @@ export const MachineStatus = lazy(() => import("../pages/production/MachineStatu
 export const CreateMachine = lazy(() => import("../pages/production/CreateMachine"));
 export const DailyReports = lazy(() => import("../pages/production/DailyReports"));
 export const CreateProduction = lazy(() => import("../pages/production/CreateProduction"));
-
+export const QuickCreateWorkOrder = lazy(() => import("../pages/production/QuickCreateWorkOrder"));
 export const InventoryDashboard = lazy(() => import("../pages/inventory/InventoryDashboard"));
 export const InventoryList = lazy(() => import("../pages/inventory/InventoryList"));
 export const StockMovement = lazy(() => import("../pages/inventory/StockMovement"));
@@ -29,7 +21,6 @@ export const Suppliers = lazy(() => import("../pages/inventory/Suppliers"));
 export const CreateItem = lazy(() => import("../pages/inventory/CreateItem"));
 export const CreateWarehouse = lazy(() => import("../pages/inventory/CreateWarehouse"));
 export const CreateSupplier = lazy(() => import("../pages/inventory/CreateSupplier"));
-
 export const HRDashboard = lazy(() => import("../pages/hr/HRDashboard"));
 export const Attendance = lazy(() => import("../pages/hr/Attendance"));
 export const Shifts = lazy(() => import("../pages/hr/Shifts"));
@@ -40,7 +31,6 @@ export const CreateEmployee = lazy(() => import("../pages/hr/CreateEmployee"));
 export const CreateShift = lazy(() => import("../pages/hr/CreateShift"));
 export const CreatePayroll = lazy(() => import("../pages/hr/CreatePayroll"));
 export const CreatePerformance = lazy(() => import("../pages/hr/CreatePerformance"));
-
 export const InvoiceDashboard = lazy(() => import("../pages/sales/InvoiceDashboard"));
 export const TaxInvoiceForm = lazy(() => import("../pages/sales/TaxInvoiceForm"));
 export const SalesOrders = lazy(() => import("../pages/sales/SalesOrders"));
@@ -49,14 +39,12 @@ export const Customers = lazy(() => import("../pages/sales/Customers"));
 export const CreateCustomer = lazy(() => import("../pages/sales/CreateCustomer"));
 export const PaymentTracking = lazy(() => import("../pages/sales/PaymentTracking"));
 export const CreatePayment = lazy(() => import("../pages/sales/CreatePayment"));
-
 export const AccountsDashboard = lazy(() => import("../pages/accounts/AccountsDashboard"));
 export const ProfitLoss = lazy(() => import("../pages/accounts/ProfitLoss"));
 export const ExpenseTracking = lazy(() => import("../pages/accounts/ExpenseTracking"));
 export const TaxReports = lazy(() => import("../pages/accounts/TaxReports"));
 export const RecordIncome = lazy(() => import("../pages/accounts/RecordIncome"));
 export const RecordExpense = lazy(() => import("../pages/accounts/RecordExpense"));
-
 export const PurchaseOrders = lazy(() => import("../pages/procurement/PurchaseOrders"));
 export const CreatePurchaseOrder = lazy(() => import("../pages/procurement/CreatePurchaseOrder"));
 export const VendorManagement = lazy(() => import("../pages/procurement/VendorManagement"));
@@ -67,37 +55,30 @@ export const GoodsReceipt = lazy(() => import("../pages/procurement/GoodsReceipt
 export const CreateGoodsReceipt = lazy(() => import("../pages/procurement/CreateGoodsReceipt"));
 export const SupplierPayments = lazy(() => import("../pages/procurement/SupplierPayments"));
 export const CreateSupplierPayment = lazy(() => import("../pages/procurement/CreateSupplierPayment"));
-
 export const QualityInspection = lazy(() => import("../pages/quality/QualityInspection"));
 export const DefectTracking = lazy(() => import("../pages/quality/DefectTracking"));
 export const BatchQualityReports = lazy(() => import("../pages/quality/BatchQualityReports"));
 export const ComplianceLogs = lazy(() => import("../pages/quality/ComplianceLogs"));
-
 export const MachineMaintenance = lazy(() => import("../pages/maintenance/MachineMaintenance"));
 export const PreventiveMaintenance = lazy(() => import("../pages/maintenance/PreventiveMaintenance"));
 export const BreakdownReports = lazy(() => import("../pages/maintenance/BreakdownReports"));
 export const MaintenanceSchedule = lazy(() => import("../pages/maintenance/MaintenanceSchedule"));
-
 export const ProductionAnalytics = lazy(() => import("../pages/analytics/ProductionAnalytics"));
 export const MachineEfficiency = lazy(() => import("../pages/analytics/MachineEfficiency"));
 export const InventoryAnalytics = lazy(() => import("../pages/analytics/InventoryAnalytics"));
 export const ProfitAnalysis = lazy(() => import("../pages/analytics/ProfitAnalysis"));
-
 export const AllAlerts = lazy(() => import("../pages/alerts/AllAlerts"));
 export const LowStockAlerts = lazy(() => import("../pages/alerts/LowStockAlerts"));
 export const MachineFailureAlerts = lazy(() => import("../pages/alerts/MachineFailureAlerts"));
 export const ProductionDelayAlerts = lazy(() => import("../pages/alerts/ProductionDelayAlerts"));
 export const MaintenanceReminders = lazy(() => import("../pages/alerts/MaintenanceReminders"));
-
 export const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
 export const RolesPermissions = lazy(() => import("../pages/admin/RolesPermissions"));
 export const AccessLogs = lazy(() => import("../pages/admin/AccessLogs"));
-
 export const PurchaseDocuments = lazy(() => import("../pages/documents/PurchaseDocuments"));
 export const ProductionFiles = lazy(() => import("../pages/documents/ProductionFiles"));
 export const QualityCertificates = lazy(() => import("../pages/documents/QualityCertificates"));
 export const ReportsArchive = lazy(() => import("../pages/documents/ReportsArchive"));
-
 export const Settings = lazy(() => import("../pages/settings/Settings"));
 export const SettingsBillingAddress = lazy(() => import("../pages/settings/SettingsBillingAddress"));
 export const SettingsDeliveryLocation = lazy(() => import("../pages/settings/SettingsDeliveryLocation"));
@@ -114,7 +95,6 @@ export const SettingsMySubscription = lazy(() => import("../pages/settings/Setti
 export const SettingsLayout = lazy(() => import("../pages/settings/SettingsLayout"));
 export const SettingsTeams = lazy(() => import("../pages/settings/SettingsTeams"));
 export const SettingsUsers = lazy(() => import("../pages/settings/SettingsUsers"));
-
 export const IotDashboard = lazy(() => import("../pages/iot/IotDashboard"));
 export const Wearables = lazy(() => import("../pages/iot/Wearables"));
 export const MachineAnalytics = lazy(() => import("../pages/iot/MachineAnalytics"));

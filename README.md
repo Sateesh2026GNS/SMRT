@@ -82,6 +82,36 @@ A full-stack **Production Management**, **Inventory & Raw Material Management**,
 - Full UI translation (sidebar, pages, buttons, labels, messages)
 - Selection persisted in localStorage across page refresh
 
+## User Flows (High-Level)
+
+All flows follow the pattern: **Select → Enter → Save → View**. Tasks complete in **3 steps max**.
+
+### 1. Overall SMRT Flow
+Login → Dashboard → Choose Module → Perform Action → Save Data → View Reports
+
+### 2. Production Management
+Dashboard → Production Module → **Create Work Order** (3 fields: Product, Quantity, Machine) → Assign Machine → Start Production → Track Status → Complete Production → Move to Inventory
+
+- **Quick Create Work Order:** Dashboard → Click "Create Work Order" → Fill 3 fields → Save → Done ✅
+
+### 3. Inventory
+Purchase Raw Material → Add to Inventory → Use in Production → Update Stock → Low Stock Alert → Reorder
+
+### 4. Sales
+Create Customer → Create Sales Order → Generate Invoice → Dispatch Product → Receive Payment
+
+### 5. HR (Employee)
+Add Employee → Assign Role → Track Attendance → Calculate Payroll → Generate Salary Report
+
+### 6. Machine Monitoring
+Add Machine → Track Status → Detect Issue → Create Maintenance Task → Fix Machine → Update Status
+
+### 7. Reports & Analytics
+Dashboard → Select Report → Apply Filters → View Data → Export (PDF/Excel)
+
+### 8. User / Admin
+Login → Admin Panel → Create User → Assign Role → Set Permissions
+
 ## Project Structure
 
 ```

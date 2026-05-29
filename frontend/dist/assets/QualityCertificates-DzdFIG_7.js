@@ -1,0 +1,1 @@
+import{j as t}from"./react-vendor-BgZRF-UL.js";import{P as i}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function c(){return t.jsx(i,{title:"Quality Certificates",description:"Quality certificates and compliance documents."})}export{c as default};

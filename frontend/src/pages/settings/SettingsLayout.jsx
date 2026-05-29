@@ -38,7 +38,7 @@ const SIDEBAR_SECTIONS = [
       { to: "/settings/teams", label: "Teams" },
     ],
   },
-    {
+  {
     key: "addresses",
     label: "Addresses",
     icon: Building2,
@@ -109,19 +109,18 @@ export default function SettingsLayout() {
     }
   }, [pathname]);
 
+  const filterLabel = (label) =>
+    !sidebarSearch.trim() || label.toLowerCase().includes(sidebarSearch.trim().toLowerCase());
+
   return (
     <div className="flex h-[calc(100vh-0px)] bg-slate-100 dark:bg-slate-900">
-      {/* Dark top header */}
       <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between bg-slate-800 px-6 shadow">
         <div className="flex items-center gap-3">
           <Settings className="h-5 w-5 text-slate-300" />
           <span className="text-lg font-semibold text-white">Settings</span>
         </div>
         <div className="flex items-center gap-4">
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white"
-          >
+          <Link to="/" className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-white">
             <ArrowLeft className="h-4 w-4" />
             Back to App
           </Link>
@@ -132,7 +131,6 @@ export default function SettingsLayout() {
         </div>
       </header>
 
-      {/* Sidebar */}
       <aside className="fixed left-0 top-14 z-20 h-[calc(100vh-3.5rem)] w-64 shrink-0 overflow-y-auto border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/95">
         <div className="p-3">
           <div className="relative">
@@ -154,6 +152,8 @@ export default function SettingsLayout() {
             const isOpen = sidebarOpen[section.key] ?? false;
 
             if (hasItems) {
+              const visibleItems = section.items.filter((i) => filterLabel(i.label));
+              if (sidebarSearch.trim() && visibleItems.length === 0) return null;
               const isSectionActive = section.items?.some((i) => pathname === i.to);
               return (
                 <div key={section.key}>
@@ -168,15 +168,11 @@ export default function SettingsLayout() {
                       <Icon className="h-4 w-4 text-slate-500" />
                       {section.label}
                     </span>
-                    {isOpen ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
+                    {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </button>
                   {isOpen && (
                     <div className="ml-6 mt-0.5 space-y-0.5 border-l border-slate-200 pl-2 dark:border-slate-600">
-                      {section.items.map((item) => {
+                      {(sidebarSearch.trim() ? visibleItems : section.items).map((item) => {
                         const ItemIcon = item.icon;
                         return (
                           <NavLink
@@ -207,22 +203,26 @@ export default function SettingsLayout() {
             }
 
             if (hasLink) {
+              if (!filterLabel(section.label)) return null;
               return (
-                <Link
+                <NavLink
                   key={section.key}
                   to={section.to}
-                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
+                      isActive
+                        ? "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400"
+                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700/50"
+                    }`
+                  }
                 >
                   <Icon className="h-4 w-4 text-slate-500" />
                   {section.label}
-                </Link>
+                </NavLink>
               );
             }
             return (
-              <div
-                key={section.key}
-                className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400"
-              >
+              <div key={section.key} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400">
                 <Icon className="h-4 w-4 text-slate-500" />
                 {section.label}
               </div>
@@ -231,17 +231,16 @@ export default function SettingsLayout() {
         </nav>
       </aside>
 
-      {/* Main content */}
       <main className="ml-64 flex-1 overflow-auto pt-14">
         <div className="min-h-full bg-white p-6 dark:bg-slate-900">
           <Outlet />
         </div>
       </main>
 
-      {/* Get Help button - fixed bottom right */}
       <a
         href="#"
         className="fixed bottom-6 right-6 flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-green-700"
+        onClick={(e) => e.preventDefault()}
       >
         <HelpCircle className="h-4 w-4" />
         Get Help

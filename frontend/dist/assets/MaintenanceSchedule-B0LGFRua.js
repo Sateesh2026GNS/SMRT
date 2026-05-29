@@ -1,0 +1,1 @@
+import{j as e}from"./react-vendor-BgZRF-UL.js";import{P as t}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function m(){return e.jsx(t,{title:"Maintenance Schedule",description:"View and manage maintenance schedules."})}export{m as default};

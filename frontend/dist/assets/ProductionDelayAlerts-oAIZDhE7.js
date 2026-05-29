@@ -1,1 +1,0 @@
-import{j as r}from"./react-vendor-BrqJ8f5J.js";import{P as o}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function l(){return r.jsx(o,{title:"Production Delay Alerts",description:"Alerts for delayed production orders."})}export{l as default};

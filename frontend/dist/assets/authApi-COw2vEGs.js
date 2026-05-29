@@ -1,1 +1,0 @@
-import{a as o}from"./axiosConfig-BDpfLJI3.js";async function e(a,t){const{data:n}=await o.post("/auth/login",{email:a,password:t});return n}async function c(a,t,n,r){const{data:s}=await o.post("/auth/register",{company_name:a,full_name:t,email:n,password:r});return s}export{e as l,c as r};

@@ -1,1 +1,0 @@
-import{j as r}from"./react-vendor-BrqJ8f5J.js";import{P as e}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function i(){return r.jsx(e,{title:"Breakdown Reports",description:"Report and analyze machine breakdowns."})}export{i as default};

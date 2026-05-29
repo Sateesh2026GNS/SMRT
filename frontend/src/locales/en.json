@@ -82,6 +82,7 @@
     "computerVision": "Computer Vision"
   },
   "common": {
+    "cancel": "Cancel",
     "search": "Search...",
     "notifications": "Notifications",
     "language": "Language",
@@ -127,7 +128,8 @@
     "dailyProductionReports": "Daily Production Reports",
     "hrSummary": "HR Summary",
     "inToday": "in today",
-    "newProductionOrder": "+ New Production Order",
+    "createWorkOrder": "Create Work Order",
+    "newProductionOrder": "Production Order",
     "newSalesOrder": "+ New Sales Order",
     "newPurchaseOrder": "+ New Purchase Order",
     "newInventoryItem": "+ New Inventory Item",

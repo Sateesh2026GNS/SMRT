@@ -95,6 +95,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/production/work-orders/create-quick"
+        element={
+          <ProtectedRoute>
+            <P.QuickCreateWorkOrder />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/inventory"
         element={
           <ProtectedRoute>

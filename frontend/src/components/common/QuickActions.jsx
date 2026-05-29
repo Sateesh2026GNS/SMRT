@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Plus, Package, FileText, BarChart3, ClipboardList, ShoppingCart, Receipt } from "lucide-react";
 
 const defaultActions = [
-  { to: "/production/create", icon: Plus, labelKey: "dashboard.newProductionOrder", primary: true },
+  { to: "/production/work-orders/create-quick", icon: Plus, labelKey: "dashboard.createWorkOrder", primary: true },
+  { to: "/production/create", icon: ClipboardList, labelKey: "dashboard.newProductionOrder" },
   { to: "/sales/orders/create", icon: Receipt, labelKey: "dashboard.newSalesOrder" },
   { to: "/procurement/purchase-orders/create", icon: ShoppingCart, labelKey: "dashboard.newPurchaseOrder" },
   { to: "/inventory/items/create", icon: Package, labelKey: "dashboard.newInventoryItem" },

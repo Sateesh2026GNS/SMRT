@@ -1,1 +1,0 @@
-import{j as e}from"./react-vendor-BrqJ8f5J.js";import{P as t}from"./index-CgKr_Mys.js";import"./i18n-qCBi0t2K.js";import"./export-libs-BlOZOg8L.js";function s(){return e.jsx(t,{title:"User Management",description:"Manage users and accounts."})}export{s as default};
