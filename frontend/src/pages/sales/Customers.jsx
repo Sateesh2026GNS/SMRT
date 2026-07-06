@@ -4,15 +4,17 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getCustomers } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Customers() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
 
   useEffect(() => {
-    getCustomers(TENANT_ID)
+    getCustomers(tenantId)
       .then((r) => setCustomers(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

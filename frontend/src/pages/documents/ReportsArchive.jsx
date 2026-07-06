@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import DocumentsView from "./DocumentsView";
 
 export default function ReportsArchive() {
-  return <PlaceholderPage title="Reports Archive" description="Archived reports and exported files." />;
+  return (
+    <DocumentsView
+      title="Reports Archive"
+      subtitle="Saved reports and exported summaries."
+      docType="report"
+    />
+  );
 }

@@ -8,7 +8,9 @@ class BillOfMaterial(Base, TimestampMixin):
     __tablename__ = "bill_of_materials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     component_product_id: Mapped[int] = mapped_column(
         ForeignKey("products.id"), nullable=False

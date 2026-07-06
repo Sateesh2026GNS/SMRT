@@ -10,11 +10,13 @@ import {
   quickCreateWorkOrder,
   seedProducts,
 } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 /** 3-step flow: Product → Quantity → Machine → Save → Done */
 export default function QuickCreateWorkOrder() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { addToast } = useToast();
@@ -34,16 +36,16 @@ export default function QuickCreateWorkOrder() {
     const load = async () => {
       setLoading(true);
       try {
-        let pRes = await getProducts(TENANT_ID);
+        let pRes = await getProducts(tenantId);
         let prodList = pRes?.data || [];
         if (prodList.length === 0) {
           setSeeding(true);
           await seedProducts();
-          pRes = await getProducts(TENANT_ID);
+          pRes = await getProducts(tenantId);
           prodList = pRes?.data || [];
           setSeeding(false);
         }
-        const mRes = await getMachines(TENANT_ID);
+        const mRes = await getMachines(tenantId);
         setProducts(prodList);
         setMachines(mRes?.data || []);
       } catch (e) {
@@ -74,7 +76,7 @@ export default function QuickCreateWorkOrder() {
     setError("");
     try {
       await quickCreateWorkOrder({
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         product_id: Number(form.product_id),
         planned_quantity: qty,
         machine_id: form.machine_id ? Number(form.machine_id) : null,

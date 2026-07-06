@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Radio, ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getIotSensors } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Sensors() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getIotSensors(TENANT_ID)
+    getIotSensors(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Sensors load failed", e))
       .finally(() => setLoading(false));

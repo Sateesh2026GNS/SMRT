@@ -4,8 +4,9 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getShifts } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function formatTime(t) {
   if (!t) return "-";
@@ -14,11 +15,12 @@ function formatTime(t) {
 }
 
 export default function Shifts() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [shifts, setShifts] = useState([]);
 
   useEffect(() => {
-    getShifts(TENANT_ID)
+    getShifts(tenantId)
       .then((r) => setShifts(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

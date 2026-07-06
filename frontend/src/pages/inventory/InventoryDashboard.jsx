@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
+import StoreManagerNav from "../../components/inventory/StoreManagerNav";
 import Table from "../../components/common/Table";
 import {
   getInventoryDashboard,
   getWarehouses,
 } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const cardStyle = {
   background: "#fff",
@@ -18,6 +21,7 @@ const cardStyle = {
 };
 
 export default function InventoryDashboard() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -27,8 +31,8 @@ export default function InventoryDashboard() {
       setLoading(true);
       try {
         const [dashRes, whRes] = await Promise.all([
-          getInventoryDashboard(TENANT_ID),
-          getWarehouses(TENANT_ID),
+          getInventoryDashboard(),
+          getWarehouses(tenantId),
         ]);
         setDashboard(dashRes.data || []);
         setWarehouses(whRes.data || []);
@@ -43,7 +47,12 @@ export default function InventoryDashboard() {
   }, []);
 
   if (loading) {
-    return <Loader label="Loading inventory dashboard..." />;
+    return (
+      <div className="space-y-6">
+        <StoreManagerNav />
+        <Loader label="Loading inventory dashboard..." />
+      </div>
+    );
   }
 
   const lowStockCount = dashboard.filter((i) => i.needs_reorder).length;
@@ -57,11 +66,18 @@ export default function InventoryDashboard() {
 
   return (
     <div style={{ display: "grid", gap: "20px" }}>
+      <StoreManagerNav />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Inventory Dashboard</h2>
         <div style={{ display: "flex", gap: "12px" }}>
-          <Link to="/inventory/items">View Items</Link>
-          <Link to="/inventory/items/create">Create Item</Link>
+          <Link to="/inventory/raw-materials">View Items</Link>
+          <Link
+            to="/inventory/items/create?type=raw_material"
+            className="ui-btn-primary"
+          >
+            <Plus className="h-4 w-4" />
+            New Material
+          </Link>
         </div>
       </div>
 

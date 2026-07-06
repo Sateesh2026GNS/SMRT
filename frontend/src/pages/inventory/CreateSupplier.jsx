@@ -4,16 +4,18 @@ import { ArrowLeft } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
 import { createSupplier } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
 
 export default function CreateSupplier() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     name: "",
     contact: "",
     email: "",

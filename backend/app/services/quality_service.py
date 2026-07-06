@@ -36,6 +36,20 @@ def list_defects(db: Session, tenant_id: int) -> list[Defect]:
     return list(db.scalars(stmt).all())
 
 
+def update_defect_status(
+    db: Session, tenant_id: int, defect_id: int, status: str
+) -> Defect | None:
+    d = db.scalars(
+        select(Defect).where(Defect.id == defect_id, Defect.tenant_id == tenant_id)
+    ).first()
+    if not d:
+        return None
+    d.status = status
+    db.commit()
+    db.refresh(d)
+    return d
+
+
 def create_batch_quality_report(db: Session, payload: BatchQualityReportCreate) -> BatchQualityReport:
     bqr = BatchQualityReport(**payload.model_dump())
     db.add(bqr)

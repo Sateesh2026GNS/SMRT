@@ -8,8 +8,9 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getGoodsReceipts } from "../../api/procurementApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function StatusPill({ status }) {
   const s = (status || "received").toLowerCase();
@@ -27,6 +28,7 @@ function StatusPill({ status }) {
 }
 
 export default function GoodsReceipt() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [receipts, setReceipts] = useState([]);
@@ -37,7 +39,7 @@ export default function GoodsReceipt() {
       setLoading(true);
       setLoadError("");
       try {
-        const res = await getGoodsReceipts(TENANT_ID);
+        const res = await getGoodsReceipts(tenantId);
         setReceipts(res.data || []);
       } catch (e) {
         setLoadError("Could not load goods receipts. Is the API running?");

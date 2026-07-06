@@ -1,17 +1,36 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
+
+import { setApiErrorHandler } from "../api/axiosConfig";
 
 const ToastContext = createContext(null);
 
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+  const lastErrorRef = useRef({ message: null, at: 0 });
 
   const addToast = useCallback((message, type = "success") => {
-    const id = Date.now();
+    const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3500);
   }, []);
+
+  useEffect(() => {
+    setApiErrorHandler((message) => {
+      // Debounce identical errors fired within 4s to avoid toast spam.
+      const now = Date.now();
+      if (
+        lastErrorRef.current.message === message &&
+        now - lastErrorRef.current.at < 4000
+      ) {
+        return;
+      }
+      lastErrorRef.current = { message, at: now };
+      addToast(message, "error");
+    });
+    return () => setApiErrorHandler(null);
+  }, [addToast]);
 
   return (
     <ToastContext.Provider value={{ addToast }}>

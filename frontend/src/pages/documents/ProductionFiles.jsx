@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import DocumentsView from "./DocumentsView";
 
 export default function ProductionFiles() {
-  return <PlaceholderPage title="Production Files" description="Work orders, batch records, and production documents." />;
+  return (
+    <DocumentsView
+      title="Production Files"
+      subtitle="Drawings, specs, and production-related documents."
+      docType="production"
+    />
+  );
 }

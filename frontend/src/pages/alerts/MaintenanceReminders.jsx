@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import AlertsView from "./AlertsView";
 
 export default function MaintenanceReminders() {
-  return <PlaceholderPage title="Maintenance Reminders" description="Upcoming and overdue maintenance reminders." />;
+  return (
+    <AlertsView
+      title="Maintenance Reminders"
+      subtitle="Upcoming and overdue maintenance tasks."
+      alertType="maintenance"
+    />
+  );
 }

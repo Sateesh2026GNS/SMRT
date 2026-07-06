@@ -1,26 +1,124 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.core.permissions import tenant_scope
+from app.models.hr import Shift
+from app.models.machine import Machine
+from app.models.product import Product
+from app.models.production import ProductionOrder, WorkOrder
 
 router = APIRouter(prefix="/production-scheduling", tags=["Production Scheduling"])
 
+MODULE = "production"
+
+
 @router.get("/calendar")
-def get_production_calendar(db: Session = Depends(get_db)):
-    """Fetch production calendar."""
-    return {"message": "Production calendar data."}
+def get_production_calendar(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    """Production orders as calendar events keyed by their scheduled window."""
+    rows = db.execute(
+        select(
+            ProductionOrder.id,
+            ProductionOrder.order_number,
+            ProductionOrder.status,
+            ProductionOrder.start_date,
+            ProductionOrder.due_date,
+            ProductionOrder.planned_quantity,
+            Product.name,
+        )
+        .join(Product, ProductionOrder.product_id == Product.id)
+        .where(ProductionOrder.tenant_id == tenant_id)
+        .order_by(ProductionOrder.start_date)
+    ).all()
+    return [
+        {
+            "id": r[0],
+            "title": f"{r[1]} - {r[6]}",
+            "order_number": r[1],
+            "status": r[2],
+            "start": r[3].isoformat() if r[3] else None,
+            "end": r[4].isoformat() if r[4] else None,
+            "planned_quantity": float(r[5] or 0),
+            "product": r[6],
+        }
+        for r in rows
+    ]
+
 
 @router.get("/shift-scheduling")
-def get_shift_scheduling(db: Session = Depends(get_db)):
-    """Fetch shift scheduling data."""
-    return {"message": "Shift scheduling data."}
+def get_shift_scheduling(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    """Configured shifts for the tenant."""
+    shifts = list(
+        db.scalars(select(Shift).where(Shift.tenant_id == tenant_id).order_by(Shift.start_time)).all()
+    )
+    return [
+        {
+            "id": s.id,
+            "name": s.name,
+            "start_time": s.start_time.isoformat() if s.start_time else None,
+            "end_time": s.end_time.isoformat() if s.end_time else None,
+            "break_minutes": s.break_minutes,
+            "capacity_hours": float(s.capacity_hours or 0),
+        }
+        for s in shifts
+    ]
+
 
 @router.get("/machine-allocation")
-def get_machine_allocation(db: Session = Depends(get_db)):
-    """Fetch machine allocation data."""
-    return {"message": "Machine allocation data."}
+def get_machine_allocation(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    """How many work orders are allocated to each machine."""
+    machines = list(
+        db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all()
+    )
+    allocation = []
+    for m in machines:
+        count = db.scalar(
+            select(func.count()).select_from(WorkOrder).where(WorkOrder.machine_id == m.id)
+        )
+        allocation.append(
+            {
+                "machine_id": m.id,
+                "machine": m.name,
+                "status": m.status,
+                "allocated_work_orders": int(count or 0),
+            }
+        )
+    return allocation
+
 
 @router.get("/timeline")
-def get_production_timeline(db: Session = Depends(get_db)):
-    """Fetch production timeline."""
-    return {"message": "Production timeline data."}
+def get_production_timeline(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    """Work-order timeline (Gantt-style rows) for the tenant."""
+    rows = db.execute(
+        select(
+            WorkOrder.id,
+            WorkOrder.work_order_number,
+            WorkOrder.status,
+            WorkOrder.planned_start,
+            WorkOrder.planned_end,
+            Machine.name,
+        )
+        .outerjoin(Machine, WorkOrder.machine_id == Machine.id)
+        .where(WorkOrder.tenant_id == tenant_id)
+        .order_by(WorkOrder.planned_start)
+    ).all()
+    return [
+        {
+            "id": r[0],
+            "work_order_number": r[1],
+            "status": r[2],
+            "start": r[3].isoformat() if r[3] else None,
+            "end": r[4].isoformat() if r[4] else None,
+            "machine": r[5] or "Unassigned",
+        }
+        for r in rows
+    ]

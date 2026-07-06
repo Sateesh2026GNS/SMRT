@@ -3,17 +3,19 @@ import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { createProductionOrder, getProducts, seedProducts } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreateProduction() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [seeding, setSeeding] = useState(false);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     product_id: "",
     order_number: "",
     planned_quantity: "",
@@ -27,13 +29,13 @@ export default function CreateProduction() {
 
   const loadProducts = () => {
     setLoadingProducts(true);
-    getProducts(TENANT_ID)
+    getProducts(tenantId)
       .then((r) => {
         const list = r.data || [];
         if (list.length === 0) {
           setSeeding(true);
           return seedProducts()
-            .then(() => getProducts(TENANT_ID))
+            .then(() => getProducts(tenantId))
             .finally(() => setSeeding(false));
         }
         return { data: list };

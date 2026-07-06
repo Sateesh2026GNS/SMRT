@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Watch, ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getWearables } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Wearables() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getWearables(TENANT_ID)
+    getWearables(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Wearables load failed", e))
       .finally(() => setLoading(false));

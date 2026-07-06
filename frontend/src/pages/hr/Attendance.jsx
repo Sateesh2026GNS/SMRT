@@ -3,14 +3,16 @@ import { useEffect, useState } from "react";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getAttendance, getEmployees, clockIn, clockOut } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
 export default function Attendance() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [employees, setEmployees] = useState([]);
@@ -22,11 +24,11 @@ export default function Attendance() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      getAttendance(TENANT_ID, {
+      getAttendance(tenantId, {
         date_from: dateFrom,
         date_to: dateTo,
       }),
-      getEmployees(TENANT_ID),
+      getEmployees(tenantId),
     ])
       .then(([attRes, empRes]) => {
         setRecords(attRes.data || []);
@@ -45,9 +47,9 @@ export default function Attendance() {
     if (!clockEmployee) return;
     try {
       if (action === "in") {
-        await clockIn(TENANT_ID, Number(clockEmployee), todayStr());
+        await clockIn(tenantId, Number(clockEmployee), todayStr());
       } else {
-        await clockOut(TENANT_ID, Number(clockEmployee), todayStr());
+        await clockOut(tenantId, Number(clockEmployee), todayStr());
       }
       fetchData();
       setClockEmployee("");

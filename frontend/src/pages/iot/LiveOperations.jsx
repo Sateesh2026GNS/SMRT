@@ -2,15 +2,17 @@ import { useEffect, useState } from "react";
 import { Activity, Cpu, ClipboardList } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getLiveOperations } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function LiveOperations() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getLiveOperations(TENANT_ID)
+    getLiveOperations(tenantId)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));

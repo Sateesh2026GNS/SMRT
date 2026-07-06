@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Bot, ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getCobots } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Cobots() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getCobots(TENANT_ID)
+    getCobots(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Cobots load failed", e))
       .finally(() => setLoading(false));

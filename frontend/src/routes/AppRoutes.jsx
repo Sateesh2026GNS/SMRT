@@ -14,6 +14,9 @@ export default function AppRoutes() {
       <Route path="/landing" element={<P.Landing />} />
       <Route path="/login" element={<P.Login />} />
       <Route path="/register" element={<P.Register />} />
+      <Route path="/forgot-password" element={<P.ForgotPassword />} />
+      <Route path="/reset-password" element={<P.ResetPassword />} />
+      <Route path="/verify-email" element={<P.VerifyEmail />} />
       <Route
         path="/"
         element={
@@ -103,6 +106,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/production/tasks"
+        element={
+          <ProtectedRoute>
+            <P.TaskManagement />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/inventory"
         element={
           <ProtectedRoute>
@@ -112,9 +123,45 @@ export default function AppRoutes() {
       />
       <Route
         path="/inventory/items"
+        element={<Navigate to="/inventory/raw-materials" replace />}
+      />
+      <Route
+        path="/inventory/raw-materials"
         element={
           <ProtectedRoute>
-            <P.InventoryList />
+            <P.RawMaterials />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/finished-goods"
+        element={
+          <ProtectedRoute>
+            <P.FinishedGoods />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/stock-transfer"
+        element={
+          <ProtectedRoute>
+            <P.StockTransfer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/stock-adjustment"
+        element={
+          <ProtectedRoute>
+            <P.StockAdjustment />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/inventory/stock-ledger"
+        element={
+          <ProtectedRoute>
+            <P.StockLedger />
           </ProtectedRoute>
         }
       />
@@ -183,6 +230,22 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/hr/leave"
+        element={
+          <ProtectedRoute>
+            <P.Leave />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/hr/leave/create"
+        element={
+          <ProtectedRoute>
+            <P.CreateLeave />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/hr/shifts"
         element={
           <ProtectedRoute>
@@ -247,6 +310,30 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/leads"
+        element={
+          <ProtectedRoute>
+            <P.Leads />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/quotations"
+        element={
+          <ProtectedRoute>
+            <P.Quotations />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/dispatch"
+        element={
+          <ProtectedRoute>
+            <P.Dispatch />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/invoices"
         element={
           <ProtectedRoute>
@@ -282,10 +369,7 @@ export default function AppRoutes() {
         path="/sales/orders/:id"
         element={
           <ProtectedRoute>
-            <PlaceholderPage
-              title="Sales order detail"
-              description="Full order view and line items will appear here. Use the list to manage orders."
-            />
+            <P.SalesOrderDetail />
           </ProtectedRoute>
         }
       />
@@ -337,6 +421,7 @@ export default function AppRoutes() {
       <Route path="/procurement/goods-receipt/create" element={<ProtectedRoute><P.CreateGoodsReceipt /></ProtectedRoute>} />
       <Route path="/procurement/supplier-payments" element={<ProtectedRoute><P.SupplierPayments /></ProtectedRoute>} />
       <Route path="/procurement/supplier-payments/create" element={<ProtectedRoute><P.CreateSupplierPayment /></ProtectedRoute>} />
+      <Route path="/procurement/supply-chain" element={<ProtectedRoute><P.SupplyChainDashboard /></ProtectedRoute>} />
       <Route path="/quality/inspection" element={<ProtectedRoute><P.QualityInspection /></ProtectedRoute>} />
       <Route path="/quality/defects" element={<ProtectedRoute><P.DefectTracking /></ProtectedRoute>} />
       <Route path="/quality/batch-reports" element={<ProtectedRoute><P.BatchQualityReports /></ProtectedRoute>} />
@@ -349,6 +434,7 @@ export default function AppRoutes() {
       <Route path="/analytics/machine-efficiency" element={<ProtectedRoute><P.MachineEfficiency /></ProtectedRoute>} />
       <Route path="/analytics/inventory" element={<ProtectedRoute><P.InventoryAnalytics /></ProtectedRoute>} />
       <Route path="/analytics/profit" element={<ProtectedRoute><P.ProfitAnalysis /></ProtectedRoute>} />
+      <Route path="/analytics/forecasting" element={<ProtectedRoute><P.ForecastingDashboard /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><P.AllAlerts /></ProtectedRoute>} />
       <Route path="/alerts/low-stock" element={<ProtectedRoute><P.LowStockAlerts /></ProtectedRoute>} />
       <Route path="/alerts/machine-failure" element={<ProtectedRoute><P.MachineFailureAlerts /></ProtectedRoute>} />
@@ -356,13 +442,17 @@ export default function AppRoutes() {
       <Route path="/alerts/maintenance" element={<ProtectedRoute><P.MaintenanceReminders /></ProtectedRoute>} />
       <Route path="/admin/users" element={<ProtectedRoute><P.UserManagement /></ProtectedRoute>} />
       <Route path="/admin/roles" element={<ProtectedRoute><P.RolesPermissions /></ProtectedRoute>} />
-      <Route path="/admin/access-logs" element={<ProtectedRoute><P.AccessLogs /></ProtectedRoute>} />
+      <Route path="/admin/permissions" element={<ProtectedRoute><P.RolesPermissions /></ProtectedRoute>} />
+      <Route path="/admin/audit-logs" element={<ProtectedRoute><P.AccessLogs /></ProtectedRoute>} />
+      <Route path="/admin/access-logs" element={<Navigate to="/admin/audit-logs" replace />} />
+      <Route path="/admin/integrations" element={<ProtectedRoute><P.IntegrationsDashboard /></ProtectedRoute>} />
       <Route path="/documents/purchase" element={<ProtectedRoute><P.PurchaseDocuments /></ProtectedRoute>} />
       <Route path="/documents/production" element={<ProtectedRoute><P.ProductionFiles /></ProtectedRoute>} />
       <Route path="/documents/quality" element={<ProtectedRoute><P.QualityCertificates /></ProtectedRoute>} />
       <Route path="/documents/reports" element={<ProtectedRoute><P.ReportsArchive /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><P.SettingsLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/settings/users" replace />} />
+        <Route index element={<Navigate to="/settings/company-profile" replace />} />
+        <Route path="company-profile" element={<P.SettingsCompanyProfile />} />
         <Route path="users" element={<P.SettingsUsers />} />
         <Route path="teams" element={<P.SettingsTeams />} />
         <Route path="addresses">
@@ -394,6 +484,20 @@ export default function AppRoutes() {
         <Route path="buyers" element={<PlaceholderPage title="Buyers & Suppliers" />} />
         <Route path="gst" element={<PlaceholderPage title="GST API" />} />
       </Route>
+      <Route path="/masters/products" element={<ProtectedRoute><PlaceholderPage title="Products" description="Product master catalog for SKUs, variants, and pricing." /></ProtectedRoute>} />
+      <Route path="/masters/bom" element={<ProtectedRoute><PlaceholderPage title="Bill of Materials" /></ProtectedRoute>} />
+      <Route path="/masters/departments" element={<ProtectedRoute><PlaceholderPage title="Departments" /></ProtectedRoute>} />
+      <Route path="/production/schedule" element={<ProtectedRoute><PlaceholderPage title="Production Schedule" /></ProtectedRoute>} />
+      <Route path="/procurement/rfq" element={<ProtectedRoute><PlaceholderPage title="Request for Quotation (RFQ)" /></ProtectedRoute>} />
+      <Route path="/finance/accounts-payable" element={<ProtectedRoute><Navigate to="/procurement/supplier-payments" replace /></ProtectedRoute>} />
+      <Route path="/finance/accounts-receivable" element={<ProtectedRoute><Navigate to="/sales/payments" replace /></ProtectedRoute>} />
+      <Route path="/finance/general-ledger" element={<ProtectedRoute><PlaceholderPage title="General Ledger" /></ProtectedRoute>} />
+      <Route path="/quality/incoming" element={<ProtectedRoute><Navigate to="/quality/inspection" replace /></ProtectedRoute>} />
+      <Route path="/quality/in-process" element={<ProtectedRoute><Navigate to="/quality/inspection" replace /></ProtectedRoute>} />
+      <Route path="/quality/final" element={<ProtectedRoute><Navigate to="/quality/batch-reports" replace /></ProtectedRoute>} />
+      <Route path="/maintenance/machine-history" element={<ProtectedRoute><Navigate to="/maintenance/machines" replace /></ProtectedRoute>} />
+      <Route path="/analytics/sales" element={<ProtectedRoute><Navigate to="/analytics/profit" replace /></ProtectedRoute>} />
+      <Route path="/analytics/finance" element={<ProtectedRoute><Navigate to="/analytics/profit" replace /></ProtectedRoute>} />
       <Route path="/factory-monitor/live-production" element={<ProtectedRoute><LiveProduction /></ProtectedRoute>} />
       <Route path="/factory-monitor/machine-status" element={<ProtectedRoute><MachineStatus /></ProtectedRoute>} />
       <Route path="/factory-monitor/production-lines" element={<ProtectedRoute><ProductionLines /></ProtectedRoute>} />
@@ -405,6 +509,8 @@ export default function AppRoutes() {
       <Route path="/iot/agvs" element={<ProtectedRoute><P.Agvs /></ProtectedRoute>} />
       <Route path="/iot/drones" element={<ProtectedRoute><P.Drones /></ProtectedRoute>} />
       <Route path="/iot/smart-packaging" element={<ProtectedRoute><P.SmartPackaging /></ProtectedRoute>} />
+      <Route path="/iot/live-operations" element={<ProtectedRoute><P.LiveOperations /></ProtectedRoute>} />
+      <Route path="*" element={<P.NotFound />} />
     </Routes>
   );
 }

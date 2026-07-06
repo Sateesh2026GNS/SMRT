@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createShift } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreateShift() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     name: "",
     start_time: "08:00",
     end_time: "16:00",

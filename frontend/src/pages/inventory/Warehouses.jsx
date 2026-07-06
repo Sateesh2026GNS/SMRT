@@ -8,10 +8,12 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getWarehouses } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Warehouses() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [warehouses, setWarehouses] = useState([]);
@@ -22,7 +24,7 @@ export default function Warehouses() {
       setLoading(true);
       setLoadError("");
       try {
-        const res = await getWarehouses(TENANT_ID);
+        const res = await getWarehouses(tenantId);
         setWarehouses(res.data || []);
       } catch (e) {
         setLoadError("Could not load warehouses. Is the API running?");

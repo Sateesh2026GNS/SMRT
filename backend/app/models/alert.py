@@ -10,7 +10,9 @@ class Alert(Base, TimestampMixin):
     __tablename__ = "alerts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     alert_type: Mapped[str] = mapped_column(String(64), nullable=False)
     # low_stock, machine_failure, production_delay, maintenance_reminder
     title: Mapped[str] = mapped_column(String(255), nullable=False)

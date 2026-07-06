@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Package, AlertTriangle, ArrowLeft } from "lucide-react";
 
 import { createInventoryItem, getSuppliers } from "../../api/inventoryApi";
 import { Input, Select, FormRow } from "../../components/common/FormField";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreateItem() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const defaultType = searchParams.get("type") === "finished_good"
+    ? "finished_good"
+    : "raw_material";
+  const backPath = defaultType === "finished_good"
+    ? "/inventory/finished-goods"
+    : "/inventory/raw-materials";
   const [suppliers, setSuppliers] = useState([]);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     supplier_id: "",
     sku: "",
     barcode: "",
@@ -20,13 +29,14 @@ export default function CreateItem() {
     unit: "pcs",
     unit_cost: "",
     reorder_level: "0",
+    item_type: defaultType,
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
   useEffect(() => {
-    getSuppliers(TENANT_ID)
+    getSuppliers(tenantId)
       .then((r) => setSuppliers(r.data || []))
       .catch(console.error);
   }, []);
@@ -48,7 +58,7 @@ export default function CreateItem() {
         unit_cost: form.unit_cost ? Number(form.unit_cost) : null,
         reorder_level: Number(form.reorder_level) || 0,
       });
-      navigate("/inventory/items");
+      navigate(backPath);
     } catch (err) {
       setError("Failed to create item. Please try again.");
     } finally {
@@ -61,7 +71,7 @@ export default function CreateItem() {
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link
-            to="/inventory/items"
+            to={backPath}
             className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 mb-2"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -120,6 +130,17 @@ export default function CreateItem() {
           />
 
           <FormRow>
+            <Select
+              label="Item Type"
+              value={form.item_type}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, item_type: e.target.value }))
+              }
+              options={[
+                { value: "raw_material", label: "Raw Material" },
+                { value: "finished_good", label: "Finished Good" },
+              ]}
+            />
             <Input
               label="Unit"
               placeholder="pcs, kg, L, etc."
@@ -166,7 +187,7 @@ export default function CreateItem() {
               {saving ? "Saving..." : "Create Item"}
             </button>
             <Link
-              to="/inventory/items"
+              to={backPath}
               className="rounded-xl border border-slate-200 dark:border-slate-600 px-5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
             >
               Cancel

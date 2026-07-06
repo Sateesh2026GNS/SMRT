@@ -39,12 +39,8 @@ export default function EmptyState({ icon = "clipboard", title, description, act
         <p className="mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">{description}</p>
       )}
       {actionLabel && actionHref && (
-        <Link
-          to={actionHref}
-          className="mt-6 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90"
-          style={{ backgroundColor: "var(--color-primary)" }}
-        >
-          <span>+</span>
+        <Link to={actionHref} className="mt-6 ui-btn-primary">
+          <span aria-hidden>+</span>
           {actionLabel}
         </Link>
       )}

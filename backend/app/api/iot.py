@@ -1,30 +1,50 @@
 """
 IoT & Smart Factory API – wearables, machine analytics, sensors, cobots, AGVs, drones.
-Based on IoT technology for smart manufacturing (automation, predictive maintenance, supply chain).
+
+Device telemetry for wearables/sensors/cobots/AGVs/drones is a *simulated* feed
+derived from the tenant's real machines and employees (there is no physical
+device-ingestion table yet). Every simulated payload is flagged with
+``"simulated": true`` so the UI can label it accordingly. Machine analytics and
+live operations are fully model-backed.
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func
 
 from app.api.deps import get_db
+from app.core.permissions import tenant_scope
+from app.models.hr import Employee
 from app.models.machine import Machine
-from app.models.production import WorkOrder, DailyProductionReport
 from app.models.maintenance import PreventiveMaintenance
+from app.models.production import WorkOrder
 
 router = APIRouter(prefix="/iot", tags=["IoT & Smart Factory"])
 
+MODULE = "iot"
+
+
+def _machines(db: Session, tenant_id: int) -> list[Machine]:
+    return list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
+
 
 @router.get("/dashboard")
-def iot_dashboard(tenant_id: int = Query(1), db: Session = Depends(get_db)):
-    """Overview of all IoT systems: wearables, sensors, cobots, AGVs, drones, machine analytics."""
-    machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
+def iot_dashboard(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Overview of all IoT systems, grounded in real machine/employee counts."""
+    machines = _machines(db, tenant_id)
     running = sum(1 for m in machines if m.status == "running")
-    # Sample IoT device counts (extend with real tables when needed)
+    active_machines = sum(1 for m in machines if m.is_active)
+    employees = db.scalar(
+        select(func.count(Employee.id)).where(
+            Employee.tenant_id == tenant_id, Employee.is_active.is_(True)
+        )
+    ) or 0
+    sensor_count = len(machines) * 3
     return {
-        "wearables": {"count": 12, "active": 10, "function": "Collect data from multiple sources"},
-        "sensors": {"count": 24, "active": 22, "function": "Supply chain & machine monitoring"},
-        "cobots": {"count": 4, "active": 3, "function": "Collaborative material handling"},
-        "agvs": {"count": 2, "active": 2, "function": "Easy navigation & transport"},
+        "simulated": True,
+        "wearables": {"count": int(employees), "active": int(employees), "function": "Collect data from multiple sources"},
+        "sensors": {"count": sensor_count, "active": sensor_count, "function": "Supply chain & machine monitoring"},
+        "cobots": {"count": active_machines, "active": running, "function": "Collaborative material handling"},
+        "agvs": {"count": max(1, len(machines) // 3), "active": max(1, running // 3), "function": "Easy navigation & transport"},
         "drones": {"count": 1, "active": 1, "function": "Monitor live operational working"},
         "machine_analytics": {
             "machines_total": len(machines),
@@ -39,22 +59,32 @@ def iot_dashboard(tenant_id: int = Query(1), db: Session = Depends(get_db)):
 
 
 @router.get("/wearables")
-def wearables_status(tenant_id: int = Query(1)):
-    """Wearables – collect data from multiple sources."""
-    return {
-        "devices": [
-            {"id": 1, "type": "smart_watch", "user": "Operator A", "status": "online", "last_sync": "2025-03-02T10:00:00Z"},
-            {"id": 2, "type": "handheld_scanner", "user": "Stores", "status": "online", "last_sync": "2025-03-02T09:58:00Z"},
-        ],
-        "total": 12,
-        "active": 10,
-    }
+def wearables_status(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Simulated wearables – one device per active employee."""
+    employees = list(
+        db.scalars(
+            select(Employee).where(
+                Employee.tenant_id == tenant_id, Employee.is_active.is_(True)
+            )
+        ).all()
+    )
+    devices = [
+        {
+            "id": e.id,
+            "type": "smart_band",
+            "user": e.full_name,
+            "department": e.department,
+            "status": "online",
+        }
+        for e in employees
+    ]
+    return {"simulated": True, "devices": devices, "total": len(devices), "active": len(devices)}
 
 
 @router.get("/machine-analytics")
-def machine_analytics(tenant_id: int = Query(1), db: Session = Depends(get_db)):
-    """Machine analytics – predictive maintenance, inventory streamlining."""
-    machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
+def machine_analytics(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Machine analytics – predictive maintenance (model-backed)."""
+    machines = _machines(db, tenant_id)
     maintenance_due = db.scalar(
         select(func.count(PreventiveMaintenance.id)).where(
             PreventiveMaintenance.tenant_id == tenant_id,
@@ -63,55 +93,71 @@ def machine_analytics(tenant_id: int = Query(1), db: Session = Depends(get_db)):
     ) or 0
     return {
         "machines": [{"id": m.id, "name": m.name, "status": m.status} for m in machines],
-        "predictive_maintenance": {"scheduled": maintenance_due, "alerts": 0},
+        "predictive_maintenance": {"scheduled": int(maintenance_due), "alerts": 0},
         "inventory_status": "streamlined",
     }
 
 
 @router.get("/sensors")
-def iot_sensors(tenant_id: int = Query(1)):
-    """IoT sensors for supply chain & machine monitoring."""
-    return {
-        "sensors": [
-            {"id": 1, "type": "temperature", "location": "Hall A", "value": 24.5, "unit": "°C"},
-            {"id": 2, "type": "humidity", "location": "Hall A", "value": 55, "unit": "%"},
-            {"id": 3, "type": "vibration", "location": "Machine M1", "value": 0.02, "unit": "g"},
-        ],
-        "total": 24,
-        "healthy": 22,
-    }
+def iot_sensors(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Simulated sensor grid – temperature/humidity/vibration per machine."""
+    machines = _machines(db, tenant_id)
+    sensors = []
+    sid = 1
+    for m in machines:
+        for kind, value, unit in (
+            ("temperature", 24.5, "°C"),
+            ("humidity", 55, "%"),
+            ("vibration", 0.02, "g"),
+        ):
+            sensors.append(
+                {
+                    "id": sid,
+                    "type": kind,
+                    "location": m.name,
+                    "machine_status": m.status,
+                    "value": value,
+                    "unit": unit,
+                }
+            )
+            sid += 1
+    return {"simulated": True, "sensors": sensors, "total": len(sensors), "healthy": len(sensors)}
 
 
 @router.get("/cobots")
-def cobots_status(tenant_id: int = Query(1)):
-    """Collaborative robots – material handling, assist workers."""
-    return {
-        "cobots": [
-            {"id": 1, "name": "Cobot-01", "status": "working", "current_task": "Pallet transfer"},
-            {"id": 2, "name": "Cobot-02", "status": "idle", "current_task": None},
-        ],
-        "total": 4,
-        "active": 3,
-    }
+def cobots_status(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Simulated collaborative robots mapped to active machines."""
+    machines = [m for m in _machines(db, tenant_id) if m.is_active]
+    cobots = [
+        {
+            "id": m.id,
+            "name": f"Cobot-{m.code}",
+            "status": "working" if m.status == "running" else "idle",
+            "current_task": "Material handling" if m.status == "running" else None,
+        }
+        for m in machines
+    ]
+    active = sum(1 for c in cobots if c["status"] == "working")
+    return {"simulated": True, "cobots": cobots, "total": len(cobots), "active": active}
 
 
 @router.get("/agvs")
-def agvs_status(tenant_id: int = Query(1)):
-    """AGVs / Unmanned trucks – easy navigation, internal logistics."""
-    return {
-        "agvs": [
-            {"id": 1, "name": "AGV-01", "status": "moving", "destination": "Warehouse A"},
-            {"id": 2, "name": "AGV-02", "status": "loading", "destination": "Production Line 2"},
-        ],
-        "total": 2,
-        "active": 2,
-    }
+def agvs_status(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Simulated AGV fleet sized from the machine count."""
+    machines = _machines(db, tenant_id)
+    count = max(1, len(machines) // 3)
+    agvs = [
+        {"id": i + 1, "name": f"AGV-{i + 1:02d}", "status": "moving", "destination": "Warehouse"}
+        for i in range(count)
+    ]
+    return {"simulated": True, "agvs": agvs, "total": len(agvs), "active": len(agvs)}
 
 
 @router.get("/drones")
-def drones_status(tenant_id: int = Query(1)):
-    """UAV / Drones – monitor live operational working."""
+def drones_status(tenant_id: int = Depends(tenant_scope(MODULE))):
+    """Simulated UAV monitoring feed."""
     return {
+        "simulated": True,
         "drones": [{"id": 1, "name": "Drone-01", "status": "flying", "area": "Warehouse"}],
         "total": 1,
         "active": 1,
@@ -119,9 +165,10 @@ def drones_status(tenant_id: int = Query(1)):
 
 
 @router.get("/smart-packaging")
-def smart_packaging(tenant_id: int = Query(1)):
-    """Smart packaging – effective packaging solutions."""
+def smart_packaging(tenant_id: int = Depends(tenant_scope(MODULE))):
+    """Simulated smart-packaging stations."""
     return {
+        "simulated": True,
         "enabled": True,
         "stations": [
             {"id": 1, "location": "Pack Line 1", "status": "active"},
@@ -131,13 +178,18 @@ def smart_packaging(tenant_id: int = Query(1)):
 
 
 @router.get("/live-operations")
-def live_operations(tenant_id: int = Query(1), db: Session = Depends(get_db)):
-    """Combined live view – machine status + work orders for AR/computer vision overlay."""
-    machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
-    wos = list(db.scalars(
-        select(WorkOrder).where(WorkOrder.tenant_id == tenant_id).limit(10)
-    ).all())
+def live_operations(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    """Combined live view – machine status + work orders (model-backed)."""
+    machines = _machines(db, tenant_id)
+    wos = list(
+        db.scalars(select(WorkOrder).where(WorkOrder.tenant_id == tenant_id).limit(10)).all()
+    )
     return {
-        "machines": [{"id": m.id, "name": m.name, "status": m.status, "location": m.location} for m in machines],
-        "active_work_orders": [{"id": w.id, "number": w.work_order_number, "status": w.status} for w in wos],
+        "machines": [
+            {"id": m.id, "name": m.name, "status": m.status, "location": m.location}
+            for m in machines
+        ],
+        "active_work_orders": [
+            {"id": w.id, "number": w.work_order_number, "status": w.status} for w in wos
+        ],
     }

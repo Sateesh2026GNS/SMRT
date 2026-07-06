@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import AlertsView from "./AlertsView";
 
 export default function ProductionDelayAlerts() {
-  return <PlaceholderPage title="Production Delay Alerts" description="Alerts for delayed production orders." />;
+  return (
+    <AlertsView
+      title="Production Delay Alerts"
+      subtitle="Work orders falling behind schedule."
+      alertType="production_delay"
+    />
+  );
 }

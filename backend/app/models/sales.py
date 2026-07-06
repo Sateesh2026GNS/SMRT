@@ -6,11 +6,50 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base, TimestampMixin
 
 
+class Lead(Base, TimestampMixin):
+    __tablename__ = "leads"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    company: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(255))
+    phone: Mapped[str | None] = mapped_column(String(64))
+    source: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(32), default="new", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class Quotation(Base, TimestampMixin):
+    __tablename__ = "quotations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    quote_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customers.id"))
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"))
+    customer_name: Mapped[str | None] = mapped_column(String(255))
+    quote_date: Mapped[date] = mapped_column(Date, nullable=False)
+    valid_until: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    total_amount: Mapped[float] = mapped_column(Numeric(12, 2), default=0, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    customer = relationship("Customer")
+    lead = relationship("Lead")
+
+
 class Customer(Base, TimestampMixin):
     __tablename__ = "customers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact_name: Mapped[str | None] = mapped_column(String(255))
     address_line1: Mapped[str | None] = mapped_column(String(512))
@@ -29,7 +68,9 @@ class SalesOrder(Base, TimestampMixin):
     __tablename__ = "sales_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
     order_number: Mapped[str] = mapped_column(String(64), nullable=False)
     reference_number: Mapped[str | None] = mapped_column(String(64))
@@ -48,7 +89,9 @@ class Invoice(Base, TimestampMixin):
     __tablename__ = "invoices"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id"), nullable=False)
     sales_order_id: Mapped[int | None] = mapped_column(ForeignKey("sales_orders.id"))
     invoice_number: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -91,7 +134,9 @@ class Payment(Base, TimestampMixin):
     __tablename__ = "payments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)

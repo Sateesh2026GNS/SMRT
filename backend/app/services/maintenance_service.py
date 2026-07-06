@@ -54,6 +54,23 @@ def list_breakdown_reports(db: Session, tenant_id: int) -> list[BreakdownReport]
     return list(db.scalars(stmt).all())
 
 
+def update_breakdown_status(
+    db: Session, tenant_id: int, breakdown_id: int, status: str
+) -> BreakdownReport | None:
+    br = db.scalars(
+        select(BreakdownReport).where(
+            BreakdownReport.id == breakdown_id,
+            BreakdownReport.tenant_id == tenant_id,
+        )
+    ).first()
+    if not br:
+        return None
+    br.status = status
+    db.commit()
+    db.refresh(br)
+    return br
+
+
 def create_maintenance_schedule(db: Session, payload: MaintenanceScheduleCreate) -> MaintenanceSchedule:
     ms = MaintenanceSchedule(**payload.model_dump())
     db.add(ms)

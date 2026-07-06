@@ -10,7 +10,9 @@ class ProductionOrder(Base, TimestampMixin):
     __tablename__ = "production_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     order_number: Mapped[str] = mapped_column(String(64), nullable=False)
     planned_quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -29,11 +31,15 @@ class WorkOrder(Base, TimestampMixin):
     __tablename__ = "work_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     production_order_id: Mapped[int] = mapped_column(
         ForeignKey("production_orders.id"), nullable=False
     )
     machine_id: Mapped[int | None] = mapped_column(ForeignKey("machines.id"))
+    assigned_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    plant_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     work_order_number: Mapped[str] = mapped_column(String(64), nullable=False)
     planned_quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
     actual_quantity: Mapped[float | None] = mapped_column(Numeric(12, 2))
@@ -55,7 +61,9 @@ class Batch(Base, TimestampMixin):
     __tablename__ = "batches"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     work_order_id: Mapped[int] = mapped_column(ForeignKey("work_orders.id"))
     batch_code: Mapped[str] = mapped_column(String(64), nullable=False)
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
@@ -69,7 +77,9 @@ class DailyProductionReport(Base, TimestampMixin):
     __tablename__ = "daily_production_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     report_date: Mapped[date] = mapped_column(Date, nullable=False)
     product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), nullable=False)
     work_order_id: Mapped[int | None] = mapped_column(ForeignKey("work_orders.id"))
@@ -79,6 +89,7 @@ class DailyProductionReport(Base, TimestampMixin):
     scrap_quantity: Mapped[float | None] = mapped_column(Numeric(12, 2))
     downtime_minutes: Mapped[int | None] = mapped_column(Integer)
     notes: Mapped[str | None] = mapped_column(String(255))
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     work_order = relationship("WorkOrder", back_populates="daily_reports")
     product = relationship("Product")

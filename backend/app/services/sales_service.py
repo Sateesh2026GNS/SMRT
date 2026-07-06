@@ -1,13 +1,15 @@
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
-from app.models.sales import Customer, Invoice, InvoiceItem, Payment, SalesOrder
+from app.models.sales import Customer, Invoice, InvoiceItem, Lead, Payment, Quotation, SalesOrder
 from app.schemas.sales import (
     CustomerCreate,
     InvoiceCreate,
     InvoiceItemCreate,
     PaymentCreate,
     SalesOrderCreate,
+    LeadCreate,
+    QuotationCreate,
 )
 
 
@@ -42,6 +44,33 @@ def list_sales_orders(db: Session, tenant_id: int, status: str | None = None) ->
         stmt = stmt.where(SalesOrder.status == status)
     stmt = stmt.order_by(SalesOrder.order_date.desc())
     return list(db.scalars(stmt).all())
+
+
+def update_sales_order_status(
+    db: Session, tenant_id: int, order_id: int, status: str
+) -> SalesOrder | None:
+    order = db.scalars(
+        select(SalesOrder).where(
+            SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id
+        )
+    ).first()
+    if not order:
+        return None
+    order.status = status
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def get_sales_order_with_items(
+    db: Session, tenant_id: int, order_id: int
+) -> SalesOrder | None:
+    stmt = (
+        select(SalesOrder)
+        .options(joinedload(SalesOrder.customer))
+        .where(SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id)
+    )
+    return db.scalars(stmt).first()
 
 
 def _calc_gst(subtotal: float, sgst_pct: float, cgst_pct: float, igst_pct: float) -> tuple[float, float, float]:
@@ -120,3 +149,94 @@ def list_payments(db: Session, tenant_id: int, invoice_id: int | None = None) ->
         stmt = stmt.where(Payment.invoice_id == invoice_id)
     stmt = stmt.order_by(Payment.payment_date.desc())
     return list(db.scalars(stmt).all())
+
+
+def create_lead(db: Session, payload: LeadCreate) -> Lead:
+    lead = Lead(**payload.model_dump())
+    db.add(lead)
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+def list_leads(db: Session, tenant_id: int, status: str | None = None) -> list[Lead]:
+    stmt = select(Lead).where(Lead.tenant_id == tenant_id)
+    if status:
+        stmt = stmt.where(Lead.status == status)
+    stmt = stmt.order_by(Lead.id.desc())
+    return list(db.scalars(stmt).all())
+
+
+def update_lead_status(
+    db: Session, tenant_id: int, lead_id: int, status: str
+) -> Lead | None:
+    lead = db.scalars(
+        select(Lead).where(Lead.id == lead_id, Lead.tenant_id == tenant_id)
+    ).first()
+    if not lead:
+        return None
+    lead.status = status
+    db.commit()
+    db.refresh(lead)
+    return lead
+
+
+def create_quotation(db: Session, payload: QuotationCreate) -> Quotation:
+    quote = Quotation(**payload.model_dump())
+    db.add(quote)
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def list_quotations(
+    db: Session, tenant_id: int, status: str | None = None
+) -> list[Quotation]:
+    stmt = (
+        select(Quotation)
+        .options(joinedload(Quotation.customer), joinedload(Quotation.lead))
+        .where(Quotation.tenant_id == tenant_id)
+    )
+    if status:
+        stmt = stmt.where(Quotation.status == status)
+    stmt = stmt.order_by(Quotation.quote_date.desc())
+    return list(db.scalars(stmt).all())
+
+
+def update_quotation_status(
+    db: Session, tenant_id: int, quote_id: int, status: str
+) -> Quotation | None:
+    quote = db.scalars(
+        select(Quotation).where(
+            Quotation.id == quote_id, Quotation.tenant_id == tenant_id
+        )
+    ).first()
+    if not quote:
+        return None
+    quote.status = status
+    db.commit()
+    db.refresh(quote)
+    return quote
+
+
+def update_sales_order_dispatch(
+    db: Session,
+    tenant_id: int,
+    order_id: int,
+    packed: bool | None = None,
+    shipped: bool | None = None,
+) -> SalesOrder | None:
+    order = db.scalars(
+        select(SalesOrder).where(
+            SalesOrder.id == order_id, SalesOrder.tenant_id == tenant_id
+        )
+    ).first()
+    if not order:
+        return None
+    if packed is not None:
+        order.packed = packed
+    if shipped is not None:
+        order.shipped = shipped
+    db.commit()
+    db.refresh(order)
+    return order

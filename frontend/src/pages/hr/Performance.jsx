@@ -4,18 +4,20 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getPerformanceReviews, getEmployees } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Performance() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [reviews, setReviews] = useState([]);
   const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
     Promise.all([
-      getPerformanceReviews(TENANT_ID),
-      getEmployees(TENANT_ID),
+      getPerformanceReviews(tenantId),
+      getEmployees(tenantId),
     ])
       .then(([revRes, empRes]) => {
         setReviews(revRes.data || []);

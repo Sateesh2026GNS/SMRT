@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Plane, ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getDrones } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Drones() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getDrones(TENANT_ID)
+    getDrones(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Drones load failed", e))
       .finally(() => setLoading(false));

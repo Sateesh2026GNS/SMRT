@@ -4,8 +4,9 @@ import { ArrowLeft } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
 import { createSupplierPayment, getVendors } from "../../api/procurementApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
@@ -13,11 +14,12 @@ const inputClass =
 const PAYMENT_METHODS = ["bank", "cash", "cheque", "upi", "other"];
 
 export default function CreateSupplierPayment() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     supplier_id: "",
     payment_date: new Date().toISOString().slice(0, 10),
     amount: "",
@@ -29,7 +31,7 @@ export default function CreateSupplierPayment() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getVendors(TENANT_ID)
+    getVendors(tenantId)
       .then((r) => setVendors(r.data || []))
       .finally(() => setLoading(false));
   }, []);

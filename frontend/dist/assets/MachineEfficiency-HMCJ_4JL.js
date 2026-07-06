@@ -1,1 +1,0 @@
-import{j as i}from"./react-vendor-BgZRF-UL.js";import{P as t}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function c(){return i.jsx(t,{title:"Machine Efficiency",description:"Machine utilization and OEE metrics."})}export{c as default};

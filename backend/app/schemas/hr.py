@@ -105,3 +105,37 @@ class PerformanceReviewCreate(PerformanceReviewBase):
 class PerformanceReviewRead(PerformanceReviewBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class LeaveRequestBase(BaseModel):
+    tenant_id: int
+    employee_id: int
+    leave_type: str
+    start_date: date
+    end_date: date
+    days: float = 1.0
+    reason: str | None = None
+    status: str = "pending"
+
+
+class LeaveRequestCreate(LeaveRequestBase):
+    pass
+
+
+class LeaveRequestCreateIn(BaseModel):
+    employee_id: int
+    leave_type: str
+    start_date: date
+    end_date: date
+    reason: str | None = None
+    status: str = "pending"
+
+
+class LeaveRequestUpdate(BaseModel):
+    status: str | None = None
+    reason: str | None = None
+
+
+class LeaveRequestRead(LeaveRequestBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)

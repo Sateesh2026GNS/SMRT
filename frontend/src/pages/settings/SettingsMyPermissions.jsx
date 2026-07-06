@@ -8,6 +8,27 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+import useAuth from "../../hooks/useAuth";
+import { getEffectivePermissions } from "../../config/permissions";
+
+const MODULE_LABELS = {
+  dashboard: "Dashboard",
+  production: "Production",
+  inventory: "Inventory & Raw Materials",
+  procurement: "Procurement",
+  hr: "HR & Employees",
+  sales: "Sales & Billing",
+  accounts: "Accounts & Reports",
+  quality: "Quality Control",
+  maintenance: "Maintenance",
+  analytics: "Analytics",
+  alerts: "Alerts & Notifications",
+  documents: "Documents",
+  factoryMonitor: "Factory Monitor",
+  iot: "IoT & Smart Factory",
+  admin: "Security & Administration",
+};
+
 const PERMISSION_LEVELS = ["Basic", "Moderate", "Full", "Critical"];
 
 const PERMISSIONS_TREE = [
@@ -265,6 +286,8 @@ function PermissionRow({ item, level = 0, searchQuery, expanded, onToggle }) {
 }
 
 export default function SettingsMyPermissions() {
+  const { user } = useAuth();
+  const effectiveModules = getEffectivePermissions(user);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState(
     new Set(["sales", "purchase", "inventory", "production", "quality", "buyers-suppliers"])
@@ -294,6 +317,30 @@ export default function SettingsMyPermissions() {
           My Permissions
         </h1>
         <Info className="h-4 w-4 text-slate-400" />
+      </div>
+
+      <div className="mb-6 rounded-xl border border-teal-200 bg-teal-50/50 p-4 dark:border-teal-800 dark:bg-teal-900/20">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-200">
+          Role: {user?.role || "—"}
+          {user?.roles?.length > 1 ? ` (${user.roles.join(", ")})` : ""}
+        </p>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Active module access from your account:
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {effectiveModules.length === 0 ? (
+            <span className="text-sm text-slate-500">No modules assigned</span>
+          ) : (
+            effectiveModules.map((code) => (
+              <span
+                key={code}
+                className="rounded-full bg-white px-3 py-1 text-xs font-medium text-teal-700 shadow-sm dark:bg-slate-800 dark:text-teal-400"
+              >
+                {MODULE_LABELS[code] || code}
+              </span>
+            ))
+          )}
+        </div>
       </div>
 
       {/* Permission Name search */}

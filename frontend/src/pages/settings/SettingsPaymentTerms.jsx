@@ -1,132 +1,81 @@
-import { useState, useMemo } from "react";
-import { Plus, ChevronUp, ChevronDown, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Save } from "lucide-react";
 
-const ROWS_PER_PAGE_OPTIONS = [5, 7, 10, 25, 50];
-
-const MOCK_TERMS = [
-  { id: 1, term_name: "NET 7", description: null, days: 7 },
-  { id: 2, term_name: "NET 30", description: null, days: 30 },
-  { id: 3, term_name: "NET 60", description: null, days: 60 },
-];
+import { useCompanySettings } from "../../hooks/useCompanySettings";
 
 export default function SettingsPaymentTerms() {
-  const [terms] = useState(MOCK_TERMS);
-  const [search, setSearch] = useState({ term_name: "", description: "" });
-  const [sort, setSort] = useState({ key: "term_name", dir: "asc" });
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(7);
+  const { settings, loading, saving, save } = useCompanySettings();
+  const [days, setDays] = useState("");
+  const [note, setNote] = useState("");
 
-  const filtered = useMemo(() => {
-    let list = [...terms];
-    if (search.term_name) list = list.filter((t) => (t.term_name || "").toLowerCase().includes(search.term_name.toLowerCase()));
-    if (search.description) list = list.filter((t) => (t.description || "").toLowerCase().includes(search.description.toLowerCase()));
-    list.sort((a, b) => {
-      const av = a[sort.key] ?? "";
-      const bv = b[sort.key] ?? "";
-      const cmp = String(av).localeCompare(String(bv));
-      return sort.dir === "asc" ? cmp : -cmp;
+  useEffect(() => {
+    if (settings) {
+      setDays(settings.default_payment_terms_days ?? "");
+      setNote(settings.payment_terms_note ?? "");
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    await save({
+      default_payment_terms_days:
+        days === "" || days === null ? null : Number(days),
+      payment_terms_note: note.trim() || null,
     });
-    return list;
-  }, [terms, search, sort]);
+  };
 
-  const total = filtered.length;
-  const start = page * rowsPerPage;
-  const paginated = filtered.slice(start, start + rowsPerPage);
-  const totalPages = Math.max(1, Math.ceil(total / rowsPerPage));
-
-  const SortHeader = ({ colKey, label }) => (
-    <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={() => setSort((s) => ({ key: colKey, dir: s.key === colKey && s.dir === "asc" ? "desc" : "asc" }))}
-        className="flex items-center gap-1 text-left font-semibold text-slate-700 dark:text-slate-300"
-      >
-        {label}
-        <span className="flex">
-          <ChevronUp className={`h-3.5 w-3.5 ${sort.key === colKey && sort.dir === "asc" ? "text-teal-600" : "text-slate-400"}`} />
-          <ChevronDown className={`-ml-2 h-3.5 w-3.5 ${sort.key === colKey && sort.dir === "desc" ? "text-teal-600" : "text-slate-400"}`} />
-        </span>
-      </button>
-      <div className="relative">
-        <input
-          type="text"
-          placeholder="Search"
-          value={search[colKey] ?? ""}
-          onChange={(e) => setSearch((s) => ({ ...s, [colKey]: e.target.value }))}
-          className="w-full rounded border border-slate-200 bg-white py-1 pl-7 pr-2 text-xs placeholder-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
-        />
-        <svg className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-slate-400">
+        <Loader2 className="h-6 w-6 animate-spin" />
       </div>
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-2xl">
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Payment Terms</h1>
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-            This is a list of payment terms that you can use while creating documents.
+            Default payment terms applied when creating sales and purchase documents.
           </p>
         </div>
-        <button type="button" className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700">
-          <Plus className="h-4 w-4" />
-          Add Payment Terms
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="bg-sky-50 dark:bg-sky-900/20">
-              <th className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700"><SortHeader colKey="term_name" label="Term Name" /></th>
-              <th className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700"><SortHeader colKey="description" label="Description" /></th>
-              <th className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700"><span className="font-semibold text-slate-700 dark:text-slate-300">Days</span></th>
-              <th className="border-b border-slate-200 px-4 py-3 text-left dark:border-slate-700"><span className="font-semibold text-slate-700 dark:text-slate-300">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginated.length === 0 ? (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-slate-500">No payment terms found</td></tr>
-            ) : (
-              paginated.map((t) => (
-                <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50 dark:border-slate-700/50 dark:hover:bg-slate-800/30">
-                  <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-200">{t.term_name}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{t.description ?? "—"}</td>
-                  <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">{t.days}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button type="button" className="rounded p-1.5 text-teal-600 hover:bg-teal-50 dark:hover:bg-teal-900/20" title="Edit"><Pencil className="h-4 w-4" /></button>
-                      <button type="button" className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20" title="Delete"><Trash2 className="h-4 w-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-          <span>Rows per page:</span>
-          <select value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }} className="rounded border border-slate-200 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-            {ROWS_PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
+      <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            Default Payment Terms (days)
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+            placeholder="e.g. 30"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-slate-600 dark:text-slate-400">
-            {total === 0 ? "0 to 0 of 0" : `${start + 1} to ${Math.min(start + rowsPerPage, total)} of ${total}`}
-          </span>
-          <div className="flex items-center gap-0.5">
-            <button type="button" onClick={() => setPage(0)} disabled={page === 0} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">«</button>
-            <button type="button" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">‹</button>
-            <button type="button" className="rounded bg-slate-200 px-2 py-1 text-sm font-medium dark:bg-slate-600">{page + 1}</button>
-            <button type="button" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">›</button>
-            <button type="button" onClick={() => setPage(totalPages - 1)} disabled={page >= totalPages - 1} className="rounded p-1.5 hover:bg-slate-100 disabled:opacity-40 dark:hover:bg-slate-700">»</button>
-          </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+            Payment Terms Note
+          </label>
+          <textarea
+            rows={4}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="e.g. Payment due within 30 days of invoice date."
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+          />
         </div>
       </div>
     </div>

@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Package, ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getSmartPackaging } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function SmartPackaging() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getSmartPackaging(TENANT_ID)
+    getSmartPackaging(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Smart packaging load failed", e))
       .finally(() => setLoading(false));

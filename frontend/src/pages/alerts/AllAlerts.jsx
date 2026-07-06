@@ -1,10 +1,10 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import AlertsView from "./AlertsView";
 
 export default function AllAlerts() {
   return (
-    <PlaceholderPage
+    <AlertsView
       title="All Alerts"
-      description="View low stock, machine failure, production delay, and maintenance alerts."
+      subtitle="Every alert across the system. Acknowledge to clear."
     />
   );
 }

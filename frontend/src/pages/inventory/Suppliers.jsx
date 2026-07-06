@@ -8,10 +8,12 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getSuppliers } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Suppliers() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [suppliers, setSuppliers] = useState([]);
@@ -22,7 +24,7 @@ export default function Suppliers() {
       setLoading(true);
       setLoadError("");
       try {
-        const res = await getSuppliers(TENANT_ID);
+        const res = await getSuppliers(tenantId);
         setSuppliers(res.data || []);
       } catch (e) {
         setLoadError("Could not load suppliers. Is the API running?");

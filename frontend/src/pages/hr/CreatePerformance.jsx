@@ -2,14 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createPerformanceReview, getEmployees } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreatePerformance() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [employees, setEmployees] = useState([]);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     employee_id: "",
     review_period: "",
     rating: "",
@@ -22,7 +24,7 @@ export default function CreatePerformance() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    getEmployees(TENANT_ID).then((r) => setEmployees(r.data || [])).catch(console.error);
+    getEmployees(tenantId).then((r) => setEmployees(r.data || [])).catch(console.error);
   }, []);
 
   const handleSubmit = async (e) => {

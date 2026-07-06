@@ -4,6 +4,12 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  test: {
+    environment: "jsdom",
+    globals: true,
+    setupFiles: "./src/test/setup.js",
+    css: false,
+  },
   build: {
     // Faster minification; esbuild is default in Vite 5 – keep explicit for clarity
     minify: "esbuild",

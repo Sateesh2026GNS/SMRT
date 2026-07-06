@@ -4,52 +4,67 @@ import { ArrowLeft } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
+import InventoryLineItems from "../../components/common/InventoryLineItems";
+import useTenantId from "../../hooks/useTenantId";
 import { getVendors, createPurchaseOrder } from "../../api/procurementApi";
-
-const TENANT_ID = 1;
+import { getInventoryDashboard } from "../../api/inventoryApi";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
 
 export default function CreatePurchaseOrder() {
   const navigate = useNavigate();
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [lineItems, setLineItems] = useState([
+    { item_id: "", quantity: "", unit_price: "" },
+  ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
     supplier_id: "",
     po_number: "",
     order_date: new Date().toISOString().slice(0, 10),
     expected_date: "",
     status: "draft",
-    total_amount: "",
     notes: "",
   });
 
   useEffect(() => {
-    getVendors(TENANT_ID)
-      .then((r) => setVendors(r.data || []))
-      .catch(() => setError("Could not load suppliers."))
+    Promise.all([getVendors(), getInventoryDashboard()])
+      .then(([vendorRes, itemsRes]) => {
+        setVendors(vendorRes.data || []);
+        setInventoryItems(itemsRes.data || []);
+      })
+      .catch(() => setError("Could not load suppliers or inventory items."))
       .finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validLines = lineItems.filter((l) => l.item_id && Number(l.quantity) > 0);
+    if (validLines.length === 0) {
+      setError("Add at least one line item with quantity.");
+      return;
+    }
     setError("");
     setSaving(true);
     try {
       await createPurchaseOrder({
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         supplier_id: Number(form.supplier_id),
         po_number: form.po_number || `PO-${Date.now()}`,
         order_date: form.order_date,
         expected_date: form.expected_date || null,
         status: form.status,
-        total_amount: form.total_amount ? Number(form.total_amount) : null,
         notes: form.notes || null,
-        line_items: [],
+        line_items: validLines.map((l) => ({
+          item_id: Number(l.item_id),
+          quantity: Number(l.quantity),
+          unit_price: l.unit_price ? Number(l.unit_price) : null,
+        })),
       });
       navigate("/procurement/purchase-orders");
     } catch (err) {
@@ -62,7 +77,7 @@ export default function CreatePurchaseOrder() {
   if (loading) return <Loader label="Loading suppliers..." />;
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <Link
         to="/procurement/purchase-orders"
         className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
@@ -72,7 +87,7 @@ export default function CreatePurchaseOrder() {
       </Link>
       <PageHeader
         title="New purchase order"
-        subtitle="Create a PO in a few steps. You can add line items later if needed."
+        subtitle="Create a PO with line items for raw materials or supplies."
       />
       <form onSubmit={handleSubmit} className="ui-card space-y-4 p-6">
         {error && (
@@ -96,15 +111,6 @@ export default function CreatePurchaseOrder() {
             ))}
           </select>
         </label>
-        {vendors.length === 0 && (
-          <p className="text-sm text-slate-500">
-            No suppliers yet.{" "}
-            <Link to="/inventory/suppliers" className="font-medium text-teal-600 hover:underline">
-              Add a supplier first
-            </Link>
-            .
-          </p>
-        )}
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           PO number
           <input
@@ -136,17 +142,12 @@ export default function CreatePurchaseOrder() {
             />
           </label>
         </div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-          Total amount (optional)
-          <input
-            type="number"
-            step="0.01"
-            min="0"
-            value={form.total_amount}
-            onChange={(e) => setForm((f) => ({ ...f, total_amount: e.target.value }))}
-            className={inputClass}
-          />
-        </label>
+        <InventoryLineItems
+          items={inventoryItems}
+          lines={lineItems}
+          onChange={setLineItems}
+          mode="purchase"
+        />
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           Notes
           <textarea

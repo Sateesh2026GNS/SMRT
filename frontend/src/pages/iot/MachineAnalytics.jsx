@@ -4,16 +4,18 @@ import { useTranslation } from "react-i18next";
 import { Cpu, ArrowLeft, Wrench, Package } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getMachineAnalytics } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function MachineAnalytics() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getMachineAnalytics(TENANT_ID)
+    getMachineAnalytics(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("Machine analytics load failed", e))
       .finally(() => setLoading(false));

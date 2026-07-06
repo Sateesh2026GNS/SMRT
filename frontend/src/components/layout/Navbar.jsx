@@ -1,178 +1,226 @@
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { createPortal } from "react-dom";
-import { Link, useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { Bell, User, Settings, Menu, UserCircle, LogOut } from "lucide-react";
-
-import useAuth from "../../hooks/useAuth";
-import GlobalSearch from "../common/GlobalSearch";
-import useSettings from "../../context/SettingsContext";
-
-export default function Navbar({ onMenuClick }) {
-  const { t } = useTranslation();
-  const { user, logout } = useAuth();
-  const { language, updateLanguage, companyName } = useSettings();
-  const navigate = useNavigate();
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [showLanguage, setShowLanguage] = useState(false);
-  const [showProfile, setShowProfile] = useState(false);
-  const [dropdownRect, setDropdownRect] = useState(null);
-  const langButtonRef = useRef(null);
-
-  const handleLanguageSelect = (e, lang) => {
-    e.preventDefault();
-    e.stopPropagation();
-    updateLanguage(lang);
-    setShowLanguage(false);
-  };
-
-  const openLanguage = () => {
-    setShowLanguage((v) => !v);
-    setShowNotifications(false);
-    setShowProfile(false);
-  };
-
-  useLayoutEffect(() => {
-    if (showLanguage && langButtonRef.current) {
-      const rect = langButtonRef.current.getBoundingClientRect();
-      setDropdownRect({ top: rect.bottom + 4, right: window.innerWidth - rect.right, width: 160 });
-    } else {
-      setDropdownRect(null);
-    }
-  }, [showLanguage]);
-
-  useEffect(() => {
-    if (!showLanguage) return;
-    const onPointerDown = (e) => {
-      if (langButtonRef.current && !langButtonRef.current.contains(e.target) &&
-          !e.target.closest("[data-language-menu]")) {
-        setShowLanguage(false);
-      }
-    };
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, [showLanguage]);
-
-  return (
-    <header className="sticky top-0 z-10 h-16 flex items-center justify-between gap-4 px-6 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-700/80 shadow-sm">
-      {/* Left: Logo + Global Search */}
-      <div className="flex flex-1 items-center gap-6">
-        {onMenuClick && (
-          <button
-            type="button"
-            onClick={onMenuClick}
-            className="lg:hidden flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            aria-label="Open menu"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-        )}
-        <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 text-white font-bold text-lg shadow-lg shadow-teal-500/25">
-            S
-          </div>
-          <span className="font-bold text-xl text-slate-800 dark:text-slate-100">SMRT</span>
-        </Link>
-        <div className="hidden sm:flex flex-1 max-w-md">
-          <GlobalSearch />
-        </div>
-      </div>
-
-      {/* Right: Company Name | Notifications | Language | User Profile | Settings */}
-      <div className="flex items-center gap-3">
-        <span className="hidden lg:block text-sm font-medium text-slate-600 dark:text-slate-400 truncate max-w-[140px]" title={companyName}>
-          {companyName}
-        </span>
-        <div className="flex items-center gap-1">
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => { setShowNotifications(!showNotifications); setShowLanguage(false); setShowProfile(false); }}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${showNotifications ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-            title={t("common.notifications")}
-          >
-            <Bell className="h-5 w-5" />
-          </button>
-          {showNotifications && (
-            <div className="absolute right-0 mt-2 w-72 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-2 shadow-xl" onMouseLeave={() => setShowNotifications(false)}>
-              <div className="px-4 py-2.5 text-sm font-semibold text-slate-700 dark:text-slate-300">{t("common.notifications")}</div>
-              <div className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                <Bell className="h-4 w-4 shrink-0" />
-                {t("common.noNotifications")}
-              </div>
-            </div>
-          )}
-        </div>
-        <div className="relative">
-          <button
-            ref={langButtonRef}
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              openLanguage();
-            }}
-            className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition-all ${showLanguage ? "border-teal-300 dark:border-teal-600 text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30" : "border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-            title={t("common.language")}
-            aria-expanded={showLanguage}
-            aria-haspopup="true"
-          >
-            <span className="text-lg">🌐</span>
-            <span className="hidden md:inline text-sm font-medium">{t("common.language")}</span>
-          </button>
-          {showLanguage && dropdownRect &&
-            createPortal(
-              <div
-                data-language-menu
-                role="menu"
-                className="fixed rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1.5 shadow-xl z-[9999]"
-                style={{ top: dropdownRect.top, right: dropdownRect.right, width: dropdownRect.width }}
-              >
-                <button type="button" role="menuitem" onClick={(e) => handleLanguageSelect(e, "English")} className={`w-full px-4 py-2.5 text-left text-sm rounded-lg mx-1 transition-colors ${language === "English" ? "bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium" : "hover:bg-slate-50 dark:hover:bg-slate-700"}`}>English</button>
-                <button type="button" role="menuitem" onClick={(e) => handleLanguageSelect(e, "Hindi")} className={`w-full px-4 py-2.5 text-left text-sm rounded-lg mx-1 transition-colors ${language === "Hindi" ? "bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium" : "hover:bg-slate-50 dark:hover:bg-slate-700"}`}>हिन्दी</button>
-                <button type="button" role="menuitem" onClick={(e) => handleLanguageSelect(e, "Tamil")} className={`w-full px-4 py-2.5 text-left text-sm rounded-lg mx-1 transition-colors ${language === "Tamil" ? "bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium" : "hover:bg-slate-50 dark:hover:bg-slate-700"}`}>தமிழ்</button>
-                <button type="button" role="menuitem" onClick={(e) => handleLanguageSelect(e, "Telugu")} className={`w-full px-4 py-2.5 text-left text-sm rounded-lg mx-1 transition-colors ${language === "Telugu" ? "bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-medium" : "hover:bg-slate-50 dark:hover:bg-slate-700"}`}>తెలుగు</button>
-              </div>,
-              document.body
-            )}
-        </div>
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => { setShowProfile(!showProfile); setShowNotifications(false); setShowLanguage(false); }}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all ${showProfile ? "text-teal-600 dark:text-teal-400 bg-teal-50 dark:bg-teal-900/30" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-            title="User Profile"
-          >
-            <User className="h-5 w-5" />
-          </button>
-          {showProfile && (
-            <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-2 shadow-xl overflow-hidden" onMouseLeave={() => setShowProfile(false)}>
-              <div className="border-b border-slate-100 dark:border-slate-700 px-4 py-3 bg-slate-50/50 dark:bg-slate-800/50">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center text-white font-semibold">
-                    {(user?.name || "U")[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">{user?.name || "User"}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">user@smrt.com</div>
-                    <div className="text-xs font-medium text-teal-600 dark:text-teal-400 mt-0.5">{user?.role ? `${user.role} · ${companyName}` : companyName}</div>
-                  </div>
-                </div>
-              </div>
-              <Link to="/settings" onClick={() => setShowProfile(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"><UserCircle className="h-4 w-4" />{t("common.myAccount")}</Link>
-              <button type="button" onClick={() => { logout(); navigate("/login"); }} className="flex items-center gap-2 w-full px-4 py-2.5 text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400"><LogOut className="h-4 w-4" />{t("common.signOut")}</button>
-            </div>
-          )}
-        </div>
-        <Link
-          to="/settings"
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-teal-600 dark:hover:text-teal-400 transition-all"
-          title="Settings"
-        >
-          <Settings className="h-5 w-5" />
-        </Link>
-        </div>
-      </div>
-    </header>
-  );
-}
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import {
+  Bell,
+  Calendar,
+  ChevronDown,
+  LogOut,
+  Mail,
+  Maximize2,
+  Menu,
+  Search,
+  UserCircle,
+} from "lucide-react";
+
+import useAuth from "../../hooks/useAuth";
+import useNotifications from "../../hooks/useNotifications";
+import { userCanAccess } from "../../config/permissions";
+
+function getPageMeta(pathname, t) {
+  if (pathname === "/") {
+    return {
+      title: t("nav.dashboard"),
+      subtitle: t("dashboard.welcomeAdmin"),
+    };
+  }
+  const segment = pathname.split("/").filter(Boolean)[0] || "dashboard";
+  const title = segment.charAt(0).toUpperCase() + segment.replace(/-/g, " ").slice(1);
+  return { title, subtitle: null };
+}
+
+function severityDot(severity) {
+  if (severity === "high" || severity === "critical") return "bg-red-500";
+  if (severity === "medium") return "bg-orange-400";
+  return "bg-blue-500";
+}
+
+export default function Navbar({ onMenuClick }) {
+  const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const { count: notificationCount, notifications, loading: notificationsLoading } = useNotifications();
+  const [now, setNow] = useState(() => new Date());
+  const [showProfile, setShowProfile] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const page = getPageMeta(location.pathname, t);
+  const displayName = user?.name || "Admin";
+  const displayRole = user?.role || t("nav.superAdmin");
+  const canViewAlerts = userCanAccess(user, "alerts");
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    setShowNotifications(false);
+  }, [location.pathname]);
+
+  const dateLabel = now.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    weekday: "long",
+  });
+  const timeLabel = now.toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  return (
+    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200/80 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center gap-4 px-4 py-3 lg:px-6 lg:py-3.5">
+        <div className="flex min-w-0 flex-1 items-start gap-3 lg:max-w-[340px]">
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100 lg:hidden"
+            aria-label="Open menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-bold text-[#1E293B]">{page.title}</h1>
+            {page.subtitle && (
+              <p className="mt-0.5 hidden text-xs text-slate-500 sm:block leading-snug">{page.subtitle}</p>
+            )}
+          </div>
+        </div>
+
+        <div className="order-3 w-full lg:order-none lg:flex-1 lg:max-w-xl">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              placeholder={t("common.searchMenuReports")}
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+            />
+          </div>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowNotifications(!showNotifications);
+                setShowProfile(false);
+              }}
+              className="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100"
+              title={t("common.notifications")}
+              aria-expanded={showNotifications}
+              aria-haspopup="true"
+            >
+              <Bell className="h-5 w-5" />
+              {notificationCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {notificationCount > 9 ? "9+" : notificationCount}
+                </span>
+              )}
+            </button>
+            {showNotifications && (
+              <div
+                className="absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white shadow-xl"
+                onMouseLeave={() => setShowNotifications(false)}
+              >
+                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-800">{t("common.notifications")}</p>
+                  {canViewAlerts && (
+                    <Link
+                      to="/alerts"
+                      onClick={() => setShowNotifications(false)}
+                      className="text-xs font-semibold text-[#2563EB] hover:underline"
+                    >
+                      {t("common.viewAll")}
+                    </Link>
+                  )}
+                </div>
+                <ul className="max-h-72 overflow-y-auto py-1">
+                  {notificationsLoading && notifications.length === 0 && (
+                    <li className="px-4 py-6 text-center text-sm text-slate-400">Loading…</li>
+                  )}
+                  {!notificationsLoading && notifications.length === 0 && (
+                    <li className="px-4 py-6 text-center text-sm text-slate-400">{t("common.noNotifications")}</li>
+                  )}
+                  {notifications.map((n) => (
+                    <li key={n.id}>
+                      <Link
+                        to={n.link || "/alerts"}
+                        onClick={() => setShowNotifications(false)}
+                        className="flex gap-3 px-4 py-3 hover:bg-slate-50"
+                      >
+                        <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${severityDot(n.severity)}`} />
+                        <span className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-800">{n.title}</p>
+                          <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{n.message}</p>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <Link
+            to="/"
+            className="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100"
+            title={t("common.messages")}
+          >
+            <Mail className="h-5 w-5" />
+          </Link>
+
+          <button
+            type="button"
+            className="hidden h-10 w-10 items-center justify-center rounded-xl text-slate-600 hover:bg-slate-100 sm:flex"
+            title={t("common.fullscreen")}
+          >
+            <Maximize2 className="h-5 w-5" />
+          </button>
+
+          <div className="hidden items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 md:flex">
+            <Calendar className="h-4 w-4 text-[#2563EB]" />
+            <div className="text-right">
+              <p className="text-[10px] font-medium text-slate-500 leading-tight">{dateLabel}</p>
+              <p className="text-sm font-bold tabular-nums text-[#1E293B]">{timeLabel}</p>
+            </div>
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setShowProfile(!showProfile);
+                setShowNotifications(false);
+              }}
+              className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 hover:bg-slate-50 sm:px-3"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#3B82F6] to-[#2563EB] text-xs font-bold text-white">
+                {displayName[0].toUpperCase()}
+              </div>
+              <div className="hidden text-left sm:block">
+                <p className="text-sm font-semibold text-slate-800 leading-tight">{displayName}</p>
+                <p className="text-[10px] text-slate-500">{displayRole}</p>
+              </div>
+              <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
+            </button>
+            {showProfile && (
+              <div className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-200 bg-white py-1 shadow-xl" onMouseLeave={() => setShowProfile(false)}>
+                <Link to="/settings" onClick={() => setShowProfile(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+                  <UserCircle className="h-4 w-4" /> {t("common.myAccount")}
+                </Link>
+                <button type="button" onClick={() => { logout(); navigate("/login"); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">
+                  <LogOut className="h-4 w-4" /> {t("common.signOut")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
+  );
+}
+

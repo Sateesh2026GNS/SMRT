@@ -1,6 +1,7 @@
 import { createContext, useEffect, useMemo, useState } from "react";
 
-import { getCurrentUser } from "../api/authApi";
+import { getCurrentUser, logout as logoutApi } from "../api/authApi";
+import { setUnauthorizedHandler } from "../api/axiosConfig";
 
 export const AuthContext = createContext(null);
 
@@ -10,6 +11,8 @@ function normalizeUser(raw) {
     ...raw,
     name: raw.full_name ?? raw.name ?? "User",
     role: raw.role ?? "Operator",
+    roles: Array.isArray(raw.roles) ? raw.roles : [],
+    permissions: Array.isArray(raw.permissions) ? raw.permissions : [],
   };
 }
 
@@ -23,6 +26,11 @@ function readStoredUser() {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(readStoredUser);
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => setUser(null));
+    return () => setUnauthorizedHandler(null);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +56,7 @@ export function AuthProvider({ children }) {
         if (err.response?.status === 401) {
           try {
             localStorage.removeItem("smrt-token");
+            localStorage.removeItem("smrt-refresh-token");
             localStorage.removeItem("smrt-user");
           } catch {}
           setUser(null);
@@ -62,13 +71,20 @@ export function AuthProvider({ children }) {
     let u;
     if (typeof authData === "object" && authData !== null) {
       const token = authData.access_token ?? authData.token;
+      const refreshToken = authData.refresh_token;
       const userPayload = authData.user ?? authData;
       const rest = { ...userPayload };
       delete rest.access_token;
+      delete rest.refresh_token;
       u = normalizeUser(rest);
       if (token) {
         try {
           localStorage.setItem("smrt-token", token);
+        } catch {}
+      }
+      if (refreshToken) {
+        try {
+          localStorage.setItem("smrt-refresh-token", refreshToken);
         } catch {}
       }
     } else {
@@ -77,14 +93,24 @@ export function AuthProvider({ children }) {
     setUser(u);
     try {
       localStorage.setItem("smrt-user", JSON.stringify(u));
+      if (u?.tenant_name) {
+        localStorage.setItem("smrt-company-name", u.tenant_name);
+      }
     } catch {}
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      const refreshToken = localStorage.getItem("smrt-refresh-token");
+      if (refreshToken) {
+        await logoutApi(refreshToken).catch(() => {});
+      }
+    } catch {}
     setUser(null);
     try {
       localStorage.removeItem("smrt-user");
       localStorage.removeItem("smrt-token");
+      localStorage.removeItem("smrt-refresh-token");
     } catch {}
   };
 

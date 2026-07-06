@@ -28,6 +28,7 @@ import useSettings from "../../context/SettingsContext";
 import useAuth from "../../hooks/useAuth";
 
 const SIDEBAR_SECTIONS = [
+  { key: "company-profile", label: "Company Profile", icon: Building2, to: "/settings/company-profile" },
   {
     key: "user-management",
     label: "User Management",

@@ -8,8 +8,9 @@ import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getDailyReports } from "../../api/productionApi";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function formatDate(val) {
   if (!val) return "—";
@@ -18,6 +19,7 @@ function formatDate(val) {
 }
 
 export default function DailyReports() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [reports, setReports] = useState([]);
@@ -31,7 +33,7 @@ export default function DailyReports() {
         const params = {};
         if (dateFrom) params.date_from = dateFrom;
         if (dateTo) params.date_to = dateTo;
-        const response = await getDailyReports(TENANT_ID, params);
+        const response = await getDailyReports(tenantId, params);
         setReports(response.data || []);
       } catch (error) {
         console.error("Failed to load daily reports", error);

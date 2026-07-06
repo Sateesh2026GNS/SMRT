@@ -1,1 +1,0 @@
-import{j as t}from"./react-vendor-BgZRF-UL.js";import{P as i}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function s(){return t.jsx(i,{title:"Quality Inspection",description:"Perform and record quality inspections."})}export{s as default};

@@ -10,7 +10,9 @@ class AccessLog(Base, TimestampMixin):
     __tablename__ = "access_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     action: Mapped[str] = mapped_column(String(128), nullable=False)
     resource: Mapped[str | None] = mapped_column(String(128))

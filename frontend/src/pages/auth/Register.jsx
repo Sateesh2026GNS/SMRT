@@ -1,29 +1,30 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
 import { register as registerApi } from "../../api/authApi";
 import useAuth from "../../hooks/useAuth";
+import AuthSlider from "../../components/auth/AuthSlider";
+import PasswordInput from "../../components/auth/PasswordInput";
 
 const BuildingIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21h18M5 21V7a2 2 0 012-2h3v16M12 21V4a2 2 0 012-2h3a2 2 0 012 2v17M8 10h.01M8 14h.01M8 18h.01M16 10h.01M16 14h.01M16 18h.01" />
   </svg>
 );
 
 const UserIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
   </svg>
 );
 
 const MailIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
   </svg>
 );
 
 const LockIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
   </svg>
 );
@@ -36,19 +37,20 @@ export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     if (!companyName.trim() || !fullName.trim() || !email.trim()) {
       setError("Fill in company name, full name, and email");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
     if (password !== confirmPassword) {
@@ -63,8 +65,13 @@ export default function Register() {
         email.trim(),
         password
       );
+      if (data.email_verification_required || !data.access_token) {
+        setSuccess(data.message || "Registration successful. Please verify your email before signing in.");
+        return;
+      }
       login({
         access_token: data.access_token,
+        refresh_token: data.refresh_token,
         user: data.user,
       });
       navigate("/");
@@ -77,153 +84,136 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#0c1222] relative overflow-hidden">
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1565793298595-6a879b1d9492?w=1920')`,
-          filter: "blur(4px) saturate(0.7) brightness(0.4)",
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-slate-900/95" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(249,115,22,0.08)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_80%,rgba(59,130,246,0.06)_0%,transparent_50%)]" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-full max-w-4xl">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative" style={{ minHeight: "600px" }}>
+          <div className="flex h-full">
+              {/* Left Panel - Image Slider + Sign In Prompt */}
+              <AuthSlider className="w-1/2">
+                <h2 className="text-4xl font-bold mb-4">Welcome Back!</h2>
+                <p className="text-center text-sm mb-8 max-w-xs text-teal-50/90">
+                  Enter your personal details to use all of site features
+                </p>
+                <Link
+                  to="/login"
+                  className="px-8 py-3 border-2 border-white text-white font-bold uppercase rounded-lg hover:bg-white hover:text-teal-600 transition"
+                >
+                  SIGN IN
+                </Link>
+              </AuthSlider>
 
-      <div className="relative w-full max-w-xl">
-        <div
-          className="rounded-2xl p-8 md:p-10 shadow-2xl border border-slate-500/30"
-          style={{
-            background: "rgba(30, 41, 59, 0.5)",
-            backdropFilter: "blur(20px)",
-            boxShadow:
-              "0 0 0 1px rgba(148, 163, 184, 0.1), 0 0 40px -10px rgba(59, 130, 246, 0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
-          }}
-        >
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-              SMR<span className="text-orange-500">T</span>
-            </h1>
-            <p className="text-white/90 text-lg mt-1 font-medium">Manufacturing ERP</p>
-            <p className="text-slate-400 text-sm mt-1">Create your Manufacturing ERP account</p>
+              {/* Right Panel - Register Form */}
+              <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white overflow-y-auto">
+                <div className="text-center mb-8 w-full">
+                  <h1 className="text-4xl font-bold text-gray-900 mb-2">SMRT</h1>
+                  <p className="text-gray-600 text-sm">Manufacturing ERP</p>
+                  <p className="text-gray-500 text-xs mt-1">Create Your Own Manufacturing ERP Account</p>
+                </div>
+
+                {success && (
+                  <div className="w-full mb-4 p-3 bg-green-100 border border-green-400 text-green-800 rounded-lg text-sm">
+                    {success}{" "}
+                    <Link to="/login" className="font-semibold underline">
+                      Sign in
+                    </Link>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="w-full mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleSubmit} className="w-full space-y-4">
+                  {/* Google OAuth Button */}
+                  <button
+                    type="button"
+                    className="w-12 h-12 mx-auto border-2 border-gray-300 rounded-xl flex items-center justify-center hover:bg-gray-50 transition"
+                  >
+                    <span className="text-xl">G+</span>
+                  </button>
+
+                  <div className="relative">
+                    <div className="absolute left-4 top-3.5 text-gray-400">
+                      <BuildingIcon />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Company Name"
+                      value={companyName}
+                      onChange={(e) => setCompanyName(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-gray-100 border-none rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute left-4 top-3.5 text-gray-400">
+                      <UserIcon />
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-gray-100 border-none rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="relative">
+                    <div className="absolute left-4 top-3.5 text-gray-400">
+                      <MailIcon />
+                    </div>
+                    <input
+                      type="email"
+                      placeholder="Email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full pl-12 pr-4 py-3 bg-gray-100 border-none rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <PasswordInput
+                      placeholder="Password (min 8)"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      leftIcon={<LockIcon />}
+                      autoComplete="new-password"
+                    />
+                    <PasswordInput
+                      placeholder="Confirm Password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      leftIcon={<LockIcon />}
+                      autoComplete="new-password"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                    <input type="checkbox" className="rounded" />
+                    Remember Password
+                  </label>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold uppercase tracking-wider rounded-lg transition disabled:opacity-50"
+                  >
+                    {loading ? "Creating Account..." : "SIGN UP"}
+                  </button>
+                </form>
+
+                <p className="text-xs text-gray-600 mt-4">
+                  Already have an account?{" "}
+                  <Link to="/login" className="text-teal-600 hover:text-teal-700 font-semibold">
+                    Login
+                  </Link>
+                </p>
+              </div>
+            </div>
           </div>
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="companyName" className="sr-only">Company Name</label>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
-                <BuildingIcon />
-                <input
-                  id="companyName"
-                  type="text"
-                  placeholder="Company Name"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="fullName" className="sr-only">Full Name</label>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
-                <UserIcon />
-                <input
-                  id="fullName"
-                  type="text"
-                  placeholder="Full Name"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="email" className="sr-only">Email Address</label>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
-                <MailIcon />
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="Email Address"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="password" className="sr-only">Password</label>
-                <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
-                  <LockIcon />
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Password (min 6)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-              <div>
-                <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
-                <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/30 transition">
-                  <LockIcon />
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Confirm Password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="rounded border-slate-500 bg-slate-800/80 text-orange-500 focus:ring-orange-500/50"
-                />
-                Remember Password
-              </label>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl font-bold text-white uppercase tracking-wider text-sm transition shadow-lg hover:shadow-orange-500/20 disabled:opacity-50"
-              style={{
-                background: "linear-gradient(180deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)",
-                boxShadow: "0 4px 14px rgba(234, 88, 12, 0.4)",
-              }}
-            >
-              {loading ? "Creating account…" : "Create Account"}
-            </button>
-          </form>
-
-          <p className="text-center text-slate-400 text-sm mt-4">
-            Already have an account?{" "}
-            <Link to="/login" className="text-sky-400 hover:text-sky-300 underline">Login</Link>
-          </p>
         </div>
       </div>
-    </div>
   );
 }

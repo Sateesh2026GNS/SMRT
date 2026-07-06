@@ -14,8 +14,9 @@ import {
 } from "recharts";
 import Loader from "../../components/common/Loader";
 import { getAccountsDashboard } from "../../api/accountsApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 const TEAL = "#0f766e";
 const BLUE = "#1e40af";
 const ORANGE = "#ea580c";
@@ -25,11 +26,12 @@ const GREY = "#4b5563";
 const formatK = (v) => (v >= 1000 ? `$${(v / 1000).toFixed(0)}K` : `$${v}`);
 
 export default function AccountsDashboard() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getAccountsDashboard(TENANT_ID)
+    getAccountsDashboard(tenantId)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));

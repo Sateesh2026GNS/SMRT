@@ -6,10 +6,12 @@ import {
   getWarehouses,
   recordStockMovement,
 } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function StockMovement() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
@@ -27,8 +29,8 @@ export default function StockMovement() {
       setLoading(true);
       try {
         const [itemsRes, whRes] = await Promise.all([
-          getInventoryDashboard(TENANT_ID),
-          getWarehouses(TENANT_ID),
+          getInventoryDashboard(),
+          getWarehouses(tenantId),
         ]);
         setItems(itemsRes.data || []);
         setWarehouses(whRes.data || []);
@@ -47,7 +49,7 @@ export default function StockMovement() {
     setMessage("");
     try {
       await recordStockMovement({
-        tenant_id: TENANT_ID,
+        tenant_id: tenantId,
         warehouse_id: Number(form.warehouse_id),
         item_id: Number(form.item_id),
         quantity: Number(form.quantity),

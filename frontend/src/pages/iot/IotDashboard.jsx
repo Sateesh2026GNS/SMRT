@@ -13,19 +13,21 @@ import {
 } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import { getIotDashboard } from "../../api/iotApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const cardStyle =
   "rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 p-5 shadow-sm hover:shadow-md transition-shadow";
 
 export default function IotDashboard() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getIotDashboard(TENANT_ID)
+    getIotDashboard(tenantId)
       .then((res) => setData(res.data))
       .catch((e) => console.error("IoT dashboard load failed", e))
       .finally(() => setLoading(false));

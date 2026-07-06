@@ -5,16 +5,18 @@ import Table from "../../components/common/Table";
 import { listExpenses } from "../../api/accountsApi";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function ExpenseTracking() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [expenses, setExpenses] = useState([]);
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    listExpenses(TENANT_ID, year)
+    listExpenses(tenantId, year)
       .then((r) => setExpenses(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

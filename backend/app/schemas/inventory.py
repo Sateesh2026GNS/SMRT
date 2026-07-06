@@ -24,6 +24,7 @@ class SupplierBase(BaseModel):
     contact: str | None = None
     email: str | None = None
     phone: str | None = None
+    approval_status: str = "approved"
 
 
 class SupplierCreate(SupplierBase):
@@ -45,6 +46,7 @@ class InventoryItemBase(BaseModel):
     unit: str = "pcs"
     unit_cost: float | None = None
     reorder_level: int = 0
+    item_type: str = "raw_material"  # raw_material, finished_good
     is_active: bool = True
 
 

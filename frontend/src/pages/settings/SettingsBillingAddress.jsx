@@ -1,99 +1,100 @@
-import { useState } from "react";
-import { Plus, MoreVertical } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Loader2, Save } from "lucide-react";
 
-const MOCK_ADDRESSES = [
-  {
-    id: 1,
-    name: "Main",
-    address: "Main Address, Mumbai, (Maharashtra - 27), India - 400001",
-    type: "Regular",
-  },
+import { useCompanySettings } from "../../hooks/useCompanySettings";
+
+const FIELDS = [
+  { key: "address_line1", label: "Address Line 1", full: true },
+  { key: "address_line2", label: "Address Line 2", full: true },
+  { key: "city", label: "City" },
+  { key: "state", label: "State" },
+  { key: "state_code", label: "State Code" },
+  { key: "pincode", label: "Pincode" },
 ];
 
 export default function SettingsBillingAddress() {
-  const [addresses] = useState(MOCK_ADDRESSES);
-  const [menuOpen, setMenuOpen] = useState(null);
+  const { settings, loading, saving, save } = useCompanySettings();
+  const [form, setForm] = useState({});
+
+  useEffect(() => {
+    if (settings) {
+      const next = {};
+      FIELDS.forEach(({ key }) => {
+        next[key] = settings[key] ?? "";
+      });
+      setForm(next);
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    const payload = {};
+    FIELDS.forEach(({ key }) => {
+      payload[key] = form[key]?.trim() || null;
+    });
+    await save(payload);
+  };
+
+  const formattedAddress = [
+    form.address_line1,
+    form.address_line2,
+    [form.city, form.state, form.pincode].filter(Boolean).join(", "),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-slate-400">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            Billing Address
-          </h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Billing Address</h1>
           <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-            This is a list of your billing addresses
+            Company billing address used on invoices and tax documents.
           </p>
         </div>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+          onClick={handleSave}
+          disabled={saving}
+          className="flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-60"
         >
-          <Plus className="h-4 w-4" />
-          Add Billing Address
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Save
         </button>
       </div>
 
-      <div className="space-y-4">
-        {addresses.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 py-12 text-center text-slate-500 dark:border-slate-700">
-            No billing addresses yet. Add one to get started.
-          </div>
-        ) : (
-          addresses.map((addr) => (
-            <div
-              key={addr.id}
-              className="relative rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800/50"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                    {addr.name}
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-                    {addr.address}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
-                    Type: {addr.type}
-                  </p>
-                </div>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setMenuOpen(menuOpen === addr.id ? null : addr.id)}
-                    className="rounded p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
-                    aria-label="Options"
-                  >
-                    <MoreVertical className="h-5 w-5" />
-                  </button>
-                  {menuOpen === addr.id && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        aria-hidden="true"
-                        onClick={() => setMenuOpen(null)}
-                      />
-                      <div className="absolute right-0 top-full z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
-                        <button
-                          type="button"
-                          className="w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-700"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
+      {formattedAddress && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/30">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Preview</p>
+          <p className="mt-2 text-sm text-slate-700 whitespace-pre-line dark:text-slate-300">
+            {formattedAddress}
+          </p>
+        </div>
+      )}
+
+      <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-700 dark:bg-slate-800/50">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {FIELDS.map(({ key, label, full }) => (
+            <div key={key} className={full ? "sm:col-span-2" : undefined}>
+              <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                {label}
+              </label>
+              <input
+                type="text"
+                value={form[key] ?? ""}
+                onChange={(e) => setForm((prev) => ({ ...prev, [key]: e.target.value }))}
+                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+              />
             </div>
-          ))
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );

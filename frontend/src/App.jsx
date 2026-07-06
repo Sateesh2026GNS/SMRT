@@ -10,7 +10,6 @@ import Breadcrumbs from "./components/common/Breadcrumbs";
 export default function App() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isAuthRoute =
     location.pathname === "/login" ||
     location.pathname === "/register" ||
@@ -38,7 +37,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-white to-teal-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
+    <div className="relative flex h-screen overflow-hidden bg-[#F4F7FE]">
       <a
         href="#main-content"
         className="absolute left-4 top-4 z-[100] -translate-y-[200%] rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-lg outline-none ring-2 ring-teal-500 ring-offset-2 transition-transform focus:translate-y-0 dark:ring-offset-slate-900"
@@ -51,23 +50,21 @@ export default function App() {
         aria-hidden="true"
       />
       <aside
-        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-          sidebarCollapsed ? "w-[72px]" : "w-56"
-        } ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        className={`fixed left-0 top-0 z-50 h-full transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 w-60 ${
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        }`}
       >
-        <Sidebar
-          collapsed={sidebarCollapsed}
-          onCollapse={() => setSidebarCollapsed((c) => !c)}
-          onClose={() => setSidebarOpen(false)}
-        />
+        <Sidebar onClose={() => setSidebarOpen(false)} />
       </aside>
       <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
         <Navbar onMenuClick={() => setSidebarOpen(true)} />
-        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto p-6 lg:p-8 pb-10 outline-none">
-          <Breadcrumbs />
-          <Suspense fallback={<RouteFallback />}>
-            <AppRoutes />
-          </Suspense>
+        <main id="main-content" tabIndex={-1} className="flex-1 overflow-y-auto bg-[#F4F7FE] p-4 sm:p-5 lg:p-6 pb-8 outline-none">
+          <div className="ui-page ui-stack">
+            <Breadcrumbs />
+            <Suspense fallback={<RouteFallback />}>
+              <AppRoutes />
+            </Suspense>
+          </div>
         </main>
       </div>
     </div>

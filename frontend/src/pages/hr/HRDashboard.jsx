@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 
 import Loader from "../../components/common/Loader";
 import { getHrDashboard } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const cardStyle = {
   background: "#fff",
@@ -14,11 +15,12 @@ const cardStyle = {
 };
 
 export default function HRDashboard() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    getHrDashboard(TENANT_ID)
+    getHrDashboard(tenantId)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -78,11 +80,12 @@ export default function HRDashboard() {
       </div>
 
       <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-        <Link to="/hr/attendance">Attendance</Link>
-        <Link to="/hr/shifts">Shifts</Link>
-        <Link to="/hr/payroll">Payroll</Link>
-        <Link to="/hr/performance">Performance</Link>
         <Link to="/hr/employees">Employees</Link>
+        <Link to="/hr/attendance">Attendance</Link>
+        <Link to="/hr/leave">Leave</Link>
+        <Link to="/hr/payroll">Payroll</Link>
+        <Link to="/hr/shifts">Shifts</Link>
+        <Link to="/hr/performance">Performance</Link>
       </div>
     </div>
   );

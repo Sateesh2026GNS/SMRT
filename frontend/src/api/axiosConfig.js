@@ -15,4 +15,91 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+let onUnauthorized = null;
+
+export function setUnauthorizedHandler(handler) {
+  onUnauthorized = handler;
+}
+
+let onApiError = null;
+
+export function setApiErrorHandler(handler) {
+  onApiError = handler;
+}
+
+let refreshPromise = null;
+
+async function refreshAccessToken(refreshToken) {
+  const baseURL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+  const { data } = await axios.post(`${baseURL}/auth/refresh`, {
+    refresh_token: refreshToken,
+  });
+  return data;
+}
+
+function clearAuthStorage() {
+  try {
+    localStorage.removeItem("smrt-token");
+    localStorage.removeItem("smrt-refresh-token");
+    localStorage.removeItem("smrt-user");
+  } catch {}
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const status = error.response?.status;
+    const original = error.config;
+
+    if (
+      status === 401 &&
+      original &&
+      !original._retry &&
+      !original.url?.includes("/auth/login") &&
+      !original.url?.includes("/auth/refresh")
+    ) {
+      const refreshToken = localStorage.getItem("smrt-refresh-token");
+      if (refreshToken) {
+        original._retry = true;
+        try {
+          if (!refreshPromise) {
+            refreshPromise = refreshAccessToken(refreshToken).finally(() => {
+              refreshPromise = null;
+            });
+          }
+          const data = await refreshPromise;
+          localStorage.setItem("smrt-token", data.access_token);
+          if (data.refresh_token) {
+            localStorage.setItem("smrt-refresh-token", data.refresh_token);
+          }
+          original.headers.Authorization = `Bearer ${data.access_token}`;
+          return api(original);
+        } catch {
+          clearAuthStorage();
+        }
+      }
+    }
+
+    if (status === 401) {
+      clearAuthStorage();
+      if (typeof onUnauthorized === "function") {
+        onUnauthorized();
+      } else if (
+        typeof window !== "undefined" &&
+        !window.location.pathname.startsWith("/login")
+      ) {
+        window.location.assign("/login");
+      }
+    } else if (typeof onApiError === "function" && !error.config?.skipGlobalError) {
+      if (!status || status >= 500) {
+        const message = !status
+          ? "Network error - please check your connection."
+          : error.response?.data?.detail || "Something went wrong. Please try again.";
+        onApiError(message);
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;

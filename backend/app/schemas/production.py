@@ -40,6 +40,8 @@ class WorkOrderBase(BaseModel):
     tenant_id: int
     production_order_id: int
     machine_id: int | None = None
+    assigned_user_id: int | None = None
+    plant_code: str | None = None
     work_order_number: str
     planned_quantity: float
     actual_quantity: float | None = None

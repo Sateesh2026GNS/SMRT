@@ -1,22 +1,25 @@
-import os
 import re
 from datetime import datetime, timedelta, timezone
 
+from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.core.seed_roles import MODULES
+from app.core.config import get_settings
+from app.core.seed_roles import seed_roles_for_tenant
 from app.models.role import Role
 from app.models.tenant import Tenant
 from app.models.user import User, user_roles
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production-use-openssl-rand-hex-32")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
+_settings = get_settings()
+SECRET_KEY = _settings.jwt_secret_key
+ALGORITHM = _settings.jwt_algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES = _settings.access_token_expire_minutes
 
 
 def _slugify(name: str) -> str:
@@ -53,16 +56,43 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
         .options(selectinload(User.roles))
     )
     user = db.scalars(stmt).first()
-    if not user or not user.is_active:
+    if not user:
         return None
     if not verify_password(password, user.hashed_password):
         return None
     return user
 
 
+def find_user_by_email(db: Session, email: str) -> User | None:
+    return db.scalars(select(User).where(User.email == email)).first()
+
+
+def issue_auth_response_data(
+    db: Session,
+    user: User,
+    *,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+) -> dict:
+    from app.services.security_service import clear_login_failures, create_refresh_token
+
+    clear_login_failures(db, user)
+    access = create_access_token({"sub": str(user.id), "email": user.email})
+    refresh = create_refresh_token(db, user, ip_address=ip_address, user_agent=user_agent)
+    user_data = get_user_with_role(db, user)
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+        "token_type": "bearer",
+        "user": user_data,
+    }
+
+
 def get_user_with_role(db: Session, user: User) -> dict:
     db.refresh(user, ["roles", "tenant"])
-    role_name = user.roles[0].name if user.roles else "Operator"
+    role_names = [r.name for r in user.roles]
+    permissions = sorted({p for r in user.roles for p in (r.permissions or [])})
+    role_name = role_names[0] if role_names else "Operator"
     tenant_name = user.tenant.name if user.tenant else None
     return {
         "id": user.id,
@@ -71,6 +101,11 @@ def get_user_with_role(db: Session, user: User) -> dict:
         "tenant_id": user.tenant_id,
         "tenant_name": tenant_name,
         "role": role_name,
+        "roles": role_names,
+        "permissions": permissions,
+        "plant_code": getattr(user, "plant_code", None),
+        "department": getattr(user, "department", None),
+        "assigned_machine_id": getattr(user, "assigned_machine_id", None),
     }
 
 
@@ -81,48 +116,58 @@ def register_user(
     email: str,
     password: str,
 ) -> User:
-    # Unique email globally for simplicity (first tenant wins) — or per-tenant only
     existing = db.scalars(select(User).where(User.email == email)).first()
     if existing:
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
         )
 
+    base_name = company_name.strip()[:255]
     slug_base = _slugify(company_name)
+    display_name = base_name
     slug = slug_base
     n = 0
-    while db.scalars(select(Tenant).where(Tenant.slug == slug)).first():
+    while True:
+        name_taken = db.scalars(select(Tenant).where(Tenant.name == display_name)).first()
+        slug_taken = db.scalars(select(Tenant).where(Tenant.slug == slug)).first()
+        if not name_taken and not slug_taken:
+            break
         n += 1
         slug = f"{slug_base}-{n}"
+        display_name = f"{base_name} ({n})"[:255]
 
-    tenant = Tenant(name=company_name[:255], slug=slug)
-    db.add(tenant)
-    db.flush()
+    try:
+        tenant = Tenant(name=display_name, slug=slug)
+        db.add(tenant)
+        db.flush()
 
-    admin_role = Role(
-        tenant_id=tenant.id,
-        name="Admin",
-        description="Full system access",
-        permissions=list(MODULES),
-    )
-    db.add(admin_role)
-    db.flush()
+        seed_roles_for_tenant(db, tenant.id)
+        admin_role = db.scalars(
+            select(Role).where(Role.tenant_id == tenant.id, Role.name == "Admin")
+        ).first()
+        if not admin_role:
+            raise HTTPException(status_code=500, detail="Failed to provision administrator role")
 
-    user = User(
-        tenant_id=tenant.id,
-        email=email,
-        full_name=full_name,
-        hashed_password=hash_password(password),
-        is_active=True,
-    )
-    db.add(user)
-    db.flush()
-    db.execute(
-        user_roles.insert().values(user_id=user.id, role_id=admin_role.id)
-    )
-    db.commit()
-    db.refresh(user)
-    return user
+        user = User(
+            tenant_id=tenant.id,
+            email=email,
+            full_name=full_name,
+            hashed_password=hash_password(password),
+            is_active=not _settings.email_verification_required,
+            email_verified=not _settings.email_verification_required,
+        )
+        db.add(user)
+        db.flush()
+        db.execute(
+            user_roles.insert().values(user_id=user.id, role_id=admin_role.id)
+        )
+        db.commit()
+        db.refresh(user)
+        return user
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Could not create company account. Try a different company or email.",
+        )

@@ -2,17 +2,19 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import { getCustomers, createInvoice } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 const inputStyle = { padding: "6px 10px", border: "1px solid #c4b5a0", borderRadius: 4, background: "#fff", width: "100%" };
 const labelRed = { color: "#b91c1c", fontSize: "0.9rem", marginBottom: 4, display: "block" };
 
 export default function TaxInvoiceForm() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     customer_id: "",
     sales_order_id: null,
     invoice_number: "",
@@ -37,7 +39,7 @@ export default function TaxInvoiceForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getCustomers(TENANT_ID).then((r) => setCustomers(r.data || [])).catch(console.error).finally(() => setLoading(false));
+    getCustomers(tenantId).then((r) => setCustomers(r.data || [])).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   const updateItem = (idx, field, val) => {

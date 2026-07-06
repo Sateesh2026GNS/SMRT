@@ -7,8 +7,9 @@ import {
   getInvoiceDetail,
   getCustomers,
 } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 const TEAL = "#14b8a6";
 const TEAL_DARK = "#0d9488";
 
@@ -133,6 +134,7 @@ const styles = {
 };
 
 export default function InvoiceDashboard() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -140,7 +142,7 @@ export default function InvoiceDashboard() {
   const [filter, setFilter] = useState("all");
 
   useEffect(() => {
-    getInvoices(TENANT_ID, filter === "all" ? null : filter)
+    getInvoices(tenantId, filter === "all" ? null : filter)
       .then((r) => setInvoices(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

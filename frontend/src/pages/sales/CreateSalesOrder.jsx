@@ -5,20 +5,22 @@ import { ArrowLeft } from "lucide-react";
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import { getCustomers, createSalesOrder } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
 
 export default function CreateSalesOrder() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     customer_id: "",
     order_number: "",
     reference_number: "",
@@ -28,7 +30,7 @@ export default function CreateSalesOrder() {
   });
 
   useEffect(() => {
-    getCustomers(TENANT_ID)
+    getCustomers(tenantId)
       .then((r) => setCustomers(r.data || []))
       .catch(() => setError("Could not load customers."))
       .finally(() => setLoading(false));

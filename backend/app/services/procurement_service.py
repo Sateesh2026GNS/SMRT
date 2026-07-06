@@ -1,5 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.procurement import (
     GoodsReceipt,
@@ -16,6 +16,24 @@ from app.schemas.procurement import (
     PurchaseOrderCreate,
     SupplierPaymentCreate,
 )
+from app.schemas.inventory import StockMovementCreate
+from app.services.inventory_service import record_stock_movement
+
+
+def update_purchase_order_status(
+    db: Session, po_id: int, tenant_id: int, status: str
+) -> PurchaseOrder | None:
+    po = db.scalars(
+        select(PurchaseOrder).where(
+            PurchaseOrder.id == po_id, PurchaseOrder.tenant_id == tenant_id
+        )
+    ).first()
+    if not po:
+        return None
+    po.status = status
+    db.commit()
+    db.refresh(po)
+    return po
 
 
 def create_purchase_order(db: Session, payload: PurchaseOrderCreate) -> PurchaseOrder:
@@ -51,7 +69,12 @@ def create_purchase_order(db: Session, payload: PurchaseOrderCreate) -> Purchase
 
 
 def list_purchase_orders(db: Session, tenant_id: int) -> list[PurchaseOrder]:
-    stmt = select(PurchaseOrder).where(PurchaseOrder.tenant_id == tenant_id)
+    stmt = (
+        select(PurchaseOrder)
+        .options(joinedload(PurchaseOrder.supplier))
+        .where(PurchaseOrder.tenant_id == tenant_id)
+        .order_by(PurchaseOrder.order_date.desc())
+    )
     return list(db.scalars(stmt).all())
 
 
@@ -105,8 +128,30 @@ def create_goods_receipt(db: Session, payload: GoodsReceiptCreate) -> GoodsRecei
             quantity_rejected=line.quantity_rejected,
         )
         db.add(grl)
+        received_qty = int(line.quantity_received or 0)
+        if received_qty > 0:
+            record_stock_movement(
+                db,
+                StockMovementCreate(
+                    tenant_id=payload.tenant_id,
+                    warehouse_id=payload.warehouse_id,
+                    item_id=line.item_id,
+                    quantity=received_qty,
+                    movement_type="in",
+                ),
+            )
+    if payload.purchase_order_id:
+        po = db.get(PurchaseOrder, payload.purchase_order_id)
+        if po and po.tenant_id == payload.tenant_id:
+            po.status = "received"
     db.commit()
     db.refresh(gr)
+    try:
+        from app.services.alert_service import sync_low_stock_alerts
+
+        sync_low_stock_alerts(db, payload.tenant_id)
+    except Exception:
+        pass
     return gr
 
 

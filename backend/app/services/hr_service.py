@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.hr import (
     AttendanceRecord,
     Employee,
+    LeaveRequest,
     PayrollRecord,
     PerformanceReview,
     Shift,
@@ -13,6 +14,8 @@ from app.models.hr import (
 from app.schemas.hr import (
     AttendanceRecordCreate,
     EmployeeCreate,
+    LeaveRequestCreate,
+    LeaveRequestUpdate,
     PayrollRecordCreate,
     PerformanceReviewCreate,
     ShiftCreate,
@@ -203,9 +206,63 @@ def get_hr_dashboard(db: Session, tenant_id: int) -> dict:
             PayrollRecord.tenant_id == tenant_id, PayrollRecord.status == "draft"
         )
     ) or 0
+    leave_pending = db.scalar(
+        select(func.count(LeaveRequest.id)).where(
+            LeaveRequest.tenant_id == tenant_id, LeaveRequest.status == "pending"
+        )
+    ) or 0
     return {
         "headcount": emp_count,
         "attendance_today": attendance_today,
         "total_overtime_30d": float(total_overtime),
         "payroll_pending": payroll_pending,
+        "leave_pending": leave_pending,
     }
+
+
+def _leave_days(start: date, end: date) -> float:
+    return float((end - start).days + 1)
+
+
+def create_leave_request(db: Session, payload: LeaveRequestCreate) -> LeaveRequest:
+    data = payload.model_dump()
+    if payload.end_date < payload.start_date:
+        raise ValueError("end_date must be on or after start_date")
+    data["days"] = _leave_days(payload.start_date, payload.end_date)
+    leave = LeaveRequest(**data)
+    db.add(leave)
+    db.commit()
+    db.refresh(leave)
+    return leave
+
+
+def list_leave_requests(
+    db: Session,
+    tenant_id: int,
+    employee_id: int | None = None,
+    status: str | None = None,
+) -> list[LeaveRequest]:
+    stmt = select(LeaveRequest).where(LeaveRequest.tenant_id == tenant_id)
+    if employee_id:
+        stmt = stmt.where(LeaveRequest.employee_id == employee_id)
+    if status:
+        stmt = stmt.where(LeaveRequest.status == status)
+    stmt = stmt.order_by(LeaveRequest.start_date.desc())
+    return list(db.scalars(stmt).all())
+
+
+def update_leave_request(
+    db: Session, tenant_id: int, leave_id: int, payload: LeaveRequestUpdate
+) -> LeaveRequest | None:
+    leave = db.scalars(
+        select(LeaveRequest).where(
+            LeaveRequest.id == leave_id, LeaveRequest.tenant_id == tenant_id
+        )
+    ).first()
+    if not leave:
+        return None
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(leave, field, value)
+    db.commit()
+    db.refresh(leave)
+    return leave

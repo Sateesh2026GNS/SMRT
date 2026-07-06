@@ -8,8 +8,9 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getMaterialRequests } from "../../api/procurementApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function StatusPill({ status }) {
   const s = (status || "pending").toLowerCase();
@@ -28,6 +29,7 @@ function StatusPill({ status }) {
 }
 
 export default function MaterialRequests() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState([]);
@@ -38,7 +40,7 @@ export default function MaterialRequests() {
       setLoading(true);
       setLoadError("");
       try {
-        const res = await getMaterialRequests(TENANT_ID);
+        const res = await getMaterialRequests(tenantId);
         setRequests(res.data || []);
       } catch (e) {
         setLoadError("Could not load material requests. Is the API running?");

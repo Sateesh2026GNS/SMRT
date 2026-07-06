@@ -1,22 +1,24 @@
 import api from "./axiosConfig";
 
-export const getCustomers = (tenantId) =>
-  api.get("/sales/customers", { params: { tenant_id: tenantId } });
+export const getCustomers = () => api.get("/sales/customers");
 
 export const createCustomer = (payload) =>
   api.post("/sales/customers", payload);
 
-export const getSalesOrders = (tenantId, status = null) =>
+export const getSalesOrders = (_tenantId, status = null) =>
   api.get("/sales/sales-orders", {
-    params: { tenant_id: tenantId, status },
+    params: { status },
   });
+
+export const getSalesOrderDetail = (orderId) =>
+  api.get(`/sales/sales-orders/${orderId}`);
 
 export const createSalesOrder = (payload) =>
   api.post("/sales/sales-orders", payload);
 
-export const getInvoices = (tenantId, status = null) =>
+export const getInvoices = (_tenantId, status = null) =>
   api.get("/sales/invoices", {
-    params: { tenant_id: tenantId, status },
+    params: { status },
   });
 
 export const getInvoiceDetail = (invoiceId) =>
@@ -25,10 +27,30 @@ export const getInvoiceDetail = (invoiceId) =>
 export const createInvoice = (payload) =>
   api.post("/sales/invoices", payload);
 
-export const getPayments = (tenantId, invoiceId = null) =>
+export const getPayments = (_tenantId, invoiceId = null) =>
   api.get("/sales/payments", {
-    params: { tenant_id: tenantId, invoice_id: invoiceId },
+    params: { invoice_id: invoiceId },
   });
 
 export const createPayment = (payload) =>
   api.post("/sales/payments", payload);
+
+export const getLeads = (status = null) =>
+  api.get("/sales/leads", { params: { status } });
+
+export const createLead = (payload) => api.post("/sales/leads", payload);
+
+export const updateLeadStatus = (leadId, status) =>
+  api.patch(`/sales/leads/${leadId}/status`, null, { params: { status } });
+
+export const getQuotations = (status = null) =>
+  api.get("/sales/quotations", { params: { status } });
+
+export const createQuotation = (payload) =>
+  api.post("/sales/quotations", payload);
+
+export const updateQuotationStatus = (quoteId, status) =>
+  api.patch(`/sales/quotations/${quoteId}/status`, null, { params: { status } });
+
+export const updateSalesOrderDispatch = (orderId, flags) =>
+  api.patch(`/sales/sales-orders/${orderId}/dispatch`, null, { params: flags });

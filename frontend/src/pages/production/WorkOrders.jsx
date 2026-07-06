@@ -7,10 +7,12 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getWorkOrders } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function WorkOrders() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [workOrders, setWorkOrders] = useState([]);
@@ -19,7 +21,7 @@ export default function WorkOrders() {
     const loadWorkOrders = async () => {
       setLoading(true);
       try {
-        const response = await getWorkOrders(TENANT_ID);
+        const response = await getWorkOrders(tenantId);
         setWorkOrders(response.data || []);
       } catch (error) {
         console.error("Failed to load work orders", error);

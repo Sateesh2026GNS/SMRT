@@ -4,7 +4,7 @@ A full-stack **Production Management**, **Inventory & Raw Material Management**,
 
 ## Tech Stack
 
-- **Backend:** Python, FastAPI, SQLAlchemy, PostgreSQL / SQLite
+- **Backend:** Python, FastAPI, SQLAlchemy, SQLite
 - **Frontend:** React 18, Vite, React Router, Axios, Tailwind CSS, React i18next
 
 ### Frontend performance
@@ -178,7 +178,6 @@ SMRT/
 
 - Python 3.10+
 - Node.js 18+
-- PostgreSQL (optional; SQLite is used by default)
 
 ## Setup
 
@@ -199,8 +198,18 @@ pip install -r requirements.txt
 
 Create `backend/.env` (optional):
 
-- **Default (SQLite):** No config needed. Uses `sqlite:///./smrt.db` — works without PostgreSQL.
-- **PostgreSQL:** Set `DATABASE_URL=postgresql+psycopg2://postgres:postgres@localhost:5432/smrt` and ensure PostgreSQL is running. Create the DB with `createdb smrt`.
+```env
+DATABASE_URL=sqlite:///./smrt.db
+```
+
+No extra database server is required. The SQLite file `backend/smrt.db` is created automatically on first backend start.
+
+### DB Browser for SQLite
+
+- **File location:** `backend/smrt.db` (relative to the backend folder when you run uvicorn from `backend/`)
+- **Open the database:** Use [DB Browser for SQLite](https://sqlitebrowser.org/) to inspect tables and data
+- **Important:** Stop the backend before opening the file in DB Browser — SQLite uses file locking while the app is running
+- **Seeded admin user** (created on first start): `admin@smrt.local` / `admin123`
 
 Run the backend:
 
@@ -255,7 +264,7 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
     "email": "admin@smrt.local",
     "full_name": "Admin",
     "tenant_id": 1,
-    "tenant_name": "Acme Manufacturing",
+    "tenant_name": "GNS",
     "role": "Admin"
   }
 }

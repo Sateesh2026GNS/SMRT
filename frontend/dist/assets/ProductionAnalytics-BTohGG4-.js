@@ -1,1 +1,0 @@
-import{j as t}from"./react-vendor-BgZRF-UL.js";import{P as o}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function a(){return t.jsx(o,{title:"Production Analytics",description:"Production trends and performance insights."})}export{a as default};

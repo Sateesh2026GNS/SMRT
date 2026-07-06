@@ -1,7 +1,17 @@
-from sqlalchemy import text
+import time
+import uuid
 
-from fastapi import FastAPI
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.config import get_settings
+from app.core.logging_config import get_logger, setup_logging
 
 from app.api.accounts import router as accounts_router
 from app.api.auth import router as auth_router
@@ -26,6 +36,7 @@ from app.api.forecasting import router as forecasting_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.task_management import router as task_management_router
 from app.api.integration import router as integration_router
+from app.api.settings import router as settings_router
 from app.api.iot import router as iot_router
 from app.core.database import engine
 from app.models.base import Base
@@ -36,6 +47,7 @@ from app.models import (  # noqa: F401
     admin,
     alert,
     bom,
+    company_settings,
     document,
     hr,
     inventory,
@@ -47,19 +59,127 @@ from app.models import (  # noqa: F401
     quality,
     role,
     sales,
+    security,
+    task,
     tenant,
     user,
 )
 
-app = FastAPI(title="SMRT Backend")
+settings = get_settings()
+setup_logging("INFO")
+logger = get_logger("smrt")
+
+app = FastAPI(title="SMRT Backend", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=settings.cors_origin_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    if settings.is_production:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+
+@app.middleware("http")
+async def request_context_middleware(request: Request, call_next):
+    """Attach a request id, time the request, and log the outcome."""
+    request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex[:12]
+    request.state.request_id = request_id
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        elapsed = (time.perf_counter() - start) * 1000
+        logger.exception(
+            "request_failed id=%s %s %s (%.1fms)",
+            request_id,
+            request.method,
+            request.url.path,
+            elapsed,
+        )
+        raise
+    elapsed = (time.perf_counter() - start) * 1000
+    response.headers["X-Request-ID"] = request_id
+    logger.info(
+        "id=%s %s %s -> %s (%.1fms)",
+        request_id,
+        request.method,
+        request.url.path,
+        response.status_code,
+        elapsed,
+    )
+    return response
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail, "request_id": getattr(request.state, "request_id", None)},
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": "Validation error",
+            "errors": exc.errors(),
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    logger.exception("database_error id=%s", getattr(request.state, "request_id", None))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "A database error occurred.",
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("unhandled_error id=%s", getattr(request.state, "request_id", None))
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error.",
+            "request_id": getattr(request.state, "request_id", None),
+        },
+    )
+
+
+@app.get("/health", tags=["health"])
+def health():
+    return {"status": "ok", "environment": settings.environment}
+
+
+@app.get("/health/db", tags=["health"])
+def health_db():
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return {"status": "ok", "database": "reachable"}
+    except SQLAlchemyError:
+        return JSONResponse(status_code=503, content={"status": "error", "database": "unreachable"})
 
 
 @app.on_event("startup")
@@ -71,6 +191,65 @@ def on_startup():
             conn.execute(text("ALTER TABLE users ADD COLUMN phone VARCHAR(20)"))
     except Exception:
         pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE roles ADD COLUMN permissions JSON NOT NULL DEFAULT '[]'"
+                )
+            )
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE inventory_items ADD COLUMN item_type VARCHAR(32) NOT NULL DEFAULT 'raw_material'"
+                )
+            )
+    except Exception:
+        pass  # Column may already exist
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE suppliers ADD COLUMN approval_status VARCHAR(32) NOT NULL DEFAULT 'approved'"
+                )
+            )
+    except Exception:
+        pass  # Column may already exist
+    _user_security_columns = [
+        "ALTER TABLE users ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN locked_until DATETIME",
+        "ALTER TABLE users ADD COLUMN last_activity_at DATETIME",
+    ]
+    for ddl in _user_security_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    _rbac_columns = [
+        "ALTER TABLE users ADD COLUMN plant_code VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN department VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN assigned_machine_id INTEGER REFERENCES machines(id)",
+        "ALTER TABLE work_orders ADD COLUMN assigned_user_id INTEGER REFERENCES users(id)",
+        "ALTER TABLE work_orders ADD COLUMN plant_code VARCHAR(64)",
+        "ALTER TABLE machines ADD COLUMN plant_code VARCHAR(64)",
+        "ALTER TABLE daily_production_reports ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)",
+    ]
+    for ddl in _rbac_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE users SET email_verified = 1 WHERE email_verified = 0"))
+    except Exception:
+        pass
     from app.core.database import SessionLocal
     from app.core.seed_products import seed_products
     from app.core.seed_roles import seed_roles
@@ -83,10 +262,8 @@ def on_startup():
         seed_roles(db)  # Seeds default roles for tenant 1
         seed_admin_user(db)  # admin@smrt.local / admin123 if no users
         seed_products(db)  # Seeds sample products for tenant 1
-    except Exception as e:
-        import traceback
-        print(f"Seed warning: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("Seed warning during startup")
     finally:
         db.close()
 
@@ -114,4 +291,5 @@ app.include_router(forecasting_router)
 app.include_router(audit_logs_router)
 app.include_router(task_management_router)
 app.include_router(integration_router)
+app.include_router(settings_router)
 app.include_router(iot_router)

@@ -4,8 +4,9 @@ import { Cpu, Play, Square, Plus, ArrowRight } from "lucide-react";
 
 import { useToast } from "../../context/ToastContext";
 import { getMachines, updateMachineStatus } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const statusDot = (status) => {
   if (status === "running") return "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]";
@@ -14,13 +15,14 @@ const statusDot = (status) => {
 };
 
 export default function MachineStatus() {
+  const tenantId = useTenantId();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [machines, setMachines] = useState([]);
   const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
-    getMachines(TENANT_ID)
+    getMachines(tenantId)
       .then((r) => setMachines(r.data || []))
       .catch((e) => {
         console.error(e);
@@ -32,7 +34,7 @@ export default function MachineStatus() {
   const handleAction = async (machine, newStatus) => {
     setActionLoading(machine.id);
     try {
-      await updateMachineStatus(machine.id, TENANT_ID, newStatus);
+      await updateMachineStatus(machine.id, tenantId, newStatus);
       setMachines((prev) =>
         prev.map((m) => (m.id === machine.id ? { ...m, status: newStatus } : m))
       );

@@ -8,6 +8,7 @@ from app.models.inventory import (
     Supplier,
     Warehouse,
 )
+from app.models.product import Product
 from app.schemas.inventory import (
     InventoryItemCreate,
     StockLevelCreate,
@@ -43,6 +44,22 @@ def list_suppliers(db: Session, tenant_id: int) -> list[Supplier]:
     return list(db.scalars(stmt).all())
 
 
+def update_supplier_approval(
+    db: Session, tenant_id: int, supplier_id: int, approval_status: str
+) -> Supplier | None:
+    supplier = db.scalars(
+        select(Supplier).where(
+            Supplier.id == supplier_id, Supplier.tenant_id == tenant_id
+        )
+    ).first()
+    if not supplier:
+        return None
+    supplier.approval_status = approval_status
+    db.commit()
+    db.refresh(supplier)
+    return supplier
+
+
 def create_inventory_item(
     db: Session, payload: InventoryItemCreate
 ) -> InventoryItem:
@@ -54,11 +71,16 @@ def create_inventory_item(
 
 
 def list_inventory_items(
-    db: Session, tenant_id: int, low_stock_only: bool = False
+    db: Session,
+    tenant_id: int,
+    low_stock_only: bool = False,
+    item_type: str | None = None,
 ) -> list[InventoryItem]:
     stmt = select(InventoryItem).where(
         InventoryItem.tenant_id == tenant_id, InventoryItem.is_active
     )
+    if item_type:
+        stmt = stmt.where(InventoryItem.item_type == item_type)
     items = list(db.scalars(stmt).all())
     if low_stock_only:
         result = []
@@ -153,15 +175,16 @@ def record_stock_movement(
     return mov
 
 
-def get_inventory_dashboard(db: Session, tenant_id: int) -> list[dict]:
+def get_inventory_dashboard(
+    db: Session, tenant_id: int, item_type: str | None = None
+) -> list[dict]:
     """Items with total stock, reorder status, stock value."""
-    items = list(
-        db.scalars(
-            select(InventoryItem).where(
-                InventoryItem.tenant_id == tenant_id, InventoryItem.is_active
-            )
-        ).all()
+    stmt = select(InventoryItem).where(
+        InventoryItem.tenant_id == tenant_id, InventoryItem.is_active
     )
+    if item_type:
+        stmt = stmt.where(InventoryItem.item_type == item_type)
+    items = list(db.scalars(stmt).all())
     result = []
     for item in items:
         total = get_total_stock(db, item.id)
@@ -179,6 +202,7 @@ def get_inventory_dashboard(db: Session, tenant_id: int) -> list[dict]:
                 "total_quantity": total,
                 "stock_value": round(stock_value, 2) if stock_value is not None else None,
                 "needs_reorder": needs_reorder,
+                "item_type": item.item_type,
             }
         )
     return result
@@ -187,3 +211,49 @@ def get_inventory_dashboard(db: Session, tenant_id: int) -> list[dict]:
 def list_stock_levels_by_warehouse(db: Session, warehouse_id: int) -> list[StockLevel]:
     stmt = select(StockLevel).where(StockLevel.warehouse_id == warehouse_id)
     return list(db.scalars(stmt).all())
+
+
+def list_stock_movements(
+    db: Session, tenant_id: int, item_id: int | None = None
+) -> list[StockMovement]:
+    stmt = select(StockMovement).where(StockMovement.tenant_id == tenant_id)
+    if item_id is not None:
+        stmt = stmt.where(StockMovement.item_id == item_id)
+    stmt = stmt.order_by(StockMovement.id.desc())
+    return list(db.scalars(stmt).all())
+
+
+def get_default_warehouse(db: Session, tenant_id: int) -> Warehouse | None:
+    wh = db.scalars(
+        select(Warehouse).where(
+            Warehouse.tenant_id == tenant_id, Warehouse.is_primary.is_(True)
+        )
+    ).first()
+    if wh:
+        return wh
+    return db.scalars(select(Warehouse).where(Warehouse.tenant_id == tenant_id)).first()
+
+
+def find_or_create_finished_good_for_product(
+    db: Session, tenant_id: int, product: Product
+) -> InventoryItem:
+    item = db.scalars(
+        select(InventoryItem).where(
+            InventoryItem.tenant_id == tenant_id,
+            InventoryItem.sku == product.sku,
+        )
+    ).first()
+    if item:
+        return item
+    item = InventoryItem(
+        tenant_id=tenant_id,
+        sku=product.sku,
+        name=product.name,
+        description=product.description,
+        unit_cost=float(product.unit_cost) if product.unit_cost else None,
+        item_type="finished_good",
+        is_active=True,
+    )
+    db.add(item)
+    db.flush()
+    return item

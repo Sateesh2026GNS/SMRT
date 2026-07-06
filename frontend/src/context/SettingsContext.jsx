@@ -37,8 +37,18 @@ export function SettingsProvider({ children }) {
   const [currency, setCurrencyState] = useState(() => get(STORAGE_KEYS.currency, "INR"));
   const [notifyEmail, setNotifyEmailState] = useState(() => get(STORAGE_KEYS.notifyEmail, "true") === "true");
   const [notifyPush, setNotifyPushState] = useState(() => get(STORAGE_KEYS.notifyPush, "true") === "true");
-  const [companyName, setCompanyNameState] = useState(() => get(STORAGE_KEYS.companyName, "Acme Manufacturing"));
+  const [companyName, setCompanyNameState] = useState(() => {
+    const stored = get(STORAGE_KEYS.companyName, "GNS");
+    return stored === "Acme Manufacturing" ? "GNS" : stored;
+  });
   const [companyAddress, setCompanyAddressState] = useState(() => get(STORAGE_KEYS.companyAddress, ""));
+
+  useEffect(() => {
+    if (get(STORAGE_KEYS.companyName, "GNS") === "Acme Manufacturing") {
+      set(STORAGE_KEYS.companyName, "GNS");
+      setCompanyNameState("GNS");
+    }
+  }, []);
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme;

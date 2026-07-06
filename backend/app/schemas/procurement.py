@@ -40,6 +40,10 @@ class PurchaseOrderRead(PurchaseOrderBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PurchaseOrderListRead(PurchaseOrderRead):
+    supplier_name: str | None = None
+
+
 class MaterialRequestLineBase(BaseModel):
     item_id: int
     quantity: float

@@ -4,16 +4,18 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getPayroll, getEmployees } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Payroll() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [records, setRecords] = useState([]);
   const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    Promise.all([getPayroll(TENANT_ID), getEmployees(TENANT_ID)])
+    Promise.all([getPayroll(tenantId), getEmployees(tenantId)])
       .then(([payRes, empRes]) => {
         setRecords(payRes.data || []);
         setEmployees(empRes.data || []);

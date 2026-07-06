@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
+from app.core.permissions import tenant_scope
 from app.services.analytics_service import (
     get_inventory_turnover_rate,
     get_machine_efficiency,
@@ -12,10 +13,12 @@ from app.services.analytics_service import (
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
+MODULE = "analytics"
+
 
 @router.get("/production-trend")
 def production_trend_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
     db: Session = Depends(get_db),
 ):
@@ -24,7 +27,7 @@ def production_trend_endpoint(
 
 @router.get("/machine-efficiency")
 def machine_efficiency_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
     return get_machine_efficiency(db, tenant_id)
@@ -32,7 +35,7 @@ def machine_efficiency_endpoint(
 
 @router.get("/inventory-turnover")
 def inventory_turnover_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
     return get_inventory_turnover_rate(db, tenant_id)
@@ -40,7 +43,7 @@ def inventory_turnover_endpoint(
 
 @router.get("/worker-performance")
 def worker_performance_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     db: Session = Depends(get_db),
 ):
     return get_worker_performance_score(db, tenant_id)
@@ -48,7 +51,7 @@ def worker_performance_endpoint(
 
 @router.get("/profit")
 def profit_analysis_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(...),
     db: Session = Depends(get_db),
 ):
@@ -57,7 +60,7 @@ def profit_analysis_endpoint(
 
 @router.get("/dashboard")
 def analytics_dashboard_endpoint(
-    tenant_id: int = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
     year: int = Query(None),
     db: Session = Depends(get_db),
 ):

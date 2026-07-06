@@ -1,1 +1,0 @@
-import{j as e}from"./react-vendor-BgZRF-UL.js";import{P as i}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function m(){return e.jsx(i,{title:"Machine Failure Alerts",description:"Real-time machine breakdown notifications."})}export{m as default};

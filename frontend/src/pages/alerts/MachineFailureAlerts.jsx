@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import AlertsView from "./AlertsView";
 
 export default function MachineFailureAlerts() {
-  return <PlaceholderPage title="Machine Failure Alerts" description="Real-time machine breakdown notifications." />;
+  return (
+    <AlertsView
+      title="Machine Failure Alerts"
+      subtitle="Machines reporting faults or breakdowns."
+      alertType="machine_failure"
+    />
+  );
 }

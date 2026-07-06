@@ -1,1 +1,0 @@
-import{j as e}from"./react-vendor-BgZRF-UL.js";import{P as t}from"./index-DYtybwXe.js";import"./i18n-qCBi0t2K.js";import"./axios-42ANG6Sg.js";import"./export-libs-BgiL1Z9o.js";function i(){return e.jsx(t,{title:"User Management",description:"Manage users and accounts."})}export{i as default};

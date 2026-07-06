@@ -1,5 +1,11 @@
-import PlaceholderPage from "../../components/common/PlaceholderPage";
+import DocumentsView from "./DocumentsView";
 
 export default function QualityCertificates() {
-  return <PlaceholderPage title="Quality Certificates" description="Quality certificates and compliance documents." />;
+  return (
+    <DocumentsView
+      title="Quality Certificates"
+      subtitle="Inspection certificates and compliance documents."
+      docType="quality"
+    />
+  );
 }

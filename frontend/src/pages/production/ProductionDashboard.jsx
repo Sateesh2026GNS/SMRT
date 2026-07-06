@@ -11,6 +11,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import ProductionManagerNav from "../../components/production/ProductionManagerNav";
 import { useToast } from "../../context/ToastContext";
 import { SearchBar, FilterSelect } from "../../components/common/SearchFilter";
 import SkeletonTable from "../../components/common/SkeletonTable";
@@ -23,8 +24,9 @@ import {
   updateWorkOrder,
   updateMachineStatus,
 } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const statusOptions = [
   { value: "pending", label: "Pending" },
@@ -42,6 +44,7 @@ const cardSkeleton = (
 );
 
 export default function ProductionDashboard({ title = "Production Dashboard" }) {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -108,10 +111,10 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
       setLoading(true);
       try {
         const [woRes, mRes, poRes, pRes] = await Promise.all([
-          getWorkOrders(TENANT_ID),
-          getMachines(TENANT_ID),
-          getProductionOrders(TENANT_ID),
-          getProducts(TENANT_ID),
+          getWorkOrders(tenantId),
+          getMachines(tenantId),
+          getProductionOrders(tenantId),
+          getProducts(tenantId),
         ]);
         setWorkOrders(woRes.data || []);
         setMachines(mRes.data || []);
@@ -138,7 +141,7 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
     if (isNaN(qty) || qty < 0) return;
     setActionLoading(wo.id);
     try {
-      await updateWorkOrder(wo.id, TENANT_ID, { actual_quantity: qty });
+      await updateWorkOrder(wo.id, tenantId, { actual_quantity: qty });
       setWorkOrders((prev) =>
         prev.map((w) => (w.id === wo.id ? { ...w, actual_quantity: qty } : w))
       );
@@ -155,7 +158,7 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
     if (!machineId) return;
     setAssigningMachineId(wo.id);
     try {
-      await updateWorkOrder(wo.id, TENANT_ID, { machine_id: Number(machineId) });
+      await updateWorkOrder(wo.id, tenantId, { machine_id: Number(machineId) });
       setWorkOrders((prev) =>
         prev.map((w) => (w.id === wo.id ? { ...w, machine_id: Number(machineId) } : w))
       );
@@ -170,7 +173,7 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
   const handleMachineAction = async (machine, newStatus) => {
     setActionLoading(`m-${machine.id}`);
     try {
-      await updateMachineStatus(machine.id, TENANT_ID, newStatus);
+      await updateMachineStatus(machine.id, tenantId, newStatus);
       setMachines((prev) =>
         prev.map((m) => (m.id === machine.id ? { ...m, status: newStatus } : m))
       );
@@ -194,6 +197,7 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
   if (loading) {
     return (
       <div className="space-y-6">
+        <ProductionManagerNav />
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
             {title}
@@ -211,6 +215,7 @@ export default function ProductionDashboard({ title = "Production Dashboard" }) 
 
   return (
     <div className="space-y-6">
+      <ProductionManagerNav />
       {/* Title + Quick Actions */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-bold text-slate-900 dark:text-white">

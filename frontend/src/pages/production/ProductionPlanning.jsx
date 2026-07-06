@@ -6,9 +6,12 @@ import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
-import { getProductionOrders } from "../../api/productionApi";
-
-const TENANT_ID = 1;
+import { useToast } from "../../context/ToastContext";
+import {
+  getProductionOrders,
+  getProducts,
+  updateProductionOrderStatus,
+} from "../../api/productionApi";
 
 function formatDate(val) {
   if (!val) return "—";
@@ -16,26 +19,46 @@ function formatDate(val) {
   return isNaN(d.getTime()) ? val : d.toLocaleDateString(undefined, { dateStyle: "short" });
 }
 
+const STATUS_FLOW = {
+  planned: { next: "in_progress", label: "Start" },
+  pending: { next: "in_progress", label: "Start" },
+  in_progress: { next: "completed", label: "Complete" },
+};
+
 export default function ProductionPlanning() {
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
+
+  const productName = (id) =>
+    products.find((p) => p.id === id)?.name || `Product #${id}`;
+
+  const load = () => {
+    setLoading(true);
+    Promise.all([getProductionOrders(), getProducts()])
+      .then(([ordersRes, productsRes]) => {
+        setOrders(ordersRes.data || []);
+        setProducts(productsRes.data || []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
-    const loadOrders = async () => {
-      setLoading(true);
-      try {
-        const response = await getProductionOrders(TENANT_ID);
-        setOrders(response.data || []);
-      } catch (error) {
-        console.error("Failed to load production orders", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadOrders();
+    load();
   }, []);
+
+  const handleStatus = async (id, status) => {
+    try {
+      await updateProductionOrderStatus(id, status);
+      addToast(`Order updated to ${status}`);
+      load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Update failed", "error");
+    }
+  };
 
   if (loading) {
     return <Loader label={t("production.loadingProduction")} />;
@@ -43,11 +66,41 @@ export default function ProductionPlanning() {
 
   const columns = [
     { key: "order_number", label: t("dashboard.order") },
-    { key: "product_id", label: t("dashboard.product") },
+    {
+      key: "product_id",
+      label: t("dashboard.product"),
+      render: (r) => productName(r.product_id),
+    },
     { key: "planned_quantity", label: t("production.plannedQty") },
-    { key: "start_date", label: t("createProduction.startDate").replace(" Date", ""), render: (r) => formatDate(r.start_date) },
-    { key: "due_date", label: t("createProduction.dueDate").replace(" Date", ""), render: (r) => formatDate(r.due_date) },
+    {
+      key: "start_date",
+      label: t("createProduction.startDate").replace(" Date", ""),
+      render: (r) => formatDate(r.start_date),
+    },
+    {
+      key: "due_date",
+      label: t("createProduction.dueDate").replace(" Date", ""),
+      render: (r) => formatDate(r.due_date),
+    },
     { key: "status", label: t("dashboard.status"), statusBadge: true },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (r) => {
+        const flow = STATUS_FLOW[r.status];
+        if (!flow) return "—";
+        return (
+          <button
+            type="button"
+            onClick={() => handleStatus(r.id, flow.next)}
+            className="rounded-lg border border-teal-200 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-50"
+          >
+            {flow.label}
+          </button>
+        );
+      },
+    },
   ];
 
   const emptyState = (
@@ -81,8 +134,7 @@ export default function ProductionPlanning() {
         <DataTable
           columns={columns}
           data={orders}
-          searchPlaceholder={t("common.search")}
-          searchKeys={["order_number", "product_id"]}
+          searchKeys={["order_number", "status"]}
           emptyState={emptyState}
         />
       </div>

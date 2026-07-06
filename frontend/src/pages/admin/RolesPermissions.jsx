@@ -1,57 +1,333 @@
-import { ROLES, ROLE_PERMISSIONS } from "../../config/permissions";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { Plus, Pencil, Trash2, ShieldCheck, Lock, Users } from "lucide-react";
 
-const MODULE_LABELS = {
-  dashboard: "Dashboard",
-  production: "Production",
-  inventory: "Inventory",
-  procurement: "Procurement",
-  hr: "HR & Employees",
-  sales: "Sales & Billing",
-  accounts: "Accounts & Reports",
-  quality: "Quality Control",
-  maintenance: "Maintenance",
-  analytics: "Analytics",
-  alerts: "Alerts & Notifications",
-  admin: "Security & Roles",
-  documents: "Documents",
-};
+import PageHeader from "../../components/common/PageHeader";
+import { Input, Textarea } from "../../components/common/FormField";
+import AdminModal from "../../components/admin/AdminModal";
+import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import AccessDenied from "../../components/admin/AccessDenied";
+import usePermissions from "../../hooks/usePermissions";
+import { useToast } from "../../context/ToastContext";
+import {
+  getRoles,
+  getModules,
+  createRole,
+  updateRole,
+  deleteRole,
+} from "../../api/adminApi";
+
+const EMPTY_FORM = { name: "", description: "", permissions: [] };
 
 export default function RolesPermissions() {
+  const { pathname } = useLocation();
+  const permissionsOnly = pathname.includes("/permissions");
+  const { isAdmin } = usePermissions();
+  const { addToast } = useToast();
+
+  const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([getRoles(), getModules()])
+      .then(([r, m]) => {
+        setRoles(r.data || []);
+        setModules(m.data || []);
+      })
+      .catch(() => addToast("Failed to load roles", "error"))
+      .finally(() => setLoading(false));
+  }, [addToast]);
+
+  useEffect(() => {
+    if (isAdmin) load();
+  }, [isAdmin, load]);
+
+  if (!isAdmin) return <AccessDenied />;
+
+  const labelFor = (code) => modules.find((m) => m.code === code)?.label || code;
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  const openEdit = (role) => {
+    setEditing(role);
+    setForm({
+      name: role.name,
+      description: role.description || "",
+      permissions: [...(role.permissions || [])],
+    });
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  const togglePermission = (code) => {
+    setForm((f) => ({
+      ...f,
+      permissions: f.permissions.includes(code)
+        ? f.permissions.filter((c) => c !== code)
+        : [...f.permissions, code],
+    }));
+  };
+
+  const selectAll = () => setForm((f) => ({ ...f, permissions: modules.map((m) => m.code) }));
+  const clearAll = () => setForm((f) => ({ ...f, permissions: [] }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.name.trim()) {
+      setErrors({ name: "Role name is required" });
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editing) {
+        await updateRole(editing.id, {
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          permissions: form.permissions,
+        });
+        addToast("Role updated");
+      } else {
+        await createRole({
+          name: form.name.trim(),
+          description: form.description.trim() || null,
+          permissions: form.permissions,
+        });
+        addToast("Role created");
+      }
+      setModalOpen(false);
+      load();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Could not save role", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await deleteRole(toDelete.id);
+      addToast("Role deleted");
+      setToDelete(null);
+      load();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Could not delete role", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const isAdminRole = editing?.is_system;
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-      <h1 className="text-2xl font-bold text-slate-800">Security & Roles</h1>
-      <p className="mt-1 text-slate-500">
-        Each role sees different screens. Assign roles to users to control access.
-      </p>
-
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ROLES.map((role) => (
-          <div
-            key={role.id}
-            className="rounded-xl border border-slate-200 bg-slate-50/50 p-4"
+    <div className="space-y-6">
+      <PageHeader
+        title={permissionsOnly ? "Permissions" : "Roles"}
+        subtitle={
+          permissionsOnly
+            ? "Assign module access to roles and control what each team can use."
+            : "Define roles and control which modules each role can access across the system."
+        }
+        action={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
           >
-            <h3 className="font-semibold text-slate-800">{role.name}</h3>
-            <p className="mt-1 text-sm text-slate-500">{role.description}</p>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {(ROLE_PERMISSIONS[role.name] || []).map((mod) => (
-                <span
-                  key={mod}
-                  className="inline-flex rounded-md bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800"
-                >
-                  {MODULE_LABELS[mod] || mod}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+            <Plus className="h-4 w-4" />
+            Add Role
+          </button>
+        }
+      />
 
-      <div className="mt-8 rounded-lg border border-amber-200 bg-amber-50 p-4">
-        <p className="text-sm font-medium text-amber-800">Tip</p>
-        <p className="mt-1 text-sm text-amber-700">
-          Use Demo Login to switch roles and see how each role sees different sidebar menus.
-        </p>
-      </div>
+      {loading ? (
+        <p className="py-10 text-center text-sm text-slate-500">Loading roles…</p>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {roles.map((role) => (
+            <div
+              key={role.id}
+              className="flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-800"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  {role.is_system ? (
+                    <ShieldCheck className="h-5 w-5 text-teal-600" />
+                  ) : (
+                    <Lock className="h-5 w-5 text-slate-400" />
+                  )}
+                  <h3 className="font-semibold text-slate-900 dark:text-slate-100">{role.name}</h3>
+                </div>
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-300">
+                  <Users className="h-3 w-3" />
+                  {role.user_count}
+                </span>
+              </div>
+              <p className="mt-1 min-h-[2.5rem] text-sm text-slate-500 dark:text-slate-400">
+                {role.description || "No description"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {role.is_system ? (
+                  <span className="inline-flex rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300">
+                    Full access (all modules)
+                  </span>
+                ) : role.permissions.length ? (
+                  role.permissions.map((code) => (
+                    <span
+                      key={code}
+                      className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-slate-700 dark:text-slate-300"
+                    >
+                      {labelFor(code)}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-400">No modules granted</span>
+                )}
+              </div>
+              <div className="mt-4 flex justify-end gap-1 border-t border-slate-100 pt-3 dark:border-slate-700/50">
+                <button
+                  type="button"
+                  onClick={() => openEdit(role)}
+                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-slate-600 hover:bg-teal-50 hover:text-teal-600 dark:text-slate-300 dark:hover:bg-teal-900/20"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setToDelete(role)}
+                  disabled={role.is_system || role.user_count > 0}
+                  title={
+                    role.is_system
+                      ? "The Admin role cannot be deleted"
+                      : role.user_count > 0
+                        ? "Reassign users before deleting this role"
+                        : "Delete role"
+                  }
+                  className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 dark:text-slate-300 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AdminModal
+        title={editing ? "Edit Role" : "Add Role"}
+        subtitle="Select the modules this role can access."
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Role Name"
+            required
+            value={form.name}
+            error={errors.name}
+            disabled={isAdminRole}
+            hint={isAdminRole ? "The Admin role cannot be renamed." : undefined}
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            placeholder="e.g. Quality Inspector"
+          />
+          <Textarea
+            label="Description"
+            rows={2}
+            value={form.description}
+            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+            placeholder="What can this role do?"
+          />
+
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Module Permissions
+              </label>
+              {!isAdminRole && (
+                <div className="flex gap-2 text-xs">
+                  <button type="button" onClick={selectAll} className="text-teal-600 hover:underline">
+                    Select all
+                  </button>
+                  <span className="text-slate-300">|</span>
+                  <button type="button" onClick={clearAll} className="text-slate-500 hover:underline">
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isAdminRole ? (
+              <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 text-sm text-teal-800 dark:border-teal-900/40 dark:bg-teal-900/20 dark:text-teal-300">
+                The Admin role always has full access to every module and cannot be restricted.
+              </div>
+            ) : (
+              <div className="grid max-h-64 grid-cols-1 gap-1.5 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-600 sm:grid-cols-2">
+                {modules.map((m) => (
+                  <label
+                    key={m.code}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.permissions.includes(m.code)}
+                      onChange={() => togglePermission(m.code)}
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : editing ? "Save Changes" : "Create Role"}
+            </button>
+          </div>
+        </form>
+      </AdminModal>
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Delete role"
+        message={`Delete the "${toDelete?.name}" role? This cannot be undone.`}
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setToDelete(null)}
+      />
     </div>
   );
 }

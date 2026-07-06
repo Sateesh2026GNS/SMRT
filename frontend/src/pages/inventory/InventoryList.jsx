@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
+import { Plus } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
@@ -7,10 +8,17 @@ import {
   getInventoryDashboard,
   getItemByBarcode,
 } from "../../api/inventoryApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
 
-export default function InventoryList() {
+
+export default function InventoryList({
+  title = "Raw Material Tracking",
+  itemType,
+  createPath = "/inventory/items/create",
+  createLabel = "Create Item",
+}) {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
   const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -20,7 +28,7 @@ export default function InventoryList() {
 
   const fetchItems = async () => {
     try {
-      const res = await getInventoryDashboard(TENANT_ID);
+      const res = await getInventoryDashboard(itemType);
       let data = res.data || [];
       if (showLowStockOnly) data = data.filter((i) => i.needs_reorder);
       setItems(data);
@@ -32,14 +40,14 @@ export default function InventoryList() {
   useEffect(() => {
     setLoading(true);
     fetchItems().finally(() => setLoading(false));
-  }, [showLowStockOnly]);
+  }, [showLowStockOnly, itemType]);
 
   const handleBarcodeSubmit = async (e) => {
     e.preventDefault();
     if (!barcodeInput.trim()) return;
     setBarcodeResult(null);
     try {
-      const res = await getItemByBarcode(TENANT_ID, barcodeInput.trim());
+      const res = await getItemByBarcode(tenantId, barcodeInput.trim());
       setBarcodeResult(res.data);
       setBarcodeInput("");
       if (res.data?.found) fetchItems();
@@ -55,8 +63,11 @@ export default function InventoryList() {
   return (
     <div style={{ display: "grid", gap: "16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Raw Material Tracking</h2>
-        <Link to="/inventory/items/create">Create Item</Link>
+        <h2>{title}</h2>
+        <Link to={createPath} className="ui-btn-primary">
+          <Plus className="h-4 w-4" />
+          {createLabel}
+        </Link>
       </div>
 
       <section

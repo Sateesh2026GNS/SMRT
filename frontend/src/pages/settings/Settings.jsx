@@ -68,7 +68,7 @@ export default function Settings() {
               onChange={(e) => updateCompanyName(e.target.value)}
               onBlur={showSaved}
               className="mt-1.5 w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 px-3 py-2 text-slate-900 dark:text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-              placeholder="Acme Manufacturing"
+              placeholder="GNS"
             />
           </div>
           <div>

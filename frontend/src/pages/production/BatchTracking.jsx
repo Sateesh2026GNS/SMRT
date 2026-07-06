@@ -6,8 +6,9 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getBatches } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 function formatDateTime(val) {
   if (!val) return "—";
@@ -16,6 +17,7 @@ function formatDateTime(val) {
 }
 
 export default function BatchTracking() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState([]);
@@ -24,7 +26,7 @@ export default function BatchTracking() {
     const loadBatches = async () => {
       setLoading(true);
       try {
-        const response = await getBatches(TENANT_ID);
+        const response = await getBatches(tenantId);
         setBatches(response.data || []);
       } catch (error) {
         console.error("Failed to load batches", error);

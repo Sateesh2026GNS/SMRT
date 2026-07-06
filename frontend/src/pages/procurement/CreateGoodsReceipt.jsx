@@ -3,11 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
-import { createGoodsReceipt } from "../../api/procurementApi";
-import { getWarehouses } from "../../api/inventoryApi";
-import { getPurchaseOrders } from "../../api/procurementApi";
-
-const TENANT_ID = 1;
+import InventoryLineItems from "../../components/common/InventoryLineItems";
+import useTenantId from "../../hooks/useTenantId";
+import { createGoodsReceipt, getPurchaseOrders } from "../../api/procurementApi";
+import { getWarehouses, getInventoryDashboard } from "../../api/inventoryApi";
 
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
@@ -16,11 +15,15 @@ const STATUSES = ["received", "partial", "rejected"];
 
 export default function CreateGoodsReceipt() {
   const navigate = useNavigate();
+  const tenantId = useTenantId();
   const [warehouses, setWarehouses] = useState([]);
   const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [lineItems, setLineItems] = useState([
+    { item_id: "", quantity_received: "", quantity_rejected: "0" },
+  ]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
     grn_number: "",
     receipt_date: new Date().toISOString().slice(0, 10),
     warehouse_id: "",
@@ -33,23 +36,39 @@ export default function CreateGoodsReceipt() {
 
   useEffect(() => {
     Promise.all([
-      getWarehouses(TENANT_ID).then((r) => setWarehouses(r.data || [])),
-      getPurchaseOrders(TENANT_ID).then((r) => setPurchaseOrders(r.data || [])),
+      getWarehouses().then((r) => setWarehouses(r.data || [])),
+      getPurchaseOrders().then((r) => setPurchaseOrders(r.data || [])),
+      getInventoryDashboard().then((r) => setInventoryItems(r.data || [])),
     ]).finally(() => setLoading(false));
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validLines = lineItems.filter(
+      (l) => l.item_id && Number(l.quantity_received) > 0
+    );
+    if (validLines.length === 0) {
+      setError("Add at least one line with received quantity.");
+      return;
+    }
     setError("");
     setSaving(true);
     try {
       await createGoodsReceipt({
-        ...form,
+        tenant_id: tenantId,
         grn_number: form.grn_number || `GRN-${Date.now()}`,
+        receipt_date: form.receipt_date,
         warehouse_id: Number(form.warehouse_id),
-        purchase_order_id: form.purchase_order_id ? Number(form.purchase_order_id) : null,
+        purchase_order_id: form.purchase_order_id
+          ? Number(form.purchase_order_id)
+          : null,
+        status: form.status,
         notes: form.notes || null,
-        line_items: [],
+        line_items: validLines.map((l) => ({
+          item_id: Number(l.item_id),
+          quantity_received: Number(l.quantity_received),
+          quantity_rejected: Number(l.quantity_rejected) || 0,
+        })),
       });
       navigate("/procurement/goods-receipt");
     } catch (err) {
@@ -62,13 +81,13 @@ export default function CreateGoodsReceipt() {
   if (loading) {
     return (
       <div className="flex min-h-[12rem] items-center justify-center">
-        <p className="text-sm text-slate-500">Loading warehouses…</p>
+        <p className="text-sm text-slate-500">Loading…</p>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <Link
         to="/procurement/goods-receipt"
         className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
@@ -78,7 +97,7 @@ export default function CreateGoodsReceipt() {
       </Link>
       <PageHeader
         title="New goods receipt (GRN)"
-        subtitle="Record received goods. Link to a purchase order or record standalone."
+        subtitle="Record received goods. Stock is updated automatically in the selected warehouse."
       />
       <form onSubmit={handleSubmit} className="ui-card space-y-4 p-6">
         {error && (
@@ -146,6 +165,12 @@ export default function CreateGoodsReceipt() {
             ))}
           </select>
         </label>
+        <InventoryLineItems
+          items={inventoryItems}
+          lines={lineItems}
+          onChange={setLineItems}
+          mode="grn"
+        />
         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
           Status
           <select

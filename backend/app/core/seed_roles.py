@@ -1,72 +1,57 @@
-"""Seed default roles with permissions for tenant 1."""
+"""Seed default roles with permissions for a tenant."""
 
-# Module codes mapped to sidebar sections
-MODULES = [
-    "dashboard",
-    "production",
-    "inventory",
-    "procurement",
-    "hr",
-    "sales",
-    "accounts",
-    "quality",
-    "maintenance",
-    "analytics",
-    "alerts",
-    "admin",
-    "documents",
-]
+from app.core.rbac_constants import MODULE_CATALOG, PERMISSION_MATRIX
+
+MODULES = [m["code"] for m in MODULE_CATALOG]
+
+
+def _permissions_for_role(name: str) -> list[str]:
+    spec = PERMISSION_MATRIX.get(name, {})
+    perms = list(spec.get("modules", []))
+    perms.extend(spec.get("actions", []))
+    if name == "Admin":
+        return MODULES
+    return perms
+
 
 DEFAULT_ROLES = [
     {
-        "name": "Admin",
-        "description": "Full system access. Can manage all modules and security.",
-        "permissions": MODULES,  # All modules
-    },
-    {
-        "name": "Production Manager",
-        "description": "Oversees production, inventory, quality, maintenance, and analytics.",
-        "permissions": ["dashboard", "production", "inventory", "quality", "maintenance", "analytics", "alerts"],
-    },
-    {
-        "name": "Store Manager",
-        "description": "Manages inventory, warehouses, and procurement.",
-        "permissions": ["dashboard", "inventory", "procurement", "alerts"],
-    },
-    {
-        "name": "HR Manager",
-        "description": "Manages employees, attendance, payroll, and performance.",
-        "permissions": ["dashboard", "hr"],
-    },
-    {
-        "name": "Accountant",
-        "description": "Access to accounts, sales, procurement for financial operations.",
-        "permissions": ["dashboard", "accounts", "sales", "procurement", "documents"],
-    },
-    {
-        "name": "Operator",
-        "description": "Shop-floor access: production work orders, batches, machine status.",
-        "permissions": ["dashboard", "production"],
-    },
+        "name": name,
+        "description": spec["description"],
+        "permissions": _permissions_for_role(name),
+    }
+    for name, spec in PERMISSION_MATRIX.items()
 ]
 
 
-def seed_roles(db):
-    """Ensure default roles exist for tenant 1."""
+def seed_roles(db, tenant_id: int = 1):
     from sqlalchemy import select
 
     from app.models.role import Role
 
-    stmt = select(Role).where(Role.tenant_id == 1)
-    existing = {r.name for r in db.scalars(stmt).all()}
-    for r in DEFAULT_ROLES:
-        if r["name"] not in existing:
-            role = Role(
-                tenant_id=1,
-                name=r["name"],
-                description=r["description"],
-                permissions=r["permissions"],
+    existing_roles = {
+        r.name: r for r in db.scalars(select(Role).where(Role.tenant_id == tenant_id)).all()
+    }
+    for spec in DEFAULT_ROLES:
+        if spec["name"] not in existing_roles:
+            db.add(
+                Role(
+                    tenant_id=tenant_id,
+                    name=spec["name"],
+                    description=spec["description"],
+                    permissions=spec["permissions"],
+                )
             )
-            db.add(role)
-            existing.add(r["name"])
+    db.flush()
+    for spec in DEFAULT_ROLES:
+        role = db.scalars(
+            select(Role).where(Role.tenant_id == tenant_id, Role.name == spec["name"])
+        ).first()
+        if role:
+            role.description = spec["description"]
+            role.permissions = spec["permissions"]
     db.commit()
+
+
+def seed_roles_for_tenant(db, tenant_id: int):
+    seed_roles(db, tenant_id)

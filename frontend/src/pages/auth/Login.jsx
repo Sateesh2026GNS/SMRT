@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-
 import { login as loginApi } from "../../api/authApi";
 import { ROLES } from "../../config/permissions";
 import useAuth from "../../hooks/useAuth";
+import AuthSlider from "../../components/auth/AuthSlider";
+import PasswordInput from "../../components/auth/PasswordInput";
 
 const EnvelopeIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
   </svg>
 );
 
 const LockIcon = () => (
-  <svg className="h-5 w-5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
   </svg>
 );
@@ -22,14 +23,35 @@ export default function Login() {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [demoRole, setDemoRole] = useState("Operator");
   const [loading, setLoading] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleDemoLogin = () => {
-    login({ name: demoRole, role: demoRole });
-    navigate("/");
+  // Seeded demo accounts (see backend/app/core/seed_users.py)
+  const DEMO_CREDENTIALS = {
+    Admin: { email: "admin@smrt.local", password: "admin123" },
+    "Production Manager": { email: "production@smrt.local", password: "demo123" },
+    "Store Manager": { email: "store@smrt.local", password: "demo123" },
+    "HR Manager": { email: "hr@smrt.local", password: "demo123" },
+    Accountant: { email: "accounts@smrt.local", password: "demo123" },
+    Operator: { email: "operator@smrt.local", password: "demo123" },
+  };
+
+  const handleDemoLogin = async () => {
+    setError("");
+    const creds = DEMO_CREDENTIALS[demoRole] || DEMO_CREDENTIALS.Operator;
+    setDemoLoading(true);
+    try {
+      const data = await loginApi(creds.email, creds.password);
+      login({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
+      navigate("/");
+    } catch (err) {
+      const msg = err.response?.data?.detail;
+      setError(typeof msg === "string" ? msg : "Demo login failed. Is the API running?");
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -42,7 +64,7 @@ export default function Login() {
     setLoading(true);
     try {
       const data = await loginApi(email.trim(), password);
-      login({ access_token: data.access_token, user: data.user });
+      login({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
       navigate("/");
     } catch (err) {
       const msg = err.response?.data?.detail;
@@ -53,131 +75,100 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#0c1222] relative overflow-hidden">
-      {/* Industrial-style background: gradient + subtle pattern */}
-      <div
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-40"
-        style={{
-          backgroundImage: `url('https://images.unsplash.com/photo-1565793298595-6a879b1d9492?w=1920')`,
-          filter: "blur(4px) saturate(0.7) brightness(0.4)",
-        }}
-      />
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-blue-950/90 to-slate-900/95" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,rgba(20,184,166,0.08)_0%,transparent_50%)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_70%_80%,rgba(13,148,136,0.06)_0%,transparent_50%)]" />
-
-      <div className="relative w-full max-w-md">
-        {/* Glassmorphism form */}
-        <div
-          className="rounded-2xl p-8 md:p-10 shadow-2xl border border-slate-500/30"
-          style={{
-            background: "rgba(30, 41, 59, 0.5)",
-            backdropFilter: "blur(20px)",
-            boxShadow: "0 0 0 1px rgba(148, 163, 184, 0.1), 0 0 40px -10px rgba(13, 148, 136, 0.25), inset 0 1px 0 rgba(255,255,255,0.05)",
-          }}
-        >
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight">
-              SMR<span className="text-teal-400">T</span>
-            </h1>
-            <p className="text-white/90 text-lg mt-1 font-medium">Manufacturing ERP</p>
-            <p className="text-slate-400 text-sm mt-1">Systematic Manufacturing Real-time Tracking</p>
-          </div>
-
-          {error && (
-            <div className="mb-4 rounded-lg border border-red-500/50 bg-red-500/10 px-3 py-2 text-sm text-red-200">{error}</div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="sr-only">Email</label>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-teal-500/50 focus-within:ring-1 focus-within:ring-teal-500/30 transition">
-                <EnvelopeIcon />
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
-                />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="w-full max-w-4xl">
+        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative" style={{ minHeight: "480px" }}>
+          <div className="flex">
+              {/* Left Panel - Login Form */}
+              <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white">
+              <div className="text-center mb-8 w-full">
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">SMRT</h1>
+                <p className="text-gray-600 text-sm">Manufacturing ERP</p>
+                <p className="text-gray-500 text-xs mt-1">Systematic Manufacturing Real-time Tracking</p>
               </div>
-            </div>
 
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <div className="flex items-center gap-3 rounded-xl bg-slate-800/60 border border-slate-600/50 px-4 py-3 focus-within:border-teal-500/50 focus-within:ring-1 focus-within:ring-teal-500/30 transition">
-                <LockIcon />
-                <input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
+              {error && (
+                <div className="w-full mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="w-full space-y-4">
+                <div className="relative">
+                  <div className="absolute left-4 top-3.5 text-gray-400">
+                    <EnvelopeIcon />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-gray-100 border-none rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+
+                <PasswordInput
                   placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="flex-1 bg-transparent text-white placeholder-slate-400 outline-none text-sm"
+                  leftIcon={<LockIcon />}
+                  autoComplete="current-password"
                 />
-              </div>
+
+                <div className="flex justify-between items-center text-xs">
+                  <Link to="/forgot-password" className="text-gray-600 hover:text-teal-600">Forgot Your Password?</Link>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white font-bold uppercase tracking-wider rounded-lg transition disabled:opacity-50"
+                >
+                  {loading ? "Signing in..." : "SIGN IN"}
+                </button>
+              </form>
+
+              <p className="text-xs text-gray-500 mt-2">API: admin@smrt.local / admin123</p>
             </div>
 
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="rounded border-slate-500 bg-slate-800/80 text-teal-500 focus:ring-teal-500/50"
-                />
-                Remember Me
-              </label>
-              <Link to="#" className="text-white/90 hover:text-teal-400 transition">Forgot Password?</Link>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl font-bold text-white uppercase tracking-wider text-sm transition shadow-lg hover:shadow-teal-500/20 disabled:opacity-50"
-              style={{
-                background: "linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)",
-                boxShadow: "0 4px 14px rgba(15, 118, 150, 0.35)",
-              }}
-            >
-              {loading ? "Signing in…" : "Login to SMRT"}
-            </button>
-          </form>
-
-          <p className="text-center text-slate-500 text-xs mt-2">API: admin@smrt.local / admin123</p>
-
-          <div className="mt-6 rounded-xl border-2 border-teal-500/50 bg-teal-500/10 p-4">
-            <p className="text-center text-sm font-semibold text-teal-400">Demo Login (no API)</p>
-            <p className="text-slate-300 text-xs mt-1 mb-2">Select role to see different screens:</p>
-            <select
-              value={demoRole}
-              onChange={(e) => setDemoRole(e.target.value)}
-              className="w-full rounded-lg border border-slate-600/50 bg-slate-800/80 px-3 py-2 text-sm text-white focus:border-teal-500/50 focus:outline-none"
-            >
-              {ROLES.map((r) => (
-                <option key={r.id} value={r.name}>{r.name}</option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={handleDemoLogin}
-              className="w-full mt-3 py-2.5 rounded-xl text-sm font-medium text-white transition"
-              style={{ background: "linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%)" }}
-            >
-              Continue as {demoRole}
-            </button>
+            {/* Right Panel - Image Slider + Register Prompt */}
+            <AuthSlider className="w-1/2">
+              <h2 className="text-4xl font-bold mb-4">Hello</h2>
+              <p className="text-center text-sm mb-8 max-w-xs text-teal-50/90">
+                Register with your personal details to use all of site features
+              </p>
+              <Link
+                to="/register"
+                className="px-8 py-3 border-2 border-white text-white font-bold uppercase rounded-lg hover:bg-white hover:text-teal-600 transition"
+              >
+                SIGN UP
+              </Link>
+            </AuthSlider>
+          </div>
           </div>
 
-          <p className="text-center text-slate-400 text-sm mt-4">
-            Don&apos;t have an account?{" "}
-            <Link to="/register" className="text-teal-400 hover:text-teal-300 underline">Register</Link>
-            {" · "}
-            <Link to="/landing" className="text-teal-400 hover:text-teal-300 underline">Learn more</Link>
-          </p>
+        {/* Demo Login Box */}
+        <div className="mt-6 bg-white rounded-2xl p-6 shadow-lg max-w-md">
+          <p className="text-center text-sm font-semibold text-teal-600 mb-3">Quick Login (seeded accounts)</p>
+          <p className="text-xs text-gray-600 text-center mb-3">Select a role to sign in with a real demo account:</p>
+          <select
+            value={demoRole}
+            onChange={(e) => setDemoRole(e.target.value)}
+            className="w-full p-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          >
+            {ROLES.map((r) => (
+              <option key={r.id} value={r.name}>
+                {r.name}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleDemoLogin}
+            disabled={demoLoading}
+            className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold uppercase text-sm rounded-lg transition disabled:opacity-50"
+          >
+            {demoLoading ? "Signing in..." : `Continue as ${demoRole}`}
+          </button>
         </div>
       </div>
     </div>

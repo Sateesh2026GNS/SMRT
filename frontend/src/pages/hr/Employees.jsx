@@ -4,15 +4,17 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getEmployees } from "../../api/hrApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function Employees() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
 
   useEffect(() => {
-    getEmployees(TENANT_ID)
+    getEmployees(tenantId)
       .then((r) => setEmployees(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

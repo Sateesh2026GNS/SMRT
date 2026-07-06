@@ -4,16 +4,18 @@ import { Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import Table from "../../components/common/Table";
 import { getPayments, getInvoices } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function PaymentTracking() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [payments, setPayments] = useState([]);
   const [invoices, setInvoices] = useState([]);
 
   useEffect(() => {
-    Promise.all([getPayments(TENANT_ID), getInvoices(TENANT_ID)])
+    Promise.all([getPayments(tenantId), getInvoices(tenantId)])
       .then(([pr, ir]) => {
         setPayments(pr.data || []);
         setInvoices(ir.data || []);

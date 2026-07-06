@@ -7,17 +7,21 @@ import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
-import { getPurchaseOrders } from "../../api/procurementApi";
-
-const TENANT_ID = 1;
+import { useToast } from "../../context/ToastContext";
+import {
+  getPurchaseOrders,
+  updatePurchaseOrderStatus,
+} from "../../api/procurementApi";
 
 function StatusPill({ status }) {
   const s = (status || "draft").toLowerCase();
   const map = {
     draft: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
+    approved: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
     sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
     received: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
     closed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
+    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
   };
   const cls = map[s] || map.draft;
   return (
@@ -29,18 +33,35 @@ function StatusPill({ status }) {
 
 export default function PurchaseOrders() {
   const { t } = useTranslation();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
   const [loadError, setLoadError] = useState("");
 
-  useEffect(() => {
-    getPurchaseOrders(TENANT_ID)
+  const load = () => {
+    setLoading(true);
+    setLoadError("");
+    getPurchaseOrders()
       .then((r) => setOrders(r.data || []))
       .catch(() => setLoadError("Could not load purchase orders. Is the API running?"))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    load();
   }, []);
 
-  if (loading) return <Loader label="Loading purchase orders..." />;
+  const handleStatus = async (id, status) => {
+    try {
+      await updatePurchaseOrderStatus(id, status);
+      addToast(`PO marked as ${status}`);
+      load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Update failed", "error");
+    }
+  };
+
+  if (loading && orders.length === 0) return <Loader label="Loading purchase orders..." />;
 
   const columns = [
     {
@@ -52,10 +73,16 @@ export default function PurchaseOrders() {
       key: "po_number",
       label: "PO #",
       render: (r) => (
-        <span className="font-medium text-teal-600 dark:text-teal-400">{r.po_number || `PO-${r.id}`}</span>
+        <span className="font-medium text-teal-600 dark:text-teal-400">
+          {r.po_number || `PO-${r.id}`}
+        </span>
       ),
     },
-    { key: "supplier_id", label: "Supplier", render: (r) => `Supplier #${r.supplier_id}` },
+    {
+      key: "supplier_name",
+      label: "Supplier",
+      render: (r) => r.supplier_name || `Supplier #${r.supplier_id}`,
+    },
     {
       key: "status",
       label: "Status",
@@ -69,6 +96,36 @@ export default function PurchaseOrders() {
         r.total_amount != null
           ? `₹${Number(r.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
           : "—",
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (r) => {
+        if (r.status === "draft") {
+          return (
+            <button
+              type="button"
+              onClick={() => handleStatus(r.id, "approved")}
+              className="rounded-lg border border-teal-200 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-50"
+            >
+              Approve
+            </button>
+          );
+        }
+        if (r.status === "approved") {
+          return (
+            <button
+              type="button"
+              onClick={() => handleStatus(r.id, "received")}
+              className="rounded-lg border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+            >
+              Mark received
+            </button>
+          );
+        }
+        return "—";
+      },
     },
   ];
 
@@ -86,12 +143,9 @@ export default function PurchaseOrders() {
     <div className="space-y-6">
       <PageHeader
         title="Purchase orders"
-        subtitle="View and manage your purchase orders in one place."
+        subtitle="View, approve, and track purchase orders."
         action={
-          <Link
-            to="/procurement/purchase-orders/create"
-            className="ui-btn-primary"
-          >
+          <Link to="/procurement/purchase-orders/create" className="ui-btn-primary">
             <Plus className="h-4 w-4" />
             New purchase order
           </Link>
@@ -107,7 +161,7 @@ export default function PurchaseOrders() {
           columns={columns}
           data={orders}
           searchPlaceholder={t("common.search")}
-          searchKeys={["po_number", "status"]}
+          searchKeys={["po_number", "status", "supplier_name"]}
           emptyState={emptyState}
         />
       </div>

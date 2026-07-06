@@ -8,8 +8,9 @@ import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
 import { getSalesOrders } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 const Dot = ({ done }) => (
   <span
@@ -44,6 +45,7 @@ const FILTERS = [
 ];
 
 export default function SalesOrders() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState([]);
@@ -53,7 +55,7 @@ export default function SalesOrders() {
   useEffect(() => {
     setLoading(true);
     setLoadError("");
-    getSalesOrders(TENANT_ID, filter === "all" ? null : filter)
+    getSalesOrders(tenantId, filter === "all" ? null : filter)
       .then((r) => setOrders(r.data || []))
       .catch(() => setLoadError("Could not load sales orders. Is the API running?"))
       .finally(() => setLoading(false));

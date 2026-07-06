@@ -7,10 +7,12 @@ import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import EmptyState from "../../components/common/EmptyState";
 import { getMachines } from "../../api/productionApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function MachineStatus() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [machines, setMachines] = useState([]);
@@ -19,7 +21,7 @@ export default function MachineStatus() {
     const loadMachines = async () => {
       setLoading(true);
       try {
-        const response = await getMachines(TENANT_ID);
+        const response = await getMachines(tenantId);
         setMachines(response.data || []);
       } catch (error) {
         console.error("Failed to load machines", error);

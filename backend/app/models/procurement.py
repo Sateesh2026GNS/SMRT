@@ -10,7 +10,9 @@ class PurchaseOrder(Base, TimestampMixin):
     __tablename__ = "purchase_orders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
     po_number: Mapped[str] = mapped_column(String(64), nullable=False)
     order_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -54,7 +56,9 @@ class MaterialRequest(Base, TimestampMixin):
     __tablename__ = "material_requests"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     mr_number: Mapped[str] = mapped_column(String(64), nullable=False)
     request_date: Mapped[date] = mapped_column(Date, nullable=False)
     required_date: Mapped[date | None] = mapped_column(Date)
@@ -90,7 +94,9 @@ class GoodsReceipt(Base, TimestampMixin):
     __tablename__ = "goods_receipts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     purchase_order_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_orders.id"))
     grn_number: Mapped[str] = mapped_column(String(64), nullable=False)
     receipt_date: Mapped[date] = mapped_column(Date, nullable=False)
@@ -130,7 +136,9 @@ class SupplierPayment(Base, TimestampMixin):
     __tablename__ = "supplier_payments"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
     payment_date: Mapped[date] = mapped_column(Date, nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)

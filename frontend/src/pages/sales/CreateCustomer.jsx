@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { createCustomer } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreateCustomer() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     name: "",
     contact_name: "",
     address_line1: "",

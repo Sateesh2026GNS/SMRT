@@ -12,6 +12,13 @@ from app.models.production import (
     ProductionOrder,
     WorkOrder,
 )
+from app.models.user import User
+from app.services.data_scope import (
+    operator_can_access_work_order,
+    production_manager_plant,
+    scope_daily_reports,
+    scope_work_orders,
+)
 from app.schemas.production import (
     BatchCreate,
     DailyProductionReportCreate,
@@ -51,8 +58,72 @@ def list_production_orders(db: Session, tenant_id: int) -> list[ProductionOrder]
     return list(db.scalars(stmt).all())
 
 
-def create_work_order(db: Session, payload: WorkOrderCreate) -> WorkOrder:
-    work_order = WorkOrder(**payload.model_dump())
+def update_production_order_status(
+    db: Session, order_id: int, tenant_id: int, status: str
+) -> ProductionOrder | None:
+    order = db.scalars(
+        select(ProductionOrder).where(
+            ProductionOrder.id == order_id, ProductionOrder.tenant_id == tenant_id
+        )
+    ).first()
+    if not order:
+        return None
+    previous_status = order.status
+    order.status = status
+    if status == "completed" and previous_status != "completed":
+        _receive_finished_goods_on_completion(db, order)
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def _completed_quantity(order: ProductionOrder, work_orders: list[WorkOrder]) -> int:
+    if work_orders:
+        total = sum(float(wo.actual_quantity or 0) for wo in work_orders)
+        if total > 0:
+            return int(total)
+    return int(float(order.planned_quantity or 0))
+
+
+def _receive_finished_goods_on_completion(db: Session, order: ProductionOrder) -> None:
+    """Stock finished goods when a production order is marked completed."""
+    from app.schemas.inventory import StockMovementCreate
+    from app.services.alert_service import sync_low_stock_alerts
+    from app.services.inventory_service import (
+        find_or_create_finished_good_for_product,
+        get_default_warehouse,
+        record_stock_movement,
+    )
+
+    product = db.get(Product, order.product_id)
+    if not product:
+        return
+    warehouse = get_default_warehouse(db, order.tenant_id)
+    if not warehouse:
+        return
+    work_orders = list_work_orders(db, order.tenant_id, order.id)
+    quantity = _completed_quantity(order, work_orders)
+    if quantity <= 0:
+        return
+    item = find_or_create_finished_good_for_product(db, order.tenant_id, product)
+    record_stock_movement(
+        db,
+        StockMovementCreate(
+            tenant_id=order.tenant_id,
+            warehouse_id=warehouse.id,
+            item_id=item.id,
+            quantity=quantity,
+            movement_type="in",
+        ),
+    )
+    sync_low_stock_alerts(db, order.tenant_id)
+
+
+def create_work_order(db: Session, payload: WorkOrderCreate, assigned_user_id: int | None = None) -> WorkOrder:
+    data = payload.model_dump()
+    if assigned_user_id is not None:
+        data["assigned_user_id"] = assigned_user_id
+    work_order = WorkOrder(**data)
     db.add(work_order)
     db.commit()
     db.refresh(work_order)
@@ -81,6 +152,7 @@ def quick_create_work_order(db: Session, payload: WorkOrderQuickCreate) -> WorkO
         work_order_number=wo_number,
         planned_quantity=payload.planned_quantity,
         status="planned",
+        plant_code=getattr(payload, "plant_code", None),
     )
     db.add(work_order)
     db.commit()
@@ -89,21 +161,33 @@ def quick_create_work_order(db: Session, payload: WorkOrderQuickCreate) -> WorkO
 
 
 def list_work_orders(
-    db: Session, tenant_id: int, production_order_id: int | None = None
+    db: Session,
+    tenant_id: int,
+    production_order_id: int | None = None,
+    user: User | None = None,
 ) -> list[WorkOrder]:
     stmt = select(WorkOrder).where(WorkOrder.tenant_id == tenant_id)
     if production_order_id is not None:
         stmt = stmt.where(WorkOrder.production_order_id == production_order_id)
+    if user is not None:
+        stmt = scope_work_orders(stmt, user)
     return list(db.scalars(stmt).all())
 
 
-def update_work_order(db: Session, work_order_id: int, tenant_id: int, **kwargs) -> WorkOrder | None:
-    stmt = select(WorkOrder).where(
-        WorkOrder.id == work_order_id, WorkOrder.tenant_id == tenant_id
-    )
-    wo = db.scalars(stmt).first()
+def get_work_order(db: Session, work_order_id: int, tenant_id: int) -> WorkOrder | None:
+    return db.scalars(
+        select(WorkOrder).where(WorkOrder.id == work_order_id, WorkOrder.tenant_id == tenant_id)
+    ).first()
+
+
+def update_work_order(
+    db: Session, work_order_id: int, tenant_id: int, user: User | None = None, **kwargs
+) -> WorkOrder | None:
+    wo = get_work_order(db, work_order_id, tenant_id)
     if not wo:
         return None
+    if user is not None and not operator_can_access_work_order(user, wo):
+        raise HTTPException(status_code=403, detail="You cannot modify this work order")
     for k, v in kwargs.items():
         if v is not None and hasattr(wo, k):
             setattr(wo, k, v)
@@ -137,15 +221,25 @@ def create_machine(db: Session, payload: MachineCreate) -> Machine:
     return machine
 
 
-def list_machines(db: Session, tenant_id: int) -> list[Machine]:
+def list_machines(db: Session, tenant_id: int, user: User | None = None) -> list[Machine]:
     stmt = select(Machine).where(Machine.tenant_id == tenant_id)
+    if user is not None and user.assigned_machine_id and "Operator" in {
+        r.name for r in user.roles
+    }:
+        stmt = stmt.where(Machine.id == user.assigned_machine_id)
+    elif user is not None and user.plant_code and "Production Manager" in {r.name for r in user.roles}:
+        stmt = stmt.where(
+            (Machine.plant_code == user.plant_code) | (Machine.plant_code.is_(None))
+        )
     return list(db.scalars(stmt).all())
 
 
-def update_machine_status(db: Session, machine_id: int, tenant_id: int, status: str) -> Machine | None:
-    stmt = select(Machine).where(
-        Machine.id == machine_id, Machine.tenant_id == tenant_id
-    )
+def update_machine_status(
+    db: Session, machine_id: int, tenant_id: int, status: str, user: User | None = None
+) -> Machine | None:
+    stmt = select(Machine).where(Machine.id == machine_id, Machine.tenant_id == tenant_id)
+    if user is not None and user.assigned_machine_id and "Operator" in {r.name for r in user.roles}:
+        stmt = stmt.where(Machine.id == user.assigned_machine_id)
     m = db.scalars(stmt).first()
     if not m:
         return None
@@ -175,9 +269,12 @@ def list_machine_status_events(
 
 
 def create_daily_production_report(
-    db: Session, payload: DailyProductionReportCreate
+    db: Session, payload: DailyProductionReportCreate, created_by_user_id: int | None = None
 ) -> DailyProductionReport:
-    report = DailyProductionReport(**payload.model_dump())
+    data = payload.model_dump()
+    if created_by_user_id is not None:
+        data["created_by_user_id"] = created_by_user_id
+    report = DailyProductionReport(**data)
     db.add(report)
     db.commit()
     db.refresh(report)
@@ -191,6 +288,7 @@ def list_daily_production_reports(
     date_to: date | None = None,
     work_order_id: int | None = None,
     machine_id: int | None = None,
+    user: User | None = None,
 ) -> list[DailyProductionReport]:
     stmt = select(DailyProductionReport).where(
         DailyProductionReport.tenant_id == tenant_id
@@ -203,4 +301,6 @@ def list_daily_production_reports(
         stmt = stmt.where(DailyProductionReport.work_order_id == work_order_id)
     if machine_id is not None:
         stmt = stmt.where(DailyProductionReport.machine_id == machine_id)
+    if user is not None:
+        stmt = scope_daily_reports(stmt, user)
     return list(db.scalars(stmt).all())

@@ -1,0 +1,63 @@
+import { describe, it, expect } from "vitest";
+
+import {
+  canAccess,
+  getModuleForPath,
+  isAdmin,
+  getEffectivePermissions,
+  userCanAccess,
+} from "./permissions";
+
+describe("canAccess", () => {
+  it("grants admins access to any module", () => {
+    expect(canAccess("Admin", "production")).toBe(true);
+    expect(canAccess("Admin", "accounts")).toBe(true);
+  });
+
+  it("restricts non-admin roles to their modules", () => {
+    expect(canAccess("HR Manager", "hr")).toBe(true);
+    expect(canAccess("HR Manager", "production")).toBe(false);
+  });
+
+  it("returns false for unknown roles or missing input", () => {
+    expect(canAccess(undefined, "hr")).toBe(false);
+    expect(canAccess("Ghost", "hr")).toBe(false);
+  });
+});
+
+describe("getModuleForPath", () => {
+  it("maps nested paths to the longest matching prefix", () => {
+    expect(getModuleForPath("/production/orders/5")).toBe("production");
+    expect(getModuleForPath("/factory-monitor/lines")).toBe("factoryMonitor");
+    expect(getModuleForPath("/")).toBe("dashboard");
+  });
+});
+
+describe("isAdmin", () => {
+  it("detects admins by role name, roles list, or permission", () => {
+    expect(isAdmin({ role: "Admin" })).toBe(true);
+    expect(isAdmin({ roles: ["Admin"] })).toBe(true);
+    expect(isAdmin({ permissions: ["*"] })).toBe(true);
+    expect(isAdmin({ role: "Operator", permissions: ["production"] })).toBe(false);
+    expect(isAdmin(null)).toBe(false);
+  });
+});
+
+describe("getEffectivePermissions / userCanAccess", () => {
+  it("prefers live API permissions over the static role map", () => {
+    const user = { role: "Operator", permissions: ["sales"] };
+    expect(getEffectivePermissions(user)).toEqual(["sales"]);
+    expect(userCanAccess(user, "sales")).toBe(true);
+    expect(userCanAccess(user, "production")).toBe(false);
+  });
+
+  it("falls back to the role map when no live permissions exist", () => {
+    const user = { role: "HR Manager" };
+    expect(userCanAccess(user, "hr")).toBe(true);
+    expect(userCanAccess(user, "sales")).toBe(false);
+  });
+
+  it("always allows admins", () => {
+    expect(userCanAccess({ role: "Admin" }, "anything")).toBe(true);
+  });
+});

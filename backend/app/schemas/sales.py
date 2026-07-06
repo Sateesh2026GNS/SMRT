@@ -119,3 +119,45 @@ class PaymentCreate(PaymentBase):
 class PaymentRead(PaymentBase):
     id: int
     model_config = ConfigDict(from_attributes=True)
+
+
+class LeadBase(BaseModel):
+    tenant_id: int
+    name: str
+    company: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    source: str | None = None
+    status: str = "new"
+    notes: str | None = None
+
+
+class LeadCreate(LeadBase):
+    pass
+
+
+class LeadRead(LeadBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)
+
+
+class QuotationBase(BaseModel):
+    tenant_id: int
+    quote_number: str
+    customer_id: int | None = None
+    lead_id: int | None = None
+    customer_name: str | None = None
+    quote_date: date
+    valid_until: date | None = None
+    status: str = "draft"
+    total_amount: float = 0
+    notes: str | None = None
+
+
+class QuotationCreate(QuotationBase):
+    pass
+
+
+class QuotationRead(QuotationBase):
+    id: int
+    model_config = ConfigDict(from_attributes=True)

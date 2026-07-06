@@ -3,17 +3,19 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import Loader from "../../components/common/Loader";
 import { getInvoices, createPayment } from "../../api/salesApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function CreatePayment() {
+  const tenantId = useTenantId();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedInvoice = searchParams.get("invoice_id");
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState([]);
   const [form, setForm] = useState({
-    tenant_id: TENANT_ID,
+    tenant_id: tenantId,
     invoice_id: preselectedInvoice || "",
     amount: "",
     payment_date: new Date().toISOString().slice(0, 10),
@@ -23,7 +25,7 @@ export default function CreatePayment() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getInvoices(TENANT_ID)
+    getInvoices(tenantId)
       .then((r) => setInvoices(r.data || []))
       .catch(console.error)
       .finally(() => setLoading(false));

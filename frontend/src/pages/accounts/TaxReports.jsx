@@ -3,16 +3,18 @@ import Loader from "../../components/common/Loader";
 import { getTaxReport } from "../../api/accountsApi";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function TaxReports() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    getTaxReport(TENANT_ID, year)
+    getTaxReport(tenantId, year)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));

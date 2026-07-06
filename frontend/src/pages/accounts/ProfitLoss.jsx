@@ -4,8 +4,9 @@ import Loader from "../../components/common/Loader";
 import { getProfitLoss } from "../../api/accountsApi";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const NAV_STYLE = {
   padding: "10px 16px",
@@ -20,13 +21,14 @@ const NAV_ACTIVE = { ...NAV_STYLE, background: "#1e3a8a" };
 const fmt = (v) => (v != null && v !== 0 ? Number(v).toLocaleString("en-US", { maximumFractionDigits: 0 }) : "- -");
 
 export default function ProfitLoss() {
+  const tenantId = useTenantId();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [year, setYear] = useState(new Date().getFullYear());
   const [view, setView] = useState("category");
 
   useEffect(() => {
-    getProfitLoss(TENANT_ID, year)
+    getProfitLoss(tenantId, year)
       .then((r) => setData(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));

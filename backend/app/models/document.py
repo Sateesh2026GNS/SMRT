@@ -8,7 +8,9 @@ class Document(Base, TimestampMixin):
     __tablename__ = "documents"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
     doc_type: Mapped[str] = mapped_column(String(64), nullable=False)
     # purchase, production, quality, reports
     title: Mapped[str] = mapped_column(String(255), nullable=False)

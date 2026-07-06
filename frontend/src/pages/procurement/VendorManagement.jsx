@@ -7,30 +7,38 @@ import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
 import EmptyState from "../../components/common/EmptyState";
-import { getVendors } from "../../api/procurementApi";
+import { StatusBadge } from "../../components/common/Table";
+import { useToast } from "../../context/ToastContext";
+import usePermissions from "../../hooks/usePermissions";
+import { getVendors, updateVendorApproval } from "../../api/procurementApi";
+import useTenantId from "../../hooks/useTenantId";
 
-const TENANT_ID = 1;
+
 
 export default function VendorManagement() {
+  const tenantId = useTenantId();
   const { t } = useTranslation();
+  const { isAdmin } = usePermissions();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [vendors, setVendors] = useState([]);
   const [loadError, setLoadError] = useState("");
 
+  const load = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const res = await getVendors(tenantId);
+      setVendors(res.data || []);
+    } catch (e) {
+      setLoadError("Could not load vendors. Is the API running?");
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const res = await getVendors(TENANT_ID);
-        setVendors(res.data || []);
-      } catch (e) {
-        setLoadError("Could not load vendors. Is the API running?");
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
     load();
   }, []);
 
@@ -41,6 +49,58 @@ export default function VendorManagement() {
     { key: "contact", label: "CONTACT", render: (r) => r.contact ?? "—" },
     { key: "email", label: "EMAIL", render: (r) => r.email ?? "—" },
     { key: "phone", label: "PHONE", render: (r) => r.phone ?? "—" },
+    {
+      key: "approval_status",
+      label: "APPROVAL",
+      render: (r) => (
+        <StatusBadge status={r.approval_status || "approved"} />
+      ),
+    },
+    ...(isAdmin
+      ? [
+          {
+            key: "actions",
+            label: "ACTIONS",
+            render: (r) =>
+              r.approval_status === "pending" ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await updateVendorApproval(r.id, "approved");
+                        addToast("Vendor approved");
+                        load();
+                      } catch (err) {
+                        addToast(err.response?.data?.detail || "Approval failed", "error");
+                      }
+                    }}
+                    className="rounded-lg border border-teal-200 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-50"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await updateVendorApproval(r.id, "rejected");
+                        addToast("Vendor rejected");
+                        load();
+                      } catch (err) {
+                        addToast(err.response?.data?.detail || "Update failed", "error");
+                      }
+                    }}
+                    className="rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                  >
+                    Reject
+                  </button>
+                </div>
+              ) : (
+                "—"
+              ),
+          },
+        ]
+      : []),
   ];
 
   const emptyState = (
