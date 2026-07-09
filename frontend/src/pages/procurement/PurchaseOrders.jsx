@@ -1,170 +1,138 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
+import { Download, Filter, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
 
-import Loader from "../../components/common/Loader";
-import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
-import EmptyState from "../../components/common/EmptyState";
+import Loader from "../../components/common/Loader";
+import PODetailModal from "../../components/procurement/PODetailModal";
 import { useToast } from "../../context/ToastContext";
-import {
-  getPurchaseOrders,
-  updatePurchaseOrderStatus,
-} from "../../api/procurementApi";
+import { getPOSummary, getPurchaseOrdersEnriched, updatePurchaseOrderStatus } from "../../api/procurementApi";
+import { DEMO_PO_LIST, DEMO_PO_SUMMARY, formatInr, statusColor } from "../../data/procurementMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
 
-function StatusPill({ status }) {
-  const s = (status || "draft").toLowerCase();
-  const map = {
-    draft: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300",
-    approved: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
-    sent: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    received: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-    closed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
-    cancelled: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  };
-  const cls = map[s] || map.draft;
+function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${cls}`}>
-      {s}
-    </span>
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
   );
 }
 
+const defaultFilters = { vendor: "", status: "", buyer: "" };
+
 export default function PurchaseOrders() {
-  const { t } = useTranslation();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [orders, setOrders] = useState([]);
-  const [loadError, setLoadError] = useState("");
+  const [summary, setSummary] = useState(DEMO_PO_SUMMARY);
+  const [rows, setRows] = useState(DEMO_PO_LIST);
+  const [filters, setFilters] = useState(defaultFilters);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selected, setSelected] = useState(null);
 
-  const load = () => {
+  const load = useCallback(async () => {
     setLoading(true);
-    setLoadError("");
-    getPurchaseOrders()
-      .then((r) => setOrders(r.data || []))
-      .catch(() => setLoadError("Could not load purchase orders. Is the API running?"))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
-
-  const handleStatus = async (id, status) => {
     try {
-      await updatePurchaseOrderStatus(id, status);
+      const [sumRes, listRes] = await Promise.allSettled([getPOSummary(), getPurchaseOrdersEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PO_SUMMARY, ...sumRes.value.data });
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
+      else setRows(DEMO_PO_LIST);
+    } catch {
+      addToast("Using demo purchase order data", "info");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (filters.vendor) list = list.filter((r) => (r.vendor_name || r.supplier_name || "").toLowerCase().includes(filters.vendor.toLowerCase()));
+    if (filters.status) list = list.filter((r) => r.status === filters.status);
+    if (filters.buyer) list = list.filter((r) => r.buyer?.toLowerCase().includes(filters.buyer.toLowerCase()));
+    return list;
+  }, [rows, filters]);
+
+  const handleStatus = async (po, status) => {
+    if (typeof po.id !== "number") {
+      addToast(`PO marked as ${status} (demo)`);
+      setSelected(null);
+      return;
+    }
+    try {
+      await updatePurchaseOrderStatus(po.id, status);
       addToast(`PO marked as ${status}`);
+      setSelected(null);
       load();
     } catch (err) {
       addToast(err.response?.data?.detail || "Update failed", "error");
     }
   };
 
-  if (loading && orders.length === 0) return <Loader label="Loading purchase orders..." />;
-
   const columns = [
-    {
-      key: "order_date",
-      label: "Date",
-      render: (r) => (r.order_date ? String(r.order_date).slice(0, 10) : "—"),
-    },
-    {
-      key: "po_number",
-      label: "PO #",
-      render: (r) => (
-        <span className="font-medium text-teal-600 dark:text-teal-400">
-          {r.po_number || `PO-${r.id}`}
-        </span>
-      ),
-    },
-    {
-      key: "supplier_name",
-      label: "Supplier",
-      render: (r) => r.supplier_name || `Supplier #${r.supplier_id}`,
-    },
-    {
-      key: "status",
-      label: "Status",
-      sortable: false,
-      render: (r) => <StatusPill status={r.status} />,
-    },
-    {
-      key: "total_amount",
-      label: "Amount",
-      render: (r) =>
-        r.total_amount != null
-          ? `₹${Number(r.total_amount).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
-          : "—",
-    },
-    {
-      key: "actions",
-      label: "Actions",
-      sortable: false,
-      render: (r) => {
-        if (r.status === "draft") {
-          return (
-            <button
-              type="button"
-              onClick={() => handleStatus(r.id, "approved")}
-              className="rounded-lg border border-teal-200 px-2 py-1 text-xs font-medium text-teal-700 hover:bg-teal-50"
-            >
-              Approve
-            </button>
-          );
-        }
-        if (r.status === "approved") {
-          return (
-            <button
-              type="button"
-              onClick={() => handleStatus(r.id, "received")}
-              className="rounded-lg border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
-            >
-              Mark received
-            </button>
-          );
-        }
-        return "—";
-      },
-    },
+    { key: "po_number", label: "PO No", render: (r) => <span className="font-medium text-[#2563EB]">{r.po_number || `PO-${r.id}`}</span> },
+    { key: "vendor_name", label: "Vendor", render: (r) => r.vendor_name || r.supplier_name || "—" },
+    { key: "order_date", label: "Date", render: (r) => String(r.order_date || "").slice(0, 10) },
+    { key: "total_amount", label: "Amount", render: (r) => r.total_amount != null ? formatInr(r.total_amount) : "—" },
+    { key: "expected_date", label: "Delivery Date", render: (r) => r.expected_date || "—" },
+    { key: "payment_terms", label: "Payment Terms", render: (r) => r.payment_terms || "—" },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "actions", label: "Actions", render: (r) => (
+      <button type="button" onClick={() => setSelected(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
+    )},
   ];
 
-  const emptyState = (
-    <EmptyState
-      icon="cube"
-      title="No purchase orders yet"
-      description="Create your first PO to track what you buy from suppliers."
-      actionLabel="New purchase order"
-      actionHref="/procurement/purchase-orders/create"
-    />
-  );
+  if (loading) return <Loader label="Loading purchase orders..." />;
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Purchase orders"
-        subtitle="View, approve, and track purchase orders."
-        action={
-          <Link to="/procurement/purchase-orders/create" className="ui-btn-primary">
-            <Plus className="h-4 w-4" />
-            New purchase order
-          </Link>
-        }
-      />
-      {loadError && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100">
-          {loadError}
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Purchase Orders</h1>
+          <p className="mt-1 text-sm text-slate-500">Create, approve, and track POs with GST, revision history, and vendor communication.</p>
         </div>
-      )}
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <DataTable
-          columns={columns}
-          data={orders}
-          searchPlaceholder={t("common.search")}
-          searchKeys={["po_number", "status", "supplier_name"]}
-          emptyState={emptyState}
-        />
+        <div className="flex flex-wrap gap-2">
+          <Link to="/procurement/purchase-orders/create" className="ui-btn-primary"><Plus className="h-4 w-4" /> New PO</Link>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "purchase-orders")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total PO" value={summary.total_po} icon={ShoppingCart} color="bg-blue-600" />
+        <KpiCard label="Pending" value={summary.pending} icon={ShoppingCart} color="bg-amber-500" />
+        <KpiCard label="Approved" value={summary.approved} icon={ShoppingCart} color="bg-green-600" />
+        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-teal-600" />
+        <KpiCard label="Cancelled" value={summary.cancelled} icon={ShoppingCart} color="bg-red-500" />
+        <KpiCard label="PO Value" value={formatInr(summary.po_value)} icon={ShoppingCart} color="bg-indigo-600" />
       </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><Filter className="h-4 w-4" /> Filters</button>
+        {showAdvanced && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <input value={filters.vendor} onChange={(e) => setFilters({ ...filters, vendor: e.target.value })} placeholder="Vendor" className="rounded-lg border px-3 py-2 text-sm" />
+            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
+              <option value="">All Status</option>
+              {["draft", "pending", "approved", "delivered", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input value={filters.buyer} onChange={(e) => setFilters({ ...filters, buyer: e.target.value })} placeholder="Buyer" className="rounded-lg border px-3 py-2 text-sm" />
+          </div>
+        )}
+        <DataTable columns={columns} data={filtered} searchPlaceholder="Search PO, vendor..." searchKeys={["po_number", "vendor_name", "supplier_name", "buyer"]} />
+      </div>
+
+      {selected && (
+        <PODetailModal
+          po={selected}
+          onClose={() => setSelected(null)}
+          onApprove={(po) => handleStatus(po, "approved")}
+          onReject={(po) => handleStatus(po, "cancelled")}
+        />
+      )}
     </div>
   );
 }

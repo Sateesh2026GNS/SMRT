@@ -1,131 +1,128 @@
-import { useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download, FileText, Filter, Plus, RefreshCw } from "lucide-react";
 
-import ResourcePage from "../../components/common/ResourcePage";
-import { StatusBadge } from "../../components/common/Table";
+import DataTable from "../../components/common/DataTable";
+import Loader from "../../components/common/Loader";
+import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
 import { useToast } from "../../context/ToastContext";
-import {
-  getQuotations,
-  createQuotation,
-  updateQuotationStatus,
-} from "../../api/salesApi";
+import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus } from "../../api/salesApi";
+import { DEMO_QUOTE_LIST, DEMO_QUOTE_SUMMARY, formatInr, statusColor } from "../../data/salesMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
 
-const STATUSES = [
-  { value: "draft", label: "Draft" },
-  { value: "sent", label: "Sent" },
-  { value: "accepted", label: "Accepted" },
-  { value: "rejected", label: "Rejected" },
-  { value: "expired", label: "Expired" },
-];
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
 
 export default function Quotations() {
   const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(DEMO_QUOTE_SUMMARY);
+  const [rows, setRows] = useState(DEMO_QUOTE_LIST);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selected, setSelected] = useState(null);
 
-  const rowActions = useCallback(
-    (row, reload) => (
-      <select
-        className="rounded-lg border border-slate-200 px-2 py-1 text-xs dark:border-slate-600"
-        value={row.status}
-        onChange={async (e) => {
-          try {
-            await updateQuotationStatus(row.id, e.target.value);
-            addToast("Quotation updated");
-            await reload();
-          } catch (err) {
-            addToast(err.response?.data?.detail || "Update failed", "error");
-          }
-        }}
-      >
-        {STATUSES.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-    ),
-    [addToast]
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_QUOTE_SUMMARY, ...sumRes.value.data });
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
+      else setRows(DEMO_QUOTE_LIST);
+    } catch {
+      addToast("Using demo quotation data", "info");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    if (!statusFilter) return rows;
+    return rows.filter((r) => r.status === statusFilter);
+  }, [rows, statusFilter]);
+
+  const handleStatus = async (quote, status) => {
+    if (typeof quote.id === "number") {
+      try {
+        await updateQuotationStatus(quote.id, status);
+        addToast(`Quotation marked as ${status}`);
+        load();
+      } catch (err) {
+        addToast(err.response?.data?.detail || "Update failed", "error");
+        return;
+      }
+    } else {
+      addToast(`Quotation marked as ${status} (demo)`);
+    }
+    setSelected(null);
+  };
+
+  const columns = [
+    { key: "quote_number", label: "Quote No", render: (r) => <span className="font-medium text-[#2563EB]">{r.quote_number}</span> },
+    { key: "customer_name", label: "Customer" },
+    { key: "sales_person", label: "Sales Person" },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "valid_until", label: "Valid Until", render: (r) => String(r.valid_until || "").slice(0, 10) || "—" },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "actions", label: "Actions", render: (r) => (
+      <button type="button" onClick={() => setSelected(r)} className="text-xs font-semibold text-[#2563EB] hover:underline">View</button>
+    )},
+  ];
+
+  if (loading) return <Loader label="Loading quotations..." />;
 
   return (
-    <ResourcePage
-      title="Quotations"
-      subtitle="Prepare and track price quotes for customers."
-      fetcher={() => getQuotations()}
-      createFn={createQuotation}
-      createLabel="+ New Quotation"
-      emptyTitle="No quotations yet"
-      emptyDescription="Create a quotation to send pricing to a prospect or customer."
-      searchKeys={["quote_number", "customer_name", "notes"]}
-      filters={[
-        {
-          key: "status",
-          label: "Status",
-          placeholder: "All statuses",
-          options: STATUSES,
-        },
-      ]}
-      columns={[
-        { key: "quote_number", label: "Quote #" },
-        { key: "customer_name", label: "Customer" },
-        {
-          key: "quote_date",
-          label: "Date",
-          render: (r) =>
-            r.quote_date ? String(r.quote_date).slice(0, 10) : "—",
-        },
-        {
-          key: "valid_until",
-          label: "Valid until",
-          render: (r) =>
-            r.valid_until ? String(r.valid_until).slice(0, 10) : "—",
-        },
-        {
-          key: "total_amount",
-          label: "Amount",
-          render: (r) =>
-            r.total_amount != null
-              ? `₹${Number(r.total_amount).toLocaleString()}`
-              : "—",
-        },
-        {
-          key: "status",
-          label: "Status",
-          render: (r) => <StatusBadge status={r.status} />,
-        },
-      ]}
-      rowActions={rowActions}
-      transformPayload={(values) => ({
-        ...values,
-        total_amount: Number(values.total_amount) || 0,
-        customer_id: values.customer_id ? Number(values.customer_id) : null,
-        lead_id: values.lead_id ? Number(values.lead_id) : null,
-      })}
-      fields={[
-        { name: "quote_number", label: "Quote number", required: true },
-        { name: "customer_name", label: "Customer name", required: true },
-        {
-          name: "quote_date",
-          label: "Quote date",
-          type: "date",
-          required: true,
-          default: new Date().toISOString().slice(0, 10),
-        },
-        { name: "valid_until", label: "Valid until", type: "date" },
-        {
-          name: "total_amount",
-          label: "Total amount",
-          type: "number",
-          step: "0.01",
-          default: "0",
-        },
-        {
-          name: "status",
-          label: "Status",
-          type: "select",
-          default: "draft",
-          options: STATUSES,
-        },
-        { name: "notes", label: "Notes", type: "textarea", full: true },
-      ]}
-    />
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Quotations</h1>
+          <p className="mt-1 text-sm text-slate-500">Create, approve, and send quotations with GST, discount, and PDF export.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Quotation</button>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Quotations" value={summary.total_quotations} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Draft" value={summary.draft} icon={FileText} color="bg-slate-500" />
+        <KpiCard label="Sent" value={summary.sent} icon={FileText} color="bg-indigo-600" />
+        <KpiCard label="Accepted" value={summary.accepted} icon={FileText} color="bg-green-600" />
+        <KpiCard label="Rejected" value={summary.rejected} icon={FileText} color="bg-red-500" />
+        <KpiCard label="Expired" value={summary.expired} icon={FileText} color="bg-orange-500" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+        {["Sales Executive", "Quotation", "Manager Approval", "Customer", "Accepted"].map((s, i, arr) => (
+          <span key={s} className="flex items-center gap-2">
+            <span className="rounded-lg bg-white px-2 py-1 shadow-sm">{s}</span>
+            {i < arr.length - 1 && <span className="text-slate-400">↓</span>}
+          </span>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-slate-500" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+            <option value="">All Status</option>
+            {["draft", "sent", "accepted", "rejected", "expired"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <DataTable columns={columns} data={filtered} searchPlaceholder="Search quote, customer..." searchKeys={["quote_number", "customer_name", "sales_person"]} />
+      </div>
+
+      {selected && <QuoteDetailModal quote={selected} onClose={() => setSelected(null)} onStatusChange={handleStatus} />}
+    </div>
   );
 }

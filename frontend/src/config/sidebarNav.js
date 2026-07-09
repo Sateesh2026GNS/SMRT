@@ -82,6 +82,7 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.sales",
     icon: Wallet,
     children: [
+      { labelKey: "erpNav.salesDashboard", to: "/sales/dashboard", module: "sales" },
       { labelKey: "erpNav.leads", to: "/sales/leads", module: "sales" },
       { labelKey: "erpNav.quotations", to: "/sales/quotations", module: "sales" },
       { labelKey: "erpNav.salesOrders", to: "/sales/orders", module: "sales" },
@@ -94,6 +95,7 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.hr",
     icon: Users,
     children: [
+      { labelKey: "erpNav.hrDashboard", to: "/hr", module: "hr" },
       { labelKey: "erpNav.employees", to: "/hr/employees", module: "hr" },
       { labelKey: "erpNav.attendance", to: "/hr/attendance", module: "hr" },
       { labelKey: "erpNav.leave", to: "/hr/leave", module: "hr" },
@@ -105,8 +107,10 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.finance",
     icon: Landmark,
     children: [
+      { labelKey: "erpNav.financeDashboard", to: "/accounts", module: "accounts" },
       { labelKey: "erpNav.accountsPayable", to: "/finance/accounts-payable", module: "accounts" },
       { labelKey: "erpNav.accountsReceivable", to: "/finance/accounts-receivable", module: "accounts" },
+      { labelKey: "erpNav.paymentTracking", to: "/finance/payment-tracking", module: "accounts" },
       { labelKey: "erpNav.generalLedger", to: "/finance/general-ledger", module: "accounts" },
       { labelKey: "erpNav.gstReports", to: "/accounts/tax-reports", module: "accounts" },
       { labelKey: "erpNav.profitLoss", to: "/accounts/profit-loss", module: "accounts" },
@@ -117,9 +121,11 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.quality",
     icon: CheckCircle2,
     children: [
+      { labelKey: "erpNav.qualityDashboard", to: "/quality", module: "quality" },
       { labelKey: "erpNav.incomingInspection", to: "/quality/incoming", module: "quality" },
       { labelKey: "erpNav.inProcessQc", to: "/quality/in-process", module: "quality" },
       { labelKey: "erpNav.finalQc", to: "/quality/final", module: "quality" },
+      { labelKey: "erpNav.batchReports", to: "/quality/batch-reports", module: "quality" },
       { labelKey: "erpNav.rejections", to: "/quality/defects", module: "quality" },
     ],
   },
@@ -128,9 +134,11 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.maintenance",
     icon: Wrench,
     children: [
+      { labelKey: "erpNav.maintenanceDashboard", to: "/maintenance", module: "maintenance" },
       { labelKey: "erpNav.preventiveMaintenance", to: "/maintenance/preventive", module: "maintenance" },
       { labelKey: "erpNav.breakdownMaintenance", to: "/maintenance/breakdowns", module: "maintenance" },
       { labelKey: "erpNav.machineHistory", to: "/maintenance/machine-history", module: "maintenance" },
+      { labelKey: "erpNav.maintenanceSchedule", to: "/maintenance/schedule", module: "maintenance" },
     ],
   },
   {
@@ -138,6 +146,8 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.analytics",
     icon: BarChart3,
     children: [
+      { labelKey: "erpNav.executiveDashboard", to: "/analytics/executive", module: "analytics" },
+      { labelKey: "erpNav.liveDashboard", to: "/analytics/live", module: "analytics" },
       { labelKey: "erpNav.productionKpi", to: "/analytics/production", module: "analytics" },
       { labelKey: "erpNav.inventoryKpi", to: "/analytics/inventory", module: "analytics" },
       { labelKey: "erpNav.salesKpi", to: "/analytics/sales", module: "analytics" },
@@ -165,4 +175,30 @@ export function isPathActive(pathname, to, end = false) {
 export function sectionHasActiveChild(pathname, section) {
   if (!section.children) return false;
   return section.children.some((c) => isPathActive(pathname, c.to, c.end));
+}
+
+/** Flat list of navigable routes for global search (path, label, module, optional section). */
+export function flattenNavForSearch() {
+  const items = [];
+  for (const section of SIDEBAR_NAV) {
+    if (section.to) {
+      items.push({
+        path: section.to,
+        labelKey: section.labelKey,
+        module: section.module,
+        sectionKey: null,
+      });
+    }
+    if (section.children) {
+      for (const child of section.children) {
+        items.push({
+          path: child.to,
+          labelKey: child.labelKey,
+          module: child.module,
+          sectionKey: section.labelKey,
+        });
+      }
+    }
+  }
+  return items;
 }

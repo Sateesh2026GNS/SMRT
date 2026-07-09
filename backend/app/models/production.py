@@ -19,6 +19,12 @@ class ProductionOrder(Base, TimestampMixin):
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     due_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False)
+    customer_name: Mapped[str | None] = mapped_column(String(255))
+    priority: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
+    bom_version: Mapped[str | None] = mapped_column(String(64))
+    sales_order_number: Mapped[str | None] = mapped_column(String(64))
+    department: Mapped[str | None] = mapped_column(String(128))
+    shift: Mapped[str | None] = mapped_column(String(64))
 
     tenant = relationship("Tenant", back_populates="production_orders")
     product = relationship("Product", back_populates="production_orders")
@@ -46,6 +52,10 @@ class WorkOrder(Base, TimestampMixin):
     planned_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     planned_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), default="planned", nullable=False)
+    priority: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
+    shift: Mapped[str | None] = mapped_column(String(64))
+    department: Mapped[str | None] = mapped_column(String(128))
+    supervisor: Mapped[str | None] = mapped_column(String(255))
 
     production_order = relationship("ProductionOrder", back_populates="work_orders")
     machine = relationship("Machine", back_populates="work_orders")

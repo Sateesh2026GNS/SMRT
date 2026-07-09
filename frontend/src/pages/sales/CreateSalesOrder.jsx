@@ -4,7 +4,8 @@ import { ArrowLeft } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import PageHeader from "../../components/common/PageHeader";
-import { getCustomers, createSalesOrder } from "../../api/salesApi";
+import { createSalesOrder } from "../../api/salesApi";
+import { fetchCustomersWithFallback, resolveCustomerId } from "../../utils/customerOptions";
 import useTenantId from "../../hooks/useTenantId";
 
 
@@ -30,8 +31,8 @@ export default function CreateSalesOrder() {
   });
 
   useEffect(() => {
-    getCustomers(tenantId)
-      .then((r) => setCustomers(r.data || []))
+    fetchCustomersWithFallback()
+      .then(setCustomers)
       .catch(() => setError("Could not load customers."))
       .finally(() => setLoading(false));
   }, []);
@@ -41,9 +42,10 @@ export default function CreateSalesOrder() {
     setError("");
     setSaving(true);
     try {
+      const customerId = await resolveCustomerId(form.customer_id, customers, tenantId);
       await createSalesOrder({
         ...form,
-        customer_id: Number(form.customer_id),
+        customer_id: customerId,
         order_number: form.order_number || `SO-${Date.now()}`,
         total_amount: Number(form.total_amount) || 0,
       });

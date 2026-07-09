@@ -39,6 +39,32 @@ from app.services.sales_service import (
     update_quotation_status,
     update_sales_order_dispatch,
 )
+from app.schemas.sales_extended import (
+    DispatchListRead,
+    DispatchSummaryRead,
+    InvoiceListEnrichedRead,
+    InvoiceSummaryRead,
+    LeadListRead,
+    LeadSummaryRead,
+    QuotationListRead,
+    QuotationSummaryRead,
+    SalesHubRead,
+    SOListRead,
+    SOSummaryRead,
+)
+from app.services.sales_extended_service import (
+    get_dispatch_summary,
+    get_invoice_summary,
+    get_lead_summary,
+    get_quotation_summary,
+    get_sales_hub,
+    get_so_summary,
+    list_dispatch_enriched,
+    list_invoices_enriched,
+    list_leads_enriched,
+    list_quotations_enriched,
+    list_so_enriched,
+)
 
 router = APIRouter(prefix="/sales", tags=["sales"])
 
@@ -255,3 +281,48 @@ def list_payments_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_payments(db, tenant_id, invoice_id)
+
+
+@router.get("/leads/summary", response_model=LeadSummaryRead)
+def leads_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_lead_summary(db, tenant_id)
+
+
+@router.get("/leads/enriched", response_model=list[LeadListRead])
+def leads_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_leads_enriched(db, tenant_id)
+
+
+@router.get("/quotations/summary", response_model=QuotationSummaryRead)
+def quotations_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_quotation_summary(db, tenant_id)
+
+
+@router.get("/quotations/enriched", response_model=list[QuotationListRead])
+def quotations_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_quotations_enriched(db, tenant_id)
+
+
+@router.get("/sales-orders/summary", response_model=SOSummaryRead)
+def so_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_so_summary(db, tenant_id)
+
+
+@router.get("/sales-orders/enriched", response_model=list[SOListRead])
+def so_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_so_enriched(db, tenant_id)
+
+
+@router.get("/invoices/summary", response_model=InvoiceSummaryRead)
+def invoices_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_invoice_summary(db, tenant_id)
+
+
+@router.get("/invoices/enriched", response_model=list[InvoiceListEnrichedRead])
+def invoices_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_invoices_enriched(db, tenant_id)
+
+
+@router.get("/hub", response_model=SalesHubRead)
+def sales_hub(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_sales_hub(db, tenant_id)

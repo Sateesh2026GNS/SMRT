@@ -19,6 +19,11 @@ class PurchaseOrder(Base, TimestampMixin):
     expected_date: Mapped[date | None] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
     total_amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    payment_terms: Mapped[str | None] = mapped_column(String(128))
+    buyer: Mapped[str | None] = mapped_column(String(255))
+    warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"))
+    gst_amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    discount: Mapped[float | None] = mapped_column(Numeric(12, 2))
     notes: Mapped[str | None] = mapped_column(Text)
 
     supplier = relationship("Supplier", back_populates="purchase_orders")
@@ -63,6 +68,10 @@ class MaterialRequest(Base, TimestampMixin):
     request_date: Mapped[date] = mapped_column(Date, nullable=False)
     required_date: Mapped[date | None] = mapped_column(Date)
     requested_by: Mapped[str | None] = mapped_column(String(255))
+    department: Mapped[str | None] = mapped_column(String(128))
+    warehouse_id: Mapped[int | None] = mapped_column(ForeignKey("warehouses.id"))
+    priority: Mapped[str] = mapped_column(String(16), default="medium", nullable=False)
+    approval_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
     notes: Mapped[str | None] = mapped_column(Text)
 
@@ -104,6 +113,8 @@ class GoodsReceipt(Base, TimestampMixin):
         ForeignKey("warehouses.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(32), default="received", nullable=False)
+    qc_status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    received_by: Mapped[str | None] = mapped_column(String(255))
     notes: Mapped[str | None] = mapped_column(Text)
 
     purchase_order = relationship("PurchaseOrder", back_populates="goods_receipts")
@@ -145,6 +156,62 @@ class SupplierPayment(Base, TimestampMixin):
     payment_method: Mapped[str] = mapped_column(String(64), default="bank", nullable=False)
     reference: Mapped[str | None] = mapped_column(String(128))
     notes: Mapped[str | None] = mapped_column(Text)
+
+    supplier = relationship("Supplier")
+
+
+class RFQ(Base, TimestampMixin):
+    __tablename__ = "rfqs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    rfq_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    material_request_id: Mapped[int | None] = mapped_column(ForeignKey("material_requests.id"))
+    due_date: Mapped[date | None] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(32), default="open", nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+    quotations = relationship("VendorQuotation", back_populates="rfq", cascade="all, delete-orphan")
+
+
+class VendorQuotation(Base, TimestampMixin):
+    __tablename__ = "vendor_quotations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    rfq_id: Mapped[int] = mapped_column(ForeignKey("rfqs.id"), nullable=False)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    price: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    delivery_days: Mapped[int | None] = mapped_column(Integer)
+    gst_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    warranty: Mapped[str | None] = mapped_column(String(128))
+    rating: Mapped[float | None] = mapped_column(Numeric(3, 1))
+    status: Mapped[str] = mapped_column(String(32), default="submitted", nullable=False)
+
+    rfq = relationship("RFQ", back_populates="quotations")
+    supplier = relationship("Supplier")
+
+
+class VendorBill(Base, TimestampMixin):
+    __tablename__ = "vendor_bills"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    bill_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    supplier_id: Mapped[int] = mapped_column(ForeignKey("suppliers.id"), nullable=False)
+    purchase_order_id: Mapped[int | None] = mapped_column(ForeignKey("purchase_orders.id"))
+    goods_receipt_id: Mapped[int | None] = mapped_column(ForeignKey("goods_receipts.id"))
+    bill_date: Mapped[date] = mapped_column(Date, nullable=False)
+    due_date: Mapped[date | None] = mapped_column(Date)
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    gst_amount: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
 
     supplier = relationship("Supplier")
 

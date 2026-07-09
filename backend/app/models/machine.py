@@ -1,6 +1,6 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -19,6 +19,24 @@ class Machine(Base, TimestampMixin):
     location: Mapped[str | None] = mapped_column(String(255))
     plant_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    machine_type: Mapped[str | None] = mapped_column(String(64))
+    department: Mapped[str | None] = mapped_column(String(128))
+    production_line: Mapped[str | None] = mapped_column(String(128))
+    work_center: Mapped[str | None] = mapped_column(String(128))
+    manufacturer: Mapped[str | None] = mapped_column(String(255))
+    model_name: Mapped[str | None] = mapped_column(String(128))
+    serial_number: Mapped[str | None] = mapped_column(String(128))
+    purchase_date: Mapped[date | None] = mapped_column(Date)
+    warranty_until: Mapped[date | None] = mapped_column(Date)
+    assigned_operator: Mapped[str | None] = mapped_column(String(255))
+    current_shift: Mapped[str | None] = mapped_column(String(64))
+    health_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    efficiency_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    oee_pct: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    temperature_c: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    rpm: Mapped[float | None] = mapped_column(Numeric(8, 2))
+    last_maintenance_date: Mapped[date | None] = mapped_column(Date)
+    next_maintenance_date: Mapped[date | None] = mapped_column(Date)
 
     status_events = relationship(
         "MachineStatusEvent",

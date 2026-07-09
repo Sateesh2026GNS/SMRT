@@ -82,6 +82,24 @@ export const productionOverview = [
   { date: "13 Jun", planned: 2450, actual: 2450 },
 ];
 
+export const productionOverviewWeekly = [
+  { date: "Week 1", planned: 15200, actual: 14850 },
+  { date: "Week 2", planned: 15800, actual: 15420 },
+  { date: "Week 3", planned: 16100, actual: 15980 },
+  { date: "Week 4", planned: 16500, actual: 16240 },
+  { date: "Week 5", planned: 16800, actual: 16610 },
+  { date: "Week 6", planned: 17000, actual: 16890 },
+];
+
+export const productionOverviewMonthly = [
+  { date: "Jan", planned: 62000, actual: 60500 },
+  { date: "Feb", planned: 64000, actual: 63100 },
+  { date: "Mar", planned: 65500, actual: 64800 },
+  { date: "Apr", planned: 67000, actual: 66200 },
+  { date: "May", planned: 68500, actual: 67850 },
+  { date: "Jun", planned: 70000, actual: 69200 },
+];
+
 export const shopFloorStatus = [
   { name: "Running", value: 24, color: "#22C55E" },
   { name: "Idle", value: 8, color: "#3B82F6" },

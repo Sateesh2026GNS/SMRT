@@ -109,7 +109,7 @@ export default function AppRoutes() {
         path="/production/tasks"
         element={
           <ProtectedRoute>
-            <P.TaskManagement />
+            <P.MachineAllocation />
           </ProtectedRoute>
         }
       />
@@ -310,6 +310,14 @@ export default function AppRoutes() {
         }
       />
       <Route
+        path="/sales/dashboard"
+        element={
+          <ProtectedRoute>
+            <P.SalesDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/sales/leads"
         element={
           <ProtectedRoute>
@@ -338,6 +346,22 @@ export default function AppRoutes() {
         element={
           <ProtectedRoute>
             <P.InvoiceDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/invoices/copy"
+        element={
+          <ProtectedRoute>
+            <P.InvoiceCopyPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/sales/invoices/:id/copy"
+        element={
+          <ProtectedRoute>
+            <P.InvoiceCopyPage />
           </ProtectedRoute>
         }
       />
@@ -422,17 +446,28 @@ export default function AppRoutes() {
       <Route path="/procurement/supplier-payments" element={<ProtectedRoute><P.SupplierPayments /></ProtectedRoute>} />
       <Route path="/procurement/supplier-payments/create" element={<ProtectedRoute><P.CreateSupplierPayment /></ProtectedRoute>} />
       <Route path="/procurement/supply-chain" element={<ProtectedRoute><P.SupplyChainDashboard /></ProtectedRoute>} />
+      <Route path="/quality" element={<ProtectedRoute><P.QualityDashboard /></ProtectedRoute>} />
+      <Route path="/quality/incoming" element={<ProtectedRoute><P.IncomingInspection /></ProtectedRoute>} />
+      <Route path="/quality/in-process" element={<ProtectedRoute><P.InProcessQC /></ProtectedRoute>} />
+      <Route path="/quality/final" element={<ProtectedRoute><P.FinalQC /></ProtectedRoute>} />
       <Route path="/quality/inspection" element={<ProtectedRoute><P.QualityInspection /></ProtectedRoute>} />
       <Route path="/quality/defects" element={<ProtectedRoute><P.DefectTracking /></ProtectedRoute>} />
       <Route path="/quality/batch-reports" element={<ProtectedRoute><P.BatchQualityReports /></ProtectedRoute>} />
       <Route path="/quality/compliance" element={<ProtectedRoute><P.ComplianceLogs /></ProtectedRoute>} />
+      <Route path="/maintenance" element={<ProtectedRoute><P.MaintenanceDashboard /></ProtectedRoute>} />
       <Route path="/maintenance/machines" element={<ProtectedRoute><P.MachineMaintenance /></ProtectedRoute>} />
       <Route path="/maintenance/preventive" element={<ProtectedRoute><P.PreventiveMaintenance /></ProtectedRoute>} />
       <Route path="/maintenance/breakdowns" element={<ProtectedRoute><P.BreakdownReports /></ProtectedRoute>} />
+      <Route path="/maintenance/machine-history" element={<ProtectedRoute><P.MachineHistory /></ProtectedRoute>} />
       <Route path="/maintenance/schedule" element={<ProtectedRoute><P.MaintenanceSchedule /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><P.ExecutiveDashboard /></ProtectedRoute>} />
+      <Route path="/analytics/executive" element={<ProtectedRoute><P.ExecutiveDashboard /></ProtectedRoute>} />
+      <Route path="/analytics/live" element={<ProtectedRoute><P.LiveDashboard /></ProtectedRoute>} />
       <Route path="/analytics/production" element={<ProtectedRoute><P.ProductionAnalytics /></ProtectedRoute>} />
       <Route path="/analytics/machine-efficiency" element={<ProtectedRoute><P.MachineEfficiency /></ProtectedRoute>} />
       <Route path="/analytics/inventory" element={<ProtectedRoute><P.InventoryAnalytics /></ProtectedRoute>} />
+      <Route path="/analytics/sales" element={<ProtectedRoute><P.SalesAnalytics /></ProtectedRoute>} />
+      <Route path="/analytics/finance" element={<ProtectedRoute><P.FinanceAnalytics /></ProtectedRoute>} />
       <Route path="/analytics/profit" element={<ProtectedRoute><P.ProfitAnalysis /></ProtectedRoute>} />
       <Route path="/analytics/forecasting" element={<ProtectedRoute><P.ForecastingDashboard /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><P.AllAlerts /></ProtectedRoute>} />
@@ -484,20 +519,16 @@ export default function AppRoutes() {
         <Route path="buyers" element={<PlaceholderPage title="Buyers & Suppliers" />} />
         <Route path="gst" element={<PlaceholderPage title="GST API" />} />
       </Route>
-      <Route path="/masters/products" element={<ProtectedRoute><PlaceholderPage title="Products" description="Product master catalog for SKUs, variants, and pricing." /></ProtectedRoute>} />
-      <Route path="/masters/bom" element={<ProtectedRoute><PlaceholderPage title="Bill of Materials" /></ProtectedRoute>} />
-      <Route path="/masters/departments" element={<ProtectedRoute><PlaceholderPage title="Departments" /></ProtectedRoute>} />
-      <Route path="/production/schedule" element={<ProtectedRoute><PlaceholderPage title="Production Schedule" /></ProtectedRoute>} />
-      <Route path="/procurement/rfq" element={<ProtectedRoute><PlaceholderPage title="Request for Quotation (RFQ)" /></ProtectedRoute>} />
-      <Route path="/finance/accounts-payable" element={<ProtectedRoute><Navigate to="/procurement/supplier-payments" replace /></ProtectedRoute>} />
-      <Route path="/finance/accounts-receivable" element={<ProtectedRoute><Navigate to="/sales/payments" replace /></ProtectedRoute>} />
-      <Route path="/finance/general-ledger" element={<ProtectedRoute><PlaceholderPage title="General Ledger" /></ProtectedRoute>} />
-      <Route path="/quality/incoming" element={<ProtectedRoute><Navigate to="/quality/inspection" replace /></ProtectedRoute>} />
-      <Route path="/quality/in-process" element={<ProtectedRoute><Navigate to="/quality/inspection" replace /></ProtectedRoute>} />
-      <Route path="/quality/final" element={<ProtectedRoute><Navigate to="/quality/batch-reports" replace /></ProtectedRoute>} />
-      <Route path="/maintenance/machine-history" element={<ProtectedRoute><Navigate to="/maintenance/machines" replace /></ProtectedRoute>} />
-      <Route path="/analytics/sales" element={<ProtectedRoute><Navigate to="/analytics/profit" replace /></ProtectedRoute>} />
-      <Route path="/analytics/finance" element={<ProtectedRoute><Navigate to="/analytics/profit" replace /></ProtectedRoute>} />
+      <Route path="/masters/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
+      <Route path="/masters/bom" element={<ProtectedRoute><P.BomMaster /></ProtectedRoute>} />
+      <Route path="/masters/departments" element={<ProtectedRoute><P.DepartmentManagement /></ProtectedRoute>} />
+      <Route path="/production/schedule" element={<ProtectedRoute><P.ProductionSchedule /></ProtectedRoute>} />
+      <Route path="/procurement/rfq" element={<ProtectedRoute><P.RFQ /></ProtectedRoute>} />
+      <Route path="/finance/accounts-payable" element={<ProtectedRoute><P.AccountsPayable /></ProtectedRoute>} />
+      <Route path="/finance/accounts-receivable" element={<ProtectedRoute><P.AccountsReceivable /></ProtectedRoute>} />
+      <Route path="/finance/payment-tracking" element={<ProtectedRoute><P.PaymentTracking /></ProtectedRoute>} />
+      <Route path="/finance/general-ledger" element={<ProtectedRoute><P.GeneralLedger /></ProtectedRoute>} />
+      <Route path="/finance" element={<ProtectedRoute><Navigate to="/accounts" replace /></ProtectedRoute>} />
       <Route path="/factory-monitor/live-production" element={<ProtectedRoute><LiveProduction /></ProtectedRoute>} />
       <Route path="/factory-monitor/machine-status" element={<ProtectedRoute><MachineStatus /></ProtectedRoute>} />
       <Route path="/factory-monitor/production-lines" element={<ProtectedRoute><ProductionLines /></ProtectedRoute>} />

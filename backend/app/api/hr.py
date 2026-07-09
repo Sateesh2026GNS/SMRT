@@ -22,6 +22,22 @@ from app.schemas.hr import (
     ShiftCreate,
     ShiftRead,
 )
+from app.schemas.department import (
+    DepartmentCreate,
+    DepartmentDetailRead,
+    DepartmentListRead,
+    DepartmentSummaryRead,
+    DepartmentUpdate,
+)
+from app.services.department_service import (
+    _to_list_read,
+    create_department,
+    deactivate_department,
+    get_department_detail,
+    get_department_summary,
+    list_departments_enriched,
+    update_department,
+)
 from app.services.hr_service import (
     create_attendance_record,
     create_employee,
@@ -39,6 +55,28 @@ from app.services.hr_service import (
     record_clock_in,
     record_clock_out,
     update_leave_request,
+)
+from app.schemas.hr_extended import (
+    AttendanceListRead,
+    AttendanceSummaryRead,
+    EmployeeListRead,
+    EmployeeSummaryRead,
+    HRHubRead,
+    LeaveListRead,
+    LeaveSummaryRead,
+    PayrollListRead,
+    PayrollSummaryRead,
+)
+from app.services.hr_extended_service import (
+    get_attendance_summary,
+    get_employee_summary,
+    get_hr_hub,
+    get_leave_summary,
+    get_payroll_summary,
+    list_attendance_enriched,
+    list_employees_enriched,
+    list_leave_enriched,
+    list_payroll_enriched,
 )
 
 router = APIRouter(prefix="/hr", tags=["hr"])
@@ -205,3 +243,130 @@ def update_leave_endpoint(
     if not leave:
         raise HTTPException(404, "Leave request not found")
     return leave
+
+
+@router.get("/departments/summary", response_model=DepartmentSummaryRead)
+def department_summary_endpoint(
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> DepartmentSummaryRead:
+    return get_department_summary(db, user.tenant_id)
+
+
+@router.get("/departments", response_model=list[DepartmentListRead])
+def list_departments_endpoint(
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> list[DepartmentListRead]:
+    return list_departments_enriched(db, user.tenant_id)
+
+
+@router.post("/departments", response_model=DepartmentListRead)
+def create_department_endpoint(
+    payload: DepartmentCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> DepartmentListRead:
+    payload.tenant_id = user.tenant_id
+    dept = create_department(db, payload)
+    enriched = list_departments_enriched(db, user.tenant_id)
+    match = next((d for d in enriched if d.id == dept.id), None)
+    return match or _to_list_read(db, user.tenant_id, dept)
+
+
+@router.get("/departments/{department_id}", response_model=DepartmentDetailRead)
+def get_department_endpoint(
+    department_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> DepartmentDetailRead:
+    detail = get_department_detail(db, user.tenant_id, department_id)
+    if not detail:
+        raise HTTPException(404, "Department not found")
+    return detail
+
+
+@router.put("/departments/{department_id}", response_model=DepartmentListRead)
+def update_department_endpoint(
+    department_id: int,
+    payload: DepartmentUpdate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> DepartmentListRead:
+    dept = update_department(db, user.tenant_id, department_id, payload)
+    if not dept:
+        raise HTTPException(404, "Department not found")
+    enriched = list_departments_enriched(db, user.tenant_id)
+    match = next((d for d in enriched if d.id == department_id), None)
+    if not match:
+        raise HTTPException(404, "Department not found")
+    return match
+
+
+@router.patch("/departments/{department_id}/deactivate", response_model=DepartmentListRead)
+def deactivate_department_endpoint(
+    department_id: int,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> DepartmentListRead:
+    dept = deactivate_department(db, user.tenant_id, department_id)
+    if not dept:
+        raise HTTPException(404, "Department not found")
+    enriched = list_departments_enriched(db, user.tenant_id)
+    match = next((d for d in enriched if d.id == department_id), None)
+    if not match:
+        raise HTTPException(404, "Department not found")
+    return match
+
+
+@router.get("/employees/summary", response_model=EmployeeSummaryRead)
+def employees_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_employee_summary(db, tenant_id)
+
+
+@router.get("/employees/enriched", response_model=list[EmployeeListRead])
+def employees_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_employees_enriched(db, tenant_id)
+
+
+@router.get("/attendance/summary", response_model=AttendanceSummaryRead)
+def attendance_summary(
+    record_date: date | None = Query(None),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return get_attendance_summary(db, tenant_id, record_date)
+
+
+@router.get("/attendance/enriched", response_model=list[AttendanceListRead])
+def attendance_enriched(
+    record_date: date | None = Query(None),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return list_attendance_enriched(db, tenant_id, record_date)
+
+
+@router.get("/leave/summary", response_model=LeaveSummaryRead)
+def leave_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_leave_summary(db, tenant_id)
+
+
+@router.get("/leave/enriched", response_model=list[LeaveListRead])
+def leave_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_leave_enriched(db, tenant_id)
+
+
+@router.get("/payroll/summary", response_model=PayrollSummaryRead)
+def payroll_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_payroll_summary(db, tenant_id)
+
+
+@router.get("/payroll/enriched", response_model=list[PayrollListRead])
+def payroll_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_payroll_enriched(db, tenant_id)
+
+
+@router.get("/hub", response_model=HRHubRead)
+def hr_hub(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_hr_hub(db, tenant_id)

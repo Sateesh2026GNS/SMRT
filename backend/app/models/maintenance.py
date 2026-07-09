@@ -20,6 +20,11 @@ class MaintenanceRecord(Base, TimestampMixin):
     performed_by: Mapped[str | None] = mapped_column(String(255))
     cost: Mapped[float | None] = mapped_column(Numeric(12, 2))
     status: Mapped[str] = mapped_column(String(32), default="completed", nullable=False)
+    activity: Mapped[str | None] = mapped_column(String(128))
+    spare_parts: Mapped[str | None] = mapped_column(String(512))
+    downtime_minutes: Mapped[int | None] = mapped_column(Integer)
+    remarks: Mapped[str | None] = mapped_column(Text)
+    attachment: Mapped[str | None] = mapped_column(String(512))
 
 
 class PreventiveMaintenance(Base, TimestampMixin):
@@ -35,6 +40,11 @@ class PreventiveMaintenance(Base, TimestampMixin):
     frequency: Mapped[str] = mapped_column(String(64), default="monthly", nullable=False)
     status: Mapped[str] = mapped_column(String(32), default="scheduled", nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    assigned_engineer: Mapped[str | None] = mapped_column(String(255))
+    estimated_duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    next_due_date: Mapped[date | None] = mapped_column(Date)
+    maintenance_type: Mapped[str | None] = mapped_column(String(64))
+    department: Mapped[str | None] = mapped_column(String(128))
 
 
 class BreakdownReport(Base, TimestampMixin):
@@ -50,6 +60,14 @@ class BreakdownReport(Base, TimestampMixin):
     downtime_minutes: Mapped[int | None] = mapped_column(Integer)
     resolution: Mapped[str | None] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(32), default="reported", nullable=False)
+    breakdown_number: Mapped[str | None] = mapped_column(String(64))
+    reported_by: Mapped[str | None] = mapped_column(String(255))
+    cause: Mapped[str | None] = mapped_column(Text)
+    severity: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    priority: Mapped[str] = mapped_column(String(32), default="medium", nullable=False)
+    engineer: Mapped[str | None] = mapped_column(String(255))
+    estimated_completion: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    department: Mapped[str | None] = mapped_column(String(128))
 
 
 class MaintenanceSchedule(Base, TimestampMixin):

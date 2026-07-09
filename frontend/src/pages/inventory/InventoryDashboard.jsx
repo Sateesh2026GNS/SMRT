@@ -1,172 +1,111 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { AlertTriangle, ArrowRight, Box, Package, RefreshCw, TrendingUp, Zap } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
 import StoreManagerNav from "../../components/inventory/StoreManagerNav";
-import Table from "../../components/common/Table";
-import {
-  getInventoryDashboard,
-  getWarehouses,
-} from "../../api/inventoryApi";
-import useTenantId from "../../hooks/useTenantId";
+import { useToast } from "../../context/ToastContext";
+import { getInventoryHub } from "../../api/inventoryApi";
+import { DEMO_INVENTORY_HUB, INVENTORY_FLOW, formatInr } from "../../data/inventoryMasterData";
 
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
 
-
-const cardStyle = {
-  background: "#fff",
-  borderRadius: "10px",
-  padding: "16px",
-  boxShadow: "0 2px 8px rgba(15,23,42,0.05)",
-};
+const QUICK_LINKS = [
+  { label: "Raw Materials", to: "/inventory/raw-materials" },
+  { label: "Finished Goods", to: "/inventory/finished-goods" },
+  { label: "Stock Transfer", to: "/inventory/stock-transfer" },
+  { label: "Stock Adjustment", to: "/inventory/stock-adjustment" },
+  { label: "Stock Ledger", to: "/inventory/stock-ledger" },
+  { label: "Warehouses", to: "/inventory/warehouses" },
+];
 
 export default function InventoryDashboard() {
-  const tenantId = useTenantId();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [dashboard, setDashboard] = useState([]);
-  const [warehouses, setWarehouses] = useState([]);
+  const [hub, setHub] = useState(DEMO_INVENTORY_HUB);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [dashRes, whRes] = await Promise.all([
-          getInventoryDashboard(),
-          getWarehouses(tenantId),
-        ]);
-        setDashboard(dashRes.data || []);
-        setWarehouses(whRes.data || []);
-      } catch (error) {
-        console.error("Failed to load inventory dashboard", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getInventoryHub();
+      if (res?.data) setHub({ ...DEMO_INVENTORY_HUB, ...res.data });
+    } catch { addToast("Using demo inventory hub data", "info"); }
+    finally { setLoading(false); }
+  }, [addToast]);
 
-    fetchData();
-  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <StoreManagerNav />
-        <Loader label="Loading inventory dashboard..." />
-      </div>
-    );
-  }
-
-  const lowStockCount = dashboard.filter((i) => i.needs_reorder).length;
-  const totalValue = dashboard.reduce(
-    (sum, i) => sum + (i.stock_value || 0),
-    0
-  );
-  const warehouseUtilization = warehouses.length
-    ? Math.min(100, Math.round((dashboard.length / (warehouses.length * 10)) * 100))
-    : 0;
+  if (loading) return <div className="space-y-6"><StoreManagerNav /><Loader label="Loading inventory dashboard..." /></div>;
 
   return (
-    <div style={{ display: "grid", gap: "20px" }}>
+    <div className="space-y-6 p-4 sm:p-6">
       <StoreManagerNav />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2>Inventory Dashboard</h2>
-        <div style={{ display: "flex", gap: "12px" }}>
-          <Link to="/inventory/raw-materials">View Items</Link>
-          <Link
-            to="/inventory/items/create?type=raw_material"
-            className="ui-btn-primary"
-          >
-            <Plus className="h-4 w-4" />
-            New Material
-          </Link>
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div><h1 className="text-2xl font-bold text-slate-900">Inventory Dashboard</h1><p className="mt-1 text-sm text-slate-500">Enterprise inventory control — value, movement, ABC analysis, and warehouse overview.</p></div>
+        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Inventory Value" value={formatInr(hub.total_inventory_value)} icon={TrendingUp} color="bg-[#2563EB]" />
+        <KpiCard label="Low Stock Items" value={hub.low_stock_items} icon={AlertTriangle} color="bg-amber-500" />
+        <KpiCard label="Dead Stock" value={hub.dead_stock} icon={Box} color="bg-slate-500" />
+        <KpiCard label="Fast Moving" value={hub.fast_moving} icon={Zap} color="bg-green-500" />
+        <KpiCard label="Slow Moving" value={hub.slow_moving} icon={Package} color="bg-orange-500" />
+        <KpiCard label="Today's Transactions" value={hub.todays_transactions} icon={TrendingUp} color="bg-indigo-500" />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold text-slate-800">Warehouse Stock</h3>
+          <div className="space-y-3">
+            {(hub.warehouse_stock || []).map((w) => (
+              <div key={w.name}>
+                <div className="mb-0.5 flex justify-between text-sm"><span className="font-medium text-slate-700">{w.name}</span><span className="tabular-nums text-slate-600">{w.quantity?.toLocaleString()}</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-slate-200"><div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(100, (w.quantity / 10000) * 100)}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="mb-4 text-sm font-bold text-slate-800">Top 10 Materials</h3>
+          <ol className="space-y-2">
+            {(hub.top_materials || []).map((m, i) => (
+              <li key={m.name} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+                <span><span className="font-bold text-[#2563EB]">{i + 1}.</span> {m.name}</span>
+                <span className="font-semibold tabular-nums">{m.qty?.toLocaleString()}</span>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h3 className="mb-3 text-sm font-bold text-slate-800">Quick Module Access</h3>
+        <div className="flex flex-wrap gap-2">
+          {QUICK_LINKS.map((l) => (
+            <Link key={l.to} to={l.to} className="inline-flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">{l.label}<ArrowRight className="h-3.5 w-3.5" /></Link>
+          ))}
         </div>
-      </div>
-
-      <div style={{ display: "grid", gap: "20px", gridTemplateColumns: "repeat(3, 1fr)" }}>
-        <section style={cardStyle}>
-          <h3 style={{ marginBottom: "8px", fontSize: "0.9rem" }}>Low Stock Alerts</h3>
-          <div style={{ fontSize: "2rem", fontWeight: 700, color: lowStockCount ? "#b91c1c" : "#166534" }}>
-            {lowStockCount}
-          </div>
-          <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-            items below reorder level
-          </div>
-        </section>
-        <section style={cardStyle}>
-          <h3 style={{ marginBottom: "8px", fontSize: "0.9rem" }}>Total Stock Value</h3>
-          <div style={{ fontSize: "2rem", fontWeight: 700 }}>
-            ${(totalValue / 1000).toFixed(1)}K
-          </div>
-          <div style={{ fontSize: "0.85rem", color: "#6b7280" }}>
-            across {dashboard.length} items
-          </div>
-        </section>
-        <section style={cardStyle}>
-          <h3 style={{ marginBottom: "8px", fontSize: "0.9rem" }}>Warehouse Utilization</h3>
-          <div style={{ fontSize: "2rem", fontWeight: 700 }}>{warehouseUtilization}%</div>
-          <div
-            style={{
-              height: "8px",
-              background: "#e5e7eb",
-              borderRadius: "4px",
-              marginTop: "8px",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                width: `${warehouseUtilization}%`,
-                height: "100%",
-                background: "#6366f1",
-                transition: "width 0.3s",
-              }}
-            />
-          </div>
-        </section>
-      </div>
-
-      <section style={cardStyle}>
-        <h3 style={{ marginBottom: "12px" }}>In Stock</h3>
-        <Table
-          columns={[
-            {
-              key: "reorder",
-              label: "Status",
-              render: (r) => (
-                <span
-                  style={{
-                    background: r.needs_reorder ? "#fef3c7" : "#dcfce7",
-                    color: r.needs_reorder ? "#92400e" : "#166534",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    fontSize: "0.8rem",
-                  }}
-                >
-                  {r.needs_reorder ? "REORDER" : "OK"}
-                </span>
-              ),
-            },
-            { key: "sku", label: "SKU" },
-            { key: "barcode", label: "Barcode" },
-            { key: "name", label: "Name" },
-            {
-              key: "total_quantity",
-              label: "In Stock",
-              render: (r) => r.total_quantity,
-            },
-            {
-              key: "reorder_level",
-              label: "Reorder Level",
-            },
-            {
-              key: "stock_value",
-              label: "Stock Value",
-              render: (r) =>
-                r.stock_value != null ? `$${r.stock_value.toLocaleString()}` : "-",
-            },
-          ]}
-          data={dashboard.slice(0, 10)}
-        />
       </section>
+
+      <div className="flex flex-wrap gap-2 rounded-xl bg-slate-50 px-4 py-3">
+        {INVENTORY_FLOW.map((step, i) => (
+          <span key={step} className="flex items-center gap-2 text-xs text-slate-600">
+            <span className="font-semibold text-[#2563EB]">{step}</span>
+            {i < INVENTORY_FLOW.length - 1 && <span className="text-slate-300">↓</span>}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

@@ -13,7 +13,7 @@ export function ToastProvider({ children }) {
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 3000);
   }, []);
 
   useEffect(() => {
@@ -35,11 +35,11 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ addToast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-[9999] flex max-w-sm flex-col gap-1.5 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto rounded-xl border shadow-lg px-4 py-3 text-sm font-medium transition-all duration-300"
+            className="pointer-events-auto max-w-xs rounded-lg border px-3 py-2 text-xs font-medium shadow-md animate-in slide-in-from-right-2"
             style={{
               background: t.type === "success" ? "#f0fdf4" : t.type === "error" ? "#fef2f2" : "#f8fafc",
               color: t.type === "success" ? "#166534" : t.type === "error" ? "#b91c1c" : "#334155",

@@ -25,6 +25,14 @@ from app.services.maintenance_service import (
     list_preventive_maintenance,
     update_breakdown_status,
 )
+from app.services.maintenance_extended_service import (
+    get_breakdown_summary,
+    get_maintenance_hub,
+    get_preventive_summary,
+    list_breakdowns_enriched,
+    list_machine_history,
+    list_preventive_enriched,
+)
 
 router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 
@@ -110,3 +118,45 @@ def list_schedule_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ) -> list[MaintenanceScheduleRead]:
     return list_maintenance_schedules(db, tenant_id)
+
+
+@router.get("/hub")
+def maintenance_hub_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_maintenance_hub(db, tenant_id)
+
+
+@router.get("/preventive/summary")
+def preventive_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_preventive_summary(db, tenant_id)
+
+
+@router.get("/preventive/enriched")
+def preventive_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_preventive_enriched(db, tenant_id)
+
+
+@router.get("/breakdowns/summary")
+def breakdown_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_breakdown_summary(db, tenant_id)
+
+
+@router.get("/breakdowns/enriched")
+def breakdowns_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_breakdowns_enriched(db, tenant_id)
+
+
+@router.get("/history")
+def machine_history_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_machine_history(db, tenant_id)

@@ -1,4 +1,6 @@
-from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text
+from datetime import date
+
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
@@ -15,6 +17,18 @@ class Warehouse(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(64), nullable=False)
     capacity: Mapped[int | None] = mapped_column(Integer)
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    warehouse_type: Mapped[str | None] = mapped_column(String(64))
+    branch: Mapped[str | None] = mapped_column(String(128))
+    plant: Mapped[str | None] = mapped_column(String(128))
+    address: Mapped[str | None] = mapped_column(String(512))
+    city: Mapped[str | None] = mapped_column(String(128))
+    state: Mapped[str | None] = mapped_column(String(128))
+    pincode: Mapped[str | None] = mapped_column(String(16))
+    manager_name: Mapped[str | None] = mapped_column(String(255))
+    manager_phone: Mapped[str | None] = mapped_column(String(64))
+    rack_count: Mapped[int | None] = mapped_column(Integer)
+    bin_count: Mapped[int | None] = mapped_column(Integer)
 
     stock_levels = relationship(
         "StockLevel", back_populates="warehouse", cascade="all, delete-orphan"
@@ -28,13 +42,41 @@ class Supplier(Base, TimestampMixin):
     tenant_id: Mapped[int] = mapped_column(
         ForeignKey("tenants.id"), nullable=False, index=True
     )
+    vendor_code: Mapped[str | None] = mapped_column(String(32), index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     contact: Mapped[str | None] = mapped_column(String(255))
     email: Mapped[str | None] = mapped_column(String(255))
     phone: Mapped[str | None] = mapped_column(String(64))
+    alternate_contact: Mapped[str | None] = mapped_column(String(255))
+    website: Mapped[str | None] = mapped_column(String(255))
     approval_status: Mapped[str] = mapped_column(
         String(32), default="approved", nullable=False
     )  # pending, approved, rejected
+    status: Mapped[str] = mapped_column(
+        String(32), default="active", nullable=False
+    )  # active, inactive
+    vendor_type: Mapped[str | None] = mapped_column(String(64))
+    category: Mapped[str | None] = mapped_column(String(128))
+    material_type: Mapped[str | None] = mapped_column(String(128))
+    gstin: Mapped[str | None] = mapped_column(String(64))
+    pan: Mapped[str | None] = mapped_column(String(32))
+    msme: Mapped[str | None] = mapped_column(String(64))
+    billing_address: Mapped[str | None] = mapped_column(String(512))
+    factory_address: Mapped[str | None] = mapped_column(String(512))
+    city: Mapped[str | None] = mapped_column(String(128))
+    state: Mapped[str | None] = mapped_column(String(128))
+    country: Mapped[str | None] = mapped_column(String(64), default="India")
+    pincode: Mapped[str | None] = mapped_column(String(16))
+    bank_name: Mapped[str | None] = mapped_column(String(255))
+    account_number: Mapped[str | None] = mapped_column(String(64))
+    ifsc: Mapped[str | None] = mapped_column(String(32))
+    payment_terms: Mapped[str | None] = mapped_column(String(64))
+    credit_days: Mapped[int | None] = mapped_column(Integer)
+    rating: Mapped[float | None] = mapped_column(Numeric(3, 1))
+    quality_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    delivery_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    price_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    service_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
 
     inventory_items = relationship("InventoryItem", back_populates="supplier")
     purchase_orders = relationship("PurchaseOrder", back_populates="supplier")
@@ -58,6 +100,7 @@ class InventoryItem(Base, TimestampMixin):
     item_type: Mapped[str] = mapped_column(
         String(32), default="raw_material", nullable=False
     )  # raw_material, finished_good
+    category: Mapped[str | None] = mapped_column(String(128))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     supplier = relationship("Supplier", back_populates="inventory_items")
@@ -98,4 +141,46 @@ class StockMovement(Base, TimestampMixin):
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     movement_type: Mapped[str] = mapped_column(
         String(32), nullable=False
-    )  # in, out, adjustment
+    )  # in, out, adjustment, transfer, purchase, production, sales, return, scrap
+    reference: Mapped[str | None] = mapped_column(String(128))
+    batch_number: Mapped[str | None] = mapped_column(String(64))
+    created_by: Mapped[str | None] = mapped_column(String(255))
+
+
+class StockTransfer(Base, TimestampMixin):
+    __tablename__ = "stock_transfers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    transfer_number: Mapped[str] = mapped_column(String(64), nullable=False)
+    from_warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
+    to_warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"))
+    batch_number: Mapped[str | None] = mapped_column(String(64))
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    vehicle: Mapped[str | None] = mapped_column(String(128))
+    driver: Mapped[str | None] = mapped_column(String(255))
+    notes: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="draft", nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(255))
+    transfer_date: Mapped[date | None] = mapped_column(Date)
+
+
+class StockAdjustment(Base, TimestampMixin):
+    __tablename__ = "stock_adjustments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id"), nullable=False, index=True
+    )
+    warehouse_id: Mapped[int] = mapped_column(ForeignKey("warehouses.id"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("inventory_items.id"))
+    old_qty: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    new_qty: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    difference: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reason: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(255))
+    adjustment_date: Mapped[date | None] = mapped_column(Date)

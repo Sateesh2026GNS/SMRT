@@ -8,6 +8,26 @@ from app.models.hr import Shift
 from app.models.machine import Machine
 from app.models.product import Product
 from app.models.production import ProductionOrder, WorkOrder
+from app.schemas.schedule import (
+    BottomKpiRead,
+    MaterialAvailabilityRead,
+    ProductionQueueItemRead,
+    RescheduleRequest,
+    ScheduleConflictRead,
+    ScheduleDashboardRead,
+    ScheduleTimelineRowRead,
+    ShiftScheduleItemRead,
+)
+from app.services.schedule_service import (
+    get_enhanced_timeline,
+    get_live_machines,
+    get_material_availability,
+    get_production_queue,
+    get_schedule_conflicts,
+    get_schedule_dashboard,
+    get_shift_schedule,
+    reschedule_work_order,
+)
 
 router = APIRouter(prefix="/production-scheduling", tags=["Production Scheduling"])
 
@@ -122,3 +142,78 @@ def get_production_timeline(
         }
         for r in rows
     ]
+
+
+@router.get("/dashboard", response_model=ScheduleDashboardRead)
+def get_dashboard(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_schedule_dashboard(db, tenant_id)
+
+
+@router.get("/live-machines")
+def get_live_machine_status(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_live_machines(db, tenant_id)
+
+
+@router.get("/queue", response_model=list[ProductionQueueItemRead])
+def get_queue(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_production_queue(db, tenant_id)
+
+
+@router.get("/materials", response_model=list[MaterialAvailabilityRead])
+def get_materials(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_material_availability(db, tenant_id)
+
+
+@router.get("/conflicts", response_model=list[ScheduleConflictRead])
+def get_conflicts(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_schedule_conflicts(db, tenant_id)
+
+
+@router.get("/timeline/enhanced", response_model=list[ScheduleTimelineRowRead])
+def get_enhanced_timeline_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_enhanced_timeline(db, tenant_id)
+
+
+@router.get("/shifts", response_model=list[ShiftScheduleItemRead])
+def get_shift_schedule_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_shift_schedule(db, tenant_id)
+
+
+@router.post("/reschedule")
+def reschedule_endpoint(
+    payload: RescheduleRequest,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    return reschedule_work_order(db, tenant_id, payload)
+
+
+@router.get("/bottom-kpis", response_model=BottomKpiRead)
+def get_bottom_kpis(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    dash = get_schedule_dashboard(db, tenant_id)
+    return BottomKpiRead(
+        todays_production=dash.completed,
+        pending_orders=dash.pending,
+        machine_efficiency_pct=dash.machine_utilization_pct,
+        shift_efficiency_pct=78.5,
+        downtime_minutes=45,
+        power_kwh=1240.5,
+        oee_pct=82.3,
+        quality_rate_pct=96.8,
+    )

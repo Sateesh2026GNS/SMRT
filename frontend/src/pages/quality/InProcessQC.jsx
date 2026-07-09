@@ -1,0 +1,95 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertTriangle, CheckCircle, Clock, Cog, RefreshCw, RotateCcw, Trash2, XCircle } from "lucide-react";
+
+import DataTable from "../../components/common/DataTable";
+import QualityFilters from "../../components/quality/QualityFilters";
+import Loader from "../../components/common/Loader";
+import { useToast } from "../../context/ToastContext";
+import { getProcessEnriched, getProcessSummary } from "../../api/qualityApi";
+import { DEMO_PROCESS_LIST, DEMO_PROCESS_SUMMARY, qcStatusColor } from "../../data/qualityMasterData";
+
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
+
+export default function InProcessQC() {
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(DEMO_PROCESS_SUMMARY);
+  const [rows, setRows] = useState(DEMO_PROCESS_LIST);
+  const [search, setSearch] = useState("");
+  const [resultFilter, setResultFilter] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, listRes] = await Promise.allSettled([getProcessSummary(), getProcessEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PROCESS_SUMMARY, ...sumRes.value.data });
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
+      else setRows(DEMO_PROCESS_LIST);
+    } catch {
+      addToast("Using demo in-process QC data", "info");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return rows.filter((r) => {
+      if (q && ![r.work_order_number, r.machine_name, r.operator_name, r.product_name].some((v) => String(v || "").toLowerCase().includes(q))) return false;
+      if (resultFilter && r.qc_status !== resultFilter) return false;
+      return true;
+    });
+  }, [rows, search, resultFilter]);
+
+  const columns = [
+    { key: "work_order_number", label: "Work Order" },
+    { key: "machine_name", label: "Machine" },
+    { key: "shift", label: "Shift" },
+    { key: "operator_name", label: "Operator" },
+    { key: "inspection_time", label: "Inspection Time" },
+    { key: "qc_status", label: "QC Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${qcStatusColor(r.qc_status)}`}>{r.qc_status}</span> },
+    { key: "remarks", label: "Remarks" },
+    { key: "product_name", label: "Product" },
+    { key: "batch_code", label: "Batch" },
+  ];
+
+  if (loading) return <Loader label="Loading in-process QC..." />;
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">In Process QC</h1>
+          <p className="mt-1 text-sm text-slate-500">Real-time quality checks during manufacturing — work order, machine, shift, operator.</p>
+        </div>
+        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Production Running" value={summary.production_running} icon={Cog} color="bg-blue-600" />
+        <KpiCard label="QC Pending" value={summary.qc_pending} icon={Clock} color="bg-orange-500" />
+        <KpiCard label="Passed" value={summary.passed} icon={CheckCircle} color="bg-green-600" />
+        <KpiCard label="Failed" value={summary.failed} icon={XCircle} color="bg-red-500" />
+        <KpiCard label="Rework" value={summary.rework} icon={RotateCcw} color="bg-amber-500" />
+        <KpiCard label="Scrap" value={summary.scrap} icon={Trash2} color="bg-red-600" />
+      </div>
+
+      <QualityFilters search={search} onSearchChange={setSearch} resultFilter={resultFilter} onResultFilterChange={setResultFilter} searchPlaceholder="Search work order, machine, operator..." />
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <DataTable columns={columns} data={filtered} searchPlaceholder="" searchKeys={[]} />
+      </div>
+    </div>
+  );
+}

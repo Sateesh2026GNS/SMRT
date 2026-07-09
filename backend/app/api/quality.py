@@ -25,6 +25,19 @@ from app.services.quality_service import (
     list_quality_inspections,
     update_defect_status,
 )
+from app.services.quality_extended_service import (
+    get_batch_summary,
+    get_defect_summary,
+    get_final_summary,
+    get_incoming_summary,
+    get_process_summary,
+    get_quality_hub,
+    list_batch_enriched,
+    list_defects_enriched,
+    list_final_enriched,
+    list_incoming_enriched,
+    list_process_enriched,
+)
 
 router = APIRouter(prefix="/quality", tags=["quality"])
 
@@ -110,3 +123,80 @@ def list_compliance_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ) -> list[ComplianceLogRead]:
     return list_compliance_logs(db, tenant_id)
+
+
+@router.get("/hub")
+def quality_hub_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_quality_hub(db, tenant_id)
+
+
+@router.get("/incoming/summary")
+def incoming_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_incoming_summary(db, tenant_id)
+
+
+@router.get("/incoming/enriched")
+def incoming_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_incoming_enriched(db, tenant_id)
+
+
+@router.get("/process/summary")
+def process_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_process_summary(db, tenant_id)
+
+
+@router.get("/process/enriched")
+def process_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_process_enriched(db, tenant_id)
+
+
+@router.get("/final/summary")
+def final_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_final_summary(db, tenant_id)
+
+
+@router.get("/final/enriched")
+def final_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_final_enriched(db, tenant_id)
+
+
+@router.get("/batch-reports/summary")
+def batch_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_batch_summary(db, tenant_id)
+
+
+@router.get("/batch-reports/enriched")
+def batch_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_batch_enriched(db, tenant_id)
+
+
+@router.get("/defects/summary")
+def defect_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_defect_summary(db, tenant_id)
+
+
+@router.get("/defects/enriched")
+def defects_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_defects_enriched(db, tenant_id)

@@ -14,6 +14,19 @@ from app.services.accounts_service import (
     list_expenses,
     list_incomes,
 )
+from app.services.finance_extended_service import (
+    get_ap_summary,
+    get_ar_summary,
+    get_finance_hub,
+    get_gl_summary,
+    get_gst_extended,
+    get_payment_summary,
+    get_pl_extended,
+    list_ap_enriched,
+    list_ar_enriched,
+    list_gl_enriched,
+    list_payments_enriched,
+)
 
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
@@ -82,3 +95,84 @@ def tax_report_endpoint(
     db: Session = Depends(get_db),
 ):
     return get_tax_report(db, tenant_id, year)
+
+
+@router.get("/hub")
+def finance_hub_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_finance_hub(db, tenant_id)
+
+
+@router.get("/ap/summary")
+def ap_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_ap_summary(db, tenant_id)
+
+
+@router.get("/ap/enriched")
+def ap_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_ap_enriched(db, tenant_id)
+
+
+@router.get("/ar/summary")
+def ar_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_ar_summary(db, tenant_id)
+
+
+@router.get("/ar/enriched")
+def ar_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_ar_enriched(db, tenant_id)
+
+
+@router.get("/payments/summary")
+def payment_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_payment_summary(db, tenant_id)
+
+
+@router.get("/payments/enriched")
+def payments_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_payments_enriched(db, tenant_id)
+
+
+@router.get("/gl/summary")
+def gl_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return get_gl_summary(db, tenant_id)
+
+
+@router.get("/gl/enriched")
+def gl_enriched_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+):
+    return list_gl_enriched(db, tenant_id)
+
+
+@router.get("/gst/extended")
+def gst_extended_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    year: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    return get_gst_extended(db, tenant_id, year)
+
+
+@router.get("/profit-loss/extended")
+def pl_extended_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    year: int = Query(...),
+    db: Session = Depends(get_db),
+):
+    return get_pl_extended(db, tenant_id, year)

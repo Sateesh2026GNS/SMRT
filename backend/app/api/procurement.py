@@ -5,6 +5,13 @@ from app.api.deps import get_db
 from app.core.permissions import require_permission, tenant_scope
 from app.models.user import User
 from app.schemas.inventory import SupplierRead
+from app.schemas.vendor import (
+    VendorCreate,
+    VendorDetailRead,
+    VendorListRead,
+    VendorSummaryRead,
+    VendorUpdate,
+)
 from app.schemas.procurement import (
     GoodsReceiptCreate,
     GoodsReceiptRead,
@@ -16,7 +23,15 @@ from app.schemas.procurement import (
     SupplierPaymentCreate,
     SupplierPaymentRead,
 )
-from app.services.inventory_service import list_suppliers, update_supplier_approval
+from app.services.inventory_service import update_supplier_approval
+from app.services.vendor_service import (
+    create_vendor,
+    deactivate_vendor,
+    get_vendor_detail,
+    get_vendor_summary,
+    list_vendors_enriched,
+    update_vendor,
+)
 from app.services.procurement_service import (
     create_goods_receipt,
     create_material_request,
@@ -27,6 +42,34 @@ from app.services.procurement_service import (
     list_purchase_orders,
     list_supplier_payments,
     update_purchase_order_status,
+)
+from app.schemas.procurement_extended import (
+    GRNListRead,
+    GRNSummaryRead,
+    MRListRead,
+    MRSummaryRead,
+    POListRead,
+    POSummaryRead,
+    ProcurementHubRead,
+    RFQListRead,
+    RFQSummaryRead,
+    VendorBillListRead,
+    VendorBillSummaryRead,
+    VendorComparisonRead,
+)
+from app.services.procurement_extended_service import (
+    get_grn_summary,
+    get_mr_summary,
+    get_po_summary,
+    get_procurement_hub,
+    get_rfq_comparison,
+    get_rfq_summary,
+    get_vendor_bill_summary,
+    list_grn_enriched,
+    list_mr_enriched,
+    list_po_enriched,
+    list_rfq_enriched,
+    list_vendor_bills_enriched,
 )
 
 router = APIRouter(prefix="/procurement", tags=["procurement"])
@@ -71,11 +114,76 @@ def update_purchase_order_status_endpoint(
     return po
 
 
-@router.get("/vendors", response_model=list[SupplierRead])
+@router.get("/vendors/summary", response_model=VendorSummaryRead)
+def vendor_summary_endpoint(
+    tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
+) -> VendorSummaryRead:
+    return get_vendor_summary(db, tenant_id)
+
+
+@router.get("/vendors", response_model=list[VendorListRead])
 def list_vendors_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
-) -> list[SupplierRead]:
-    return list_suppliers(db, tenant_id)
+) -> list[VendorListRead]:
+    return list_vendors_enriched(db, tenant_id)
+
+
+@router.post("/vendors", response_model=VendorListRead)
+def create_vendor_endpoint(
+    payload: VendorCreate,
+    user: User = Depends(require_permission(MODULE)),
+    db: Session = Depends(get_db),
+) -> VendorListRead:
+    payload.tenant_id = user.tenant_id
+    supplier = create_vendor(db, payload)
+    from app.services.vendor_service import _to_list_read
+
+    return _to_list_read(db, user.tenant_id, supplier)
+
+
+@router.get("/vendors/{vendor_id}", response_model=VendorDetailRead)
+def get_vendor_endpoint(
+    vendor_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> VendorDetailRead:
+    detail = get_vendor_detail(db, tenant_id, vendor_id)
+    if not detail:
+        raise HTTPException(404, "Vendor not found")
+    return detail
+
+
+@router.put("/vendors/{vendor_id}", response_model=VendorListRead)
+def update_vendor_endpoint(
+    vendor_id: int,
+    payload: VendorUpdate,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> VendorListRead:
+    supplier = update_vendor(db, tenant_id, vendor_id, payload)
+    if not supplier:
+        raise HTTPException(404, "Vendor not found")
+    enriched = list_vendors_enriched(db, tenant_id)
+    match = next((v for v in enriched if v.id == vendor_id), None)
+    if not match:
+        raise HTTPException(404, "Vendor not found")
+    return match
+
+
+@router.patch("/vendors/{vendor_id}/deactivate", response_model=VendorListRead)
+def deactivate_vendor_endpoint(
+    vendor_id: int,
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+) -> VendorListRead:
+    supplier = deactivate_vendor(db, tenant_id, vendor_id)
+    if not supplier:
+        raise HTTPException(404, "Vendor not found")
+    enriched = list_vendors_enriched(db, tenant_id)
+    match = next((v for v in enriched if v.id == vendor_id), None)
+    if not match:
+        raise HTTPException(404, "Vendor not found")
+    return match
 
 
 @router.patch("/vendors/{vendor_id}/approval", response_model=SupplierRead)
@@ -142,3 +250,63 @@ def list_supplier_payments_endpoint(
     tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)
 ) -> list[SupplierPaymentRead]:
     return list_supplier_payments(db, tenant_id)
+
+
+@router.get("/material-requests/summary", response_model=MRSummaryRead)
+def mr_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_mr_summary(db, tenant_id)
+
+
+@router.get("/material-requests/enriched", response_model=list[MRListRead])
+def mr_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_mr_enriched(db, tenant_id)
+
+
+@router.get("/rfq/summary", response_model=RFQSummaryRead)
+def rfq_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_rfq_summary(db, tenant_id)
+
+
+@router.get("/rfq", response_model=list[RFQListRead])
+def rfq_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_rfq_enriched(db, tenant_id)
+
+
+@router.get("/rfq/{rfq_id}/comparison", response_model=list[VendorComparisonRead])
+def rfq_comparison(rfq_id: int, tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_rfq_comparison(db, tenant_id, rfq_id)
+
+
+@router.get("/purchase-orders/summary", response_model=POSummaryRead)
+def po_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_po_summary(db, tenant_id)
+
+
+@router.get("/purchase-orders/enriched", response_model=list[POListRead])
+def po_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_po_enriched(db, tenant_id)
+
+
+@router.get("/goods-receipt/summary", response_model=GRNSummaryRead)
+def grn_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_grn_summary(db, tenant_id)
+
+
+@router.get("/goods-receipt/enriched", response_model=list[GRNListRead])
+def grn_enriched(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_grn_enriched(db, tenant_id)
+
+
+@router.get("/vendor-bills/summary", response_model=VendorBillSummaryRead)
+def vendor_bill_summary(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_vendor_bill_summary(db, tenant_id)
+
+
+@router.get("/vendor-bills", response_model=list[VendorBillListRead])
+def vendor_bills_list(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return list_vendor_bills_enriched(db, tenant_id)
+
+
+@router.get("/hub", response_model=ProcurementHubRead)
+def procurement_hub(tenant_id: int = Depends(tenant_scope(MODULE)), db: Session = Depends(get_db)):
+    return get_procurement_hub(db, tenant_id)

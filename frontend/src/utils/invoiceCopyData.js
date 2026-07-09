@@ -1,0 +1,195 @@
+/** Indian Rupee amount to words (simplified). */
+const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+function twoDigits(n) {
+  if (n < 20) return ones[n];
+  return `${tens[Math.floor(n / 10)]}${ones[n % 10] ? ` ${ones[n % 10]}` : ""}`.trim();
+}
+
+function threeDigits(n) {
+  if (n === 0) return "";
+  if (n < 100) return twoDigits(n);
+  return `${ones[Math.floor(n / 100)]} Hundred${n % 100 ? ` ${twoDigits(n % 100)}` : ""}`.trim();
+}
+
+export function numberToWordsInr(amount) {
+  const n = Math.round(Number(amount) * 100) / 100;
+  const rupees = Math.floor(n);
+  const paise = Math.round((n - rupees) * 100);
+
+  if (rupees === 0 && paise === 0) return "INR Zero Only";
+
+  const crore = Math.floor(rupees / 10000000);
+  const lakh = Math.floor((rupees % 10000000) / 100000);
+  const thousand = Math.floor((rupees % 100000) / 1000);
+  const rest = rupees % 1000;
+
+  const parts = [];
+  if (crore) parts.push(`${twoDigits(crore)} Crore`);
+  if (lakh) parts.push(`${twoDigits(lakh)} Lakh`);
+  if (thousand) parts.push(`${twoDigits(thousand)} Thousand`);
+  if (rest) parts.push(threeDigits(rest));
+
+  let words = `INR ${parts.join(" ")}`.trim();
+  if (paise) words += ` and ${twoDigits(paise)} paise`;
+  return `${words} Only`;
+}
+
+/** Demo invoice matching STIC-ON tax invoice layout. */
+export const SAMPLE_INVOICE_COPY = {
+  title: "Tax Invoice",
+  eInvoice: true,
+  irn: "448c3052ce650817608ddafb90d9817fc28ea01d1ebf8acb810a4affec0a5a54",
+  ackNo: "112631145034957",
+  ackDate: "27-Jun-26",
+  seller: {
+    name: "STIC-ON PAPERS PVT LTD - 2025-26",
+    tagline: "Let's Stick Together.",
+    address: "PLOT NO.: 178 C AND D, IDA MALLAPUR, HYDERABAD, TELANGANA - 500076.",
+    udyam: "UDYAM-TS-20-0001122",
+    gstin: "36AAFCS1039P1Z0",
+    state: "Telangana, Code: 36",
+    cin: "U21020TG1999PTC032393",
+    email: "sales@sticonpapers.com",
+  },
+  meta: {
+    invoiceNo: "1541/26-27",
+    date: "27-Jun-26",
+    deliveryNote: "",
+    modeTerms: "Advance",
+    referenceNo: "",
+    buyersOrderNo: "",
+    dispatchDocNo: "",
+    dispatchedThrough: "Dtdc",
+    destination: "Pune",
+    eWayBillNo: "142470234096",
+    termsOfDelivery: "",
+  },
+  consignee: {
+    name: "ABHANG ENTERPRISES-Pune",
+    address: "G.NO. 162/2, Katavi, Talegaon MIDC Road, Near Z P SCHOOL, Maval, Katavi, Pune, Maharashtra-410507",
+    contact: "Mob: 9689100973 / Tel: 08600772020",
+    gstin: "27ACIFA1810E1ZW",
+    state: "Maharashtra, Code: 27",
+  },
+  buyer: {
+    name: "ABHANG ENTERPRISES-Pune",
+    address: "G.NO. 162/2, Katavi, Talegaon MIDC Road, Near Z P SCHOOL, Maval, Katavi, Pune, Maharashtra-410507",
+    contact: "Mob: 9689100973 / Tel: 08600772020",
+    gstin: "27ACIFA1810E1ZW",
+    state: "Maharashtra, Code: 27",
+  },
+  placeOfSupply: "Maharashtra",
+  items: [
+    {
+      si: 1,
+      description: "RELEASE PAPER -60Y\n(107mm-1 Roll)",
+      hsn: "48114100",
+      qty: "17.00",
+      unit: "SQM",
+      rate: "2.000",
+      amount: 34.0,
+      igstPct: 18,
+      igstAmount: 6.12,
+    },
+  ],
+  roundOff: -0.12,
+  grandTotal: 40.0,
+  taxableTotal: 34.0,
+  igstTotal: 6.12,
+  remarks: "Being material sold vide Invoice No : 1541/26-27",
+};
+
+export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
+  if (!detail?.invoice) return null;
+
+  const inv = detail.invoice;
+  const cust = detail.customer || {};
+  const items = (detail.items || []).map((item, i) => {
+    const taxable = Number(item.amount) || 0;
+    const igstPct = Number(inv.igst_pct) || 0;
+    const igstAmount = igstPct ? Math.round(taxable * igstPct) / 100 : 0;
+    return {
+      si: i + 1,
+      description: item.item_description,
+      hsn: "48114100",
+      qty: Number(item.qty).toFixed(2),
+      unit: (item.unit || "pcs").toUpperCase(),
+      rate: Number(item.rate).toFixed(3),
+      amount: taxable,
+      igstPct,
+      igstAmount,
+    };
+  });
+
+  const taxableTotal = items.reduce((s, it) => s + it.amount, 0);
+  const igstTotal = Number(inv.igst_amount) || items.reduce((s, it) => s + it.igstAmount, 0);
+  const grandTotal = Number(inv.grand_total) || taxableTotal + igstTotal + Number(inv.round_off || 0);
+
+  const formatDate = (d) => {
+    if (!d) return "";
+    const dt = new Date(d);
+    return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }).replace(/ /g, "-");
+  };
+
+  const sellerName = companySettings.company_name || companySettings.name || "SMRT Manufacturing Pvt Ltd";
+  const sellerGstin = companySettings.gstin || companySettings.gst_number || "36XXXXX0000X1Z0";
+
+  return {
+    title: "Tax Invoice",
+    eInvoice: Boolean(companySettings.e_invoice_enabled),
+    irn: companySettings.irn || "—",
+    ackNo: companySettings.ack_no || "—",
+    ackDate: formatDate(inv.issue_date),
+    seller: {
+      name: sellerName,
+      tagline: companySettings.tagline || "Systematic Manufacturing Real-time Tracking",
+      address: [companySettings.address_line1, companySettings.address_line2, companySettings.city, companySettings.state, companySettings.pincode].filter(Boolean).join(", ") || "Hyderabad, Telangana",
+      udyam: companySettings.udyam || "",
+      gstin: sellerGstin,
+      state: `${companySettings.state || "Telangana"}, Code: ${companySettings.state_code || "36"}`,
+      cin: companySettings.cin || "",
+      email: companySettings.email || companySettings.contact_email || "",
+    },
+    meta: {
+      invoiceNo: inv.invoice_number,
+      date: formatDate(inv.issue_date),
+      deliveryNote: "",
+      modeTerms: "Advance",
+      referenceNo: "",
+      buyersOrderNo: "",
+      dispatchDocNo: "",
+      dispatchedThrough: "",
+      destination: cust.state || "",
+      eWayBillNo: "",
+      termsOfDelivery: "",
+    },
+    consignee: {
+      name: cust.name || "",
+      address: [cust.address_line1, cust.address_line2].filter(Boolean).join(", "),
+      contact: cust.phone || "",
+      gstin: cust.gstin || "",
+      state: cust.state ? `${cust.state}, Code: ${cust.state_code || ""}` : "",
+    },
+    buyer: {
+      name: cust.name || "",
+      address: [cust.address_line1, cust.address_line2].filter(Boolean).join(", "),
+      contact: cust.phone || "",
+      gstin: cust.gstin || "",
+      state: cust.state ? `${cust.state}, Code: ${cust.state_code || ""}` : "",
+    },
+    placeOfSupply: cust.state || "",
+    items,
+    roundOff: Number(inv.round_off) || 0,
+    grandTotal,
+    taxableTotal,
+    igstTotal,
+    remarks: `Being material sold vide Invoice No : ${inv.invoice_number}`,
+  };
+}
+
+export function mergeWithSampleIfEmpty(copy) {
+  if (!copy || !copy.items?.length) return SAMPLE_INVOICE_COPY;
+  return copy;
+}

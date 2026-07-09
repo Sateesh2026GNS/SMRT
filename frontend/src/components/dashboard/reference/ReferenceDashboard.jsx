@@ -37,6 +37,8 @@ import {
   kpiCards,
   ordersOverview,
   productionOverview,
+  productionOverviewWeekly,
+  productionOverviewMonthly,
   quickActionsRef,
   recentWorkOrdersRef,
   shopFloorStatus,
@@ -98,6 +100,12 @@ const ALERT_TIME_META = [
 ];
 
 const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
+
+const PRODUCTION_DATA = {
+  Daily: productionOverview,
+  Weekly: productionOverviewWeekly,
+  Monthly: productionOverviewMonthly,
+};
 
 const summaryIcons = {
   users: Users,
@@ -164,6 +172,7 @@ function KpiStrip() {
 function ProductionOverview() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState("Daily");
+  const chartData = PRODUCTION_DATA[period] ?? productionOverview;
   return (
     <CardShell
       title={t("refDashboard.productionOverview")}
@@ -185,7 +194,7 @@ function ProductionOverview() {
     >
       <div className="h-[260px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={productionOverview} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+          <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} key={period}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
             <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />

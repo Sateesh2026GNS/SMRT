@@ -1,8 +1,15 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
 import Loader from "../../components/common/Loader";
-import { getCustomers, createInvoice } from "../../api/salesApi";
+import { createInvoice } from "../../api/salesApi";
 import useTenantId from "../../hooks/useTenantId";
+import { useToast } from "../../context/ToastContext";
+import {
+  customerToConsigneeFields,
+  fetchCustomersWithFallback,
+  filterCustomers,
+  resolveCustomerId,
+} from "../../utils/customerOptions";
 
 
 const inputStyle = { padding: "6px 10px", border: "1px solid #c4b5a0", borderRadius: 4, background: "#fff", width: "100%" };
@@ -11,8 +18,10 @@ const labelRed = { color: "#b91c1c", fontSize: "0.9rem", marginBottom: 4, displa
 export default function TaxInvoiceForm() {
   const tenantId = useTenantId();
   const navigate = useNavigate();
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [customers, setCustomers] = useState([]);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [form, setForm] = useState({
     tenant_id: tenantId,
     customer_id: "",
@@ -39,8 +48,25 @@ export default function TaxInvoiceForm() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    getCustomers(tenantId).then((r) => setCustomers(r.data || [])).catch(console.error).finally(() => setLoading(false));
+    fetchCustomersWithFallback()
+      .then(setCustomers)
+      .catch(() => setCustomers([]))
+      .finally(() => setLoading(false));
   }, []);
+
+  const filteredCustomers = useMemo(
+    () => filterCustomers(customers, customerSearch),
+    [customers, customerSearch]
+  );
+
+  const handleCustomerChange = (customerId) => {
+    const customer = customers.find((c) => String(c.id) === String(customerId));
+    setForm((f) => ({
+      ...f,
+      customer_id: customerId,
+      ...customerToConsigneeFields(customer),
+    }));
+  };
 
   const updateItem = (idx, field, val) => {
     const next = [...items];
@@ -64,11 +90,16 @@ export default function TaxInvoiceForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!form.customer_id) {
+      addToast("Please select a customer", "error");
+      return;
+    }
     setSaving(true);
     try {
+      const customerId = await resolveCustomerId(form.customer_id, customers, tenantId);
       await createInvoice({
         tenant_id: form.tenant_id,
-        customer_id: Number(form.customer_id),
+        customer_id: customerId,
         sales_order_id: form.sales_order_id || null,
         invoice_number: form.invoice_number || String(Date.now()).slice(-6),
         issue_date: form.issue_date,
@@ -96,6 +127,7 @@ export default function TaxInvoiceForm() {
       navigate("/sales/invoices");
     } catch (err) {
       console.error(err);
+      addToast(err.response?.data?.detail || "Failed to save invoice", "error");
     } finally {
       setSaving(false);
     }
@@ -124,10 +156,32 @@ export default function TaxInvoiceForm() {
 
           <div style={{ marginBottom: 16 }}>
             <label style={labelRed}>Customer :-</label>
-            <select value={form.customer_id} onChange={(e) => setForm((f) => ({ ...f, customer_id: e.target.value }))} required style={{ ...inputStyle, maxWidth: 400 }}>
+            <input
+              type="search"
+              placeholder="Search customer by name, GSTIN, state..."
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              style={{ ...inputStyle, maxWidth: 400, marginBottom: 8 }}
+            />
+            <select
+              value={form.customer_id}
+              onChange={(e) => handleCustomerChange(e.target.value)}
+              required
+              style={{ ...inputStyle, maxWidth: 400 }}
+            >
               <option value="">Select customer</option>
-              {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {filteredCustomers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.gstin ? ` · ${c.gstin}` : ""}{c.state ? ` · ${c.state}` : ""}
+                </option>
+              ))}
             </select>
+            {filteredCustomers.length === 0 && (
+              <p style={{ fontSize: "0.85rem", color: "#b91c1c", marginTop: 6 }}>
+                No customers match your search.{" "}
+                <Link to="/sales/customers" style={{ color: "#0d9488" }}>Add a customer</Link>
+              </p>
+            )}
           </div>
 
           <div style={{ background: "#e8dcc8", padding: "8px 16px", marginBottom: 12, textAlign: "center", fontWeight: 700 }}>Item</div>

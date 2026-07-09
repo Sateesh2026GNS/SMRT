@@ -1,0 +1,295 @@
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Cpu, FileText, Printer, Users, Wrench, X } from "lucide-react";
+
+import {
+  PRIORITY_COLORS,
+  WO_STATUS_COLORS,
+  woStatusLabel,
+} from "../../data/workOrdersMasterData";
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "materials", label: "Materials" },
+  { id: "machines", label: "Machines" },
+  { id: "operators", label: "Operators" },
+  { id: "quality", label: "Quality" },
+  { id: "maintenance", label: "Maintenance" },
+  { id: "documents", label: "Documents" },
+  { id: "audit", label: "Audit Logs" },
+];
+
+function Field({ label, value }) {
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-0.5 text-sm font-medium text-slate-800">{value ?? "—"}</p>
+    </div>
+  );
+}
+
+function ProgressBar({ produced, planned, pct }) {
+  const p = pct ?? (planned ? Math.round((produced / planned) * 100) : 0);
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-xs text-slate-500">
+        <span>{produced} / {planned}</span>
+        <span className="font-bold">{p}%</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-slate-200">
+        <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${Math.min(p, 100)}%` }} />
+      </div>
+    </div>
+  );
+}
+
+export function WorkOrderStartModal({ workOrder, checks, onClose, onConfirm, loading }) {
+  if (!workOrder) return null;
+  const allReady = checks?.every((c) => c.ready);
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="text-lg font-bold">Start Work Order</h3>
+        <p className="text-sm text-slate-500">{workOrder.work_order_number}</p>
+        <ul className="mt-4 space-y-2">
+          {(checks || []).map((c) => (
+            <li key={c.check_type} className={`rounded-lg px-3 py-2 text-sm ${c.ready ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+              <p className="font-semibold">{c.label}</p>
+              <p className="text-xs">{c.message}</p>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-lg border px-4 py-2 text-sm font-semibold">Cancel</button>
+          <button type="button" disabled={!allReady || loading} onClick={onConfirm} className="ui-btn-primary disabled:opacity-50">
+            {loading ? "Starting..." : "Start"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function WorkOrderCompleteModal({ workOrder, steps, onClose }) {
+  if (!workOrder) return null;
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <h3 className="text-lg font-bold text-green-700">Work Order Completed</h3>
+        <p className="text-sm text-slate-500">{workOrder.work_order_number}</p>
+        <ol className="mt-4 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          {(steps || []).map((s, i) => <li key={i}>{s}</li>)}
+        </ol>
+        <button type="button" onClick={onClose} className="ui-btn-primary mt-4 w-full">Done</button>
+      </div>
+    </div>
+  );
+}
+
+export default function WorkOrderDetailModal({ workOrder, detail, onClose, onStart, onPause, onStop, onComplete }) {
+  const [tab, setTab] = useState("overview");
+  if (!workOrder) return null;
+
+  const w = { ...workOrder, ...(detail || {}) };
+  const kpis = [
+    { label: "Machine Util.", value: w.machine_utilization_pct != null ? `${w.machine_utilization_pct}%` : "—" },
+    { label: "Operator Eff.", value: w.operator_efficiency_pct != null ? `${w.operator_efficiency_pct}%` : "—" },
+    { label: "OEE", value: w.oee_pct != null ? `${w.oee_pct}%` : "—" },
+    { label: "Prod. Eff.", value: w.production_efficiency_pct != null ? `${w.production_efficiency_pct}%` : "—" },
+    { label: "Scrap %", value: w.scrap_pct != null ? `${w.scrap_pct}%` : "—" },
+    { label: "Downtime", value: w.downtime_minutes != null ? `${w.downtime_minutes} min` : "—" },
+  ];
+
+  const p = PRIORITY_COLORS[w.priority] || PRIORITY_COLORS.medium;
+  const statusCls = WO_STATUS_COLORS[w.status] || WO_STATUS_COLORS.planned;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+      <div className="flex max-h-[94vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b px-5 py-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-xs font-semibold text-[#2563EB]">{w.work_order_number}</p>
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${statusCls}`}>{woStatusLabel(w.status)}</span>
+              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${p.bg} ${p.text}`}>{p.dot} {p.label}</span>
+              {w.is_delayed && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">🔴 Delayed</span>}
+            </div>
+            <h2 className="text-xl font-bold text-slate-900">{w.product_name}</h2>
+            <p className="text-sm text-slate-500">
+              <Link to="/production/planning" className="text-[#2563EB] hover:underline">{w.production_order_number}</Link>
+              {" · "}{w.customer_name} · {w.machine_name}
+            </p>
+            <div className="mt-3 max-w-md">
+              <ProgressBar produced={w.produced_quantity ?? 0} planned={w.planned_quantity} pct={w.progress_pct} />
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 border-b bg-slate-50 px-5 py-3 sm:grid-cols-6">
+          {kpis.map((k) => (
+            <div key={k.label} className="text-center">
+              <p className="text-[10px] font-medium text-slate-500">{k.label}</p>
+              <p className="text-sm font-bold text-slate-800">{k.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-1 border-b px-5 py-2">
+          {TABS.map((t) => (
+            <button key={t.id} type="button" onClick={() => setTab(t.id)} className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${tab === t.id ? "bg-[#2563EB] text-white" : "text-slate-600 hover:bg-slate-100"}`}>{t.label}</button>
+          ))}
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4">
+          {tab === "overview" && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="mb-3 text-sm font-bold">General</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <Field label="Work Order No" value={w.work_order_number} />
+                  <Field label="Production Order" value={w.production_order_number} />
+                  <Field label="Product" value={w.product_name} />
+                  <Field label="Customer" value={w.customer_name} />
+                  <Field label="BOM Version" value={w.bom_version} />
+                  <Field label="Batch Number" value={w.batch_number} />
+                  <Field label="Priority" value={w.priority} />
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-3 text-sm font-bold">Production</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Field label="Planned Qty" value={w.planned_quantity} />
+                  <Field label="Produced Qty" value={w.produced_quantity} />
+                  <Field label="Remaining Qty" value={w.remaining_quantity} />
+                  <Field label="Scrap Qty" value={w.scrap_quantity} />
+                  <Field label="Rework Qty" value={w.rework_quantity} />
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-3 text-sm font-bold">Machine & Operator</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <Field label="Machine" value={w.machine_name} />
+                  <Field label="Machine Status" value={w.machine_status} />
+                  <Field label="Efficiency" value={w.machine_efficiency_pct != null ? `${w.machine_efficiency_pct}%` : "—"} />
+                  <Field label="Operator" value={w.operator_name} />
+                  <Field label="Supervisor" value={w.supervisor} />
+                  <Field label="Shift" value={w.shift} />
+                </div>
+              </div>
+              <div>
+                <h3 className="mb-3 text-sm font-bold">Timeline</h3>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <Field label="Created" value={w.created_at?.slice?.(0, 16)?.replace("T", " ")} />
+                  <Field label="Started" value={w.started_at?.slice?.(0, 16)?.replace("T", " ")} />
+                  <Field label="Paused" value={w.paused_at?.slice?.(0, 16)?.replace("T", " ")} />
+                  <Field label="Completed" value={w.completed_at?.slice?.(0, 16)?.replace("T", " ")} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {tab === "materials" && (
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-slate-400">
+                  <th className="py-2">Material</th>
+                  <th className="py-2 text-right">Required</th>
+                  <th className="py-2 text-right">Issued</th>
+                  <th className="py-2 text-right">Balance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(w.materials || []).map((m) => (
+                  <tr key={m.component_name} className="border-b border-slate-50">
+                    <td className="py-2 font-medium">{m.component_name}</td>
+                    <td className="py-2 text-right">{m.required_qty}</td>
+                    <td className="py-2 text-right">{m.issued_qty}</td>
+                    <td className="py-2 text-right">{m.balance_qty}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+
+          {tab === "machines" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Field label="Machine Name" value={w.machine_name} />
+              <Field label="Machine Code" value={w.machine_code} />
+              <Field label="Status" value={w.machine_status} />
+              <Field label="Utilization" value={w.machine_utilization_pct != null ? `${w.machine_utilization_pct}%` : "—"} />
+              <Field label="Efficiency" value={w.machine_efficiency_pct != null ? `${w.machine_efficiency_pct}%` : "—"} />
+              <Field label="OEE" value={w.oee_pct != null ? `${w.oee_pct}%` : "—"} />
+              <Link to="/production/machines" className="text-sm font-semibold text-[#2563EB] hover:underline sm:col-span-3">View Machine Dashboard →</Link>
+            </div>
+          )}
+
+          {tab === "operators" && (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <Field label="Assigned Operator" value={w.operator_name} />
+              <Field label="Supervisor" value={w.supervisor} />
+              <Field label="Shift" value={w.shift} />
+              <Field label="Department" value={w.department} />
+              <Field label="Efficiency" value={w.operator_efficiency_pct != null ? `${w.operator_efficiency_pct}%` : "—"} />
+            </div>
+          )}
+
+          {tab === "quality" && (
+            <div className="space-y-3">
+              <Field label="Quality Status" value={w.quality_status} />
+              <Field label="Scrap %" value={w.scrap_pct != null ? `${w.scrap_pct}%` : "—"} />
+              <Link to="/quality/inspection" className="text-sm font-semibold text-[#2563EB] hover:underline">Quality Inspection →</Link>
+            </div>
+          )}
+
+          {tab === "maintenance" && (
+            <Link to="/maintenance/schedule" className="inline-flex items-center gap-1 text-sm font-semibold text-[#2563EB] hover:underline">
+              <Wrench className="h-4 w-4" /> Maintenance Schedule →
+            </Link>
+          )}
+
+          {tab === "documents" && (
+            <ul className="space-y-2">
+              {(w.documents || []).map((d) => (
+                <li key={d.name} className="flex items-center gap-3 rounded-lg border px-4 py-3">
+                  <FileText className="h-5 w-5 text-[#2563EB]" />
+                  <span className="text-sm font-medium">{d.name}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {tab === "audit" && (
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase text-slate-400">
+                  <th className="py-2">Action</th>
+                  <th className="py-2">User</th>
+                  <th className="py-2">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(w.audit_logs || []).map((log, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    <td className="py-2">{log.action}</td>
+                    <td className="py-2">{log.user}</td>
+                    <td className="py-2">{log.timestamp}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-2 border-t px-5 py-3">
+          {onStart && <button type="button" onClick={() => onStart(w)} className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white">▶ Start</button>}
+          {onPause && <button type="button" onClick={() => onPause(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏸ Pause</button>}
+          {onStop && <button type="button" onClick={() => onStop(w)} className="rounded-lg border px-3 py-1.5 text-xs font-semibold">⏹ Stop</button>}
+          {onComplete && <button type="button" onClick={() => onComplete(w)} className="rounded-lg bg-[#2563EB] px-3 py-1.5 text-xs font-semibold text-white">✅ Complete</button>}
+          <button type="button" onClick={() => window.print()} className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-semibold"><Printer className="h-3 w-3" /> Job Card</button>
+          <Link to="/production/batch-tracking" className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700">Batch Tracking</Link>
+        </div>
+      </div>
+    </div>
+  );
+}

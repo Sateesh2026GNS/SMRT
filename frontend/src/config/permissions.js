@@ -51,6 +51,7 @@ export const ROUTE_MODULE_OVERRIDES = {
   "/procurement/rfq": "procurement",
   "/finance/accounts-payable": "accounts",
   "/finance/accounts-receivable": "accounts",
+  "/finance/payment-tracking": "accounts",
   "/finance/general-ledger": "accounts",
   "/quality/incoming": "quality",
   "/quality/in-process": "quality",

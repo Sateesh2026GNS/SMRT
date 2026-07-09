@@ -12,6 +12,7 @@ from app.models import (  # noqa: F401
     alert,
     bom,
     company_settings,
+    department,
     document,
     hr,
     inventory,

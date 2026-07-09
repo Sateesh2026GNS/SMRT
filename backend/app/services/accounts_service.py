@@ -77,6 +77,7 @@ def get_profit_loss(db: Session, tenant_id: int, year: int, ytd_through_month: i
         cat = row[0] or "Other"
         src = row[1]
         m = int(row[2]) if row[2] else 0
+        amt = float(row[3] or 0)
         key = f"{cat} - {src}" if src else cat
         if key not in rev_by_cat:
             rev_by_cat[key] = {i: 0 for i in range(1, 13)}
