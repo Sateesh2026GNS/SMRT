@@ -92,7 +92,7 @@
     "tagline": "ஒழுங்கமைக்கப்பட்ட உற்பத்தி நிகழ்நேர கண்காணிப்பு",
     "userRole": "பயனர் பங்கு",
     "superAdmin": "சூப்பர் அட்மின்",
-    "footerTagline": "SMRT ERP · ஸ்மார்ட் உற்பத்தியை மேம்படுத்துதல்"
+    "footerTagline": "SMRT AI ERP · ஸ்மார்ட் உற்பத்தியை மேம்படுத்துதல்"
   },
   "common": {
     "search": "தேடு...",
@@ -229,7 +229,7 @@
     "powerConsumption": "மின் நுகர்வு",
     "productionEfficiency": "உற்பத்தி செயல்திறன்",
     "targetAchievement": "இலக்கு சாதனை",
-    "copyright": "© 2026 SMRT ERP. அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை.",
+    "copyright": "© 2026 SMRT AI ERP. அனைத்து உரிமைகளும் பாதுகாக்கப்பட்டவை.",
     "poweredBy": "GNS Software Pvt Ltd மூலம் இயக்கப்படுகிறது",
     "alertDelayed": "பணி ஆர்டர் WO-1025 தாமதமாகியுள்ளது",
     "alertMaintenance": "இயந்திரம் CNC-03க்கு பராமரிப்பு தேவை",

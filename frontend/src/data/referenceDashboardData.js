@@ -1,4 +1,4 @@
-/** Reference dashboard data — matches SMRT ERP admin screenshot */
+/** Reference dashboard data — matches SMRT AI ERP admin screenshot */
 
 export const plants = [
   { id: "plant-1", name: "Hyderabad Plant – Unit A" },

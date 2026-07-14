@@ -17,7 +17,7 @@ export default function Landing() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white font-bold" style={{ background: "var(--color-primary)" }}>S</div>
-            <span className="font-bold text-xl" style={{ color: "var(--color-dark-bg)" }}>SMRT</span>
+            <span className="font-bold text-xl" style={{ color: "var(--color-dark-bg)" }}>SMRT AI ERP</span>
           </div>
           <div className="flex items-center gap-4">
             <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
@@ -31,7 +31,7 @@ export default function Landing() {
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl" style={{ color: "var(--color-dark-bg)" }}>
             Control Your Factory in Real-Time with{" "}
-            <span style={{ color: "var(--color-primary)" }}>SMRT</span> Manufacturing ERP
+            <span style={{ color: "var(--color-primary)" }}>SMRT AI ERP</span>
           </h1>
           <p className="mt-6 text-xl text-slate-600">
             Production, inventory, sales, and analytics in one platform. Built for modern manufacturers.
@@ -118,7 +118,7 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl flex flex-wrap justify-between items-center gap-4">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg text-white font-bold text-sm" style={{ background: "var(--color-primary)" }}>S</div>
-            <span className="font-bold" style={{ color: "var(--color-dark-bg)" }}>SMRT Manufacturing ERP</span>
+            <span className="font-bold" style={{ color: "var(--color-dark-bg)" }}>SMRT AI ERP</span>
           </div>
           <div className="flex gap-6 text-sm text-slate-600">
             <Link to="/login" className="hover:text-slate-900">Login</Link>

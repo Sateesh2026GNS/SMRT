@@ -1,4 +1,4 @@
-# SMRT
+# SMRT AI ERP
 
 A full-stack **Production Management**, **Inventory & Raw Material Management**, **Sales & Billing**, and **Accounts & Reports** system with multi-tenant support.
 

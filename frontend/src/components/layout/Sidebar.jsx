@@ -95,7 +95,7 @@ export default function Sidebar({ collapsed, onClose }) {
           </div>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-lg font-bold tracking-tight">SMRT ERP</p>
+              <p className="text-lg font-bold tracking-tight">SMRT AI ERP</p>
               <p className="text-[9px] leading-tight text-slate-400">{t("nav.tagline")}</p>
             </div>
           )}

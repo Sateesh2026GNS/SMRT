@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 /**
- * SMRT ERP sidebar structure. Children are filtered by RBAC per-item `module`.
+ * SMRT AI ERP sidebar structure. Children are filtered by RBAC per-item `module`.
  * Routes map to existing pages where available; others use /erp/* placeholders.
  */
 export const SIDEBAR_NAV = [

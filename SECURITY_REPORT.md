@@ -1,4 +1,4 @@
-# SMRT Security Implementation Report
+# SMRT AI ERP Security Implementation Report
 
 Generated after production-ready security hardening across the React + FastAPI SMRT application.
 

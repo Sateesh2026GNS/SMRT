@@ -105,9 +105,9 @@ export default function Register() {
               {/* Right Panel - Register Form */}
               <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white overflow-y-auto">
                 <div className="text-center mb-8 w-full">
-                  <h1 className="text-4xl font-bold text-gray-900 mb-2">SMRT</h1>
-                  <p className="text-gray-600 text-sm">Manufacturing ERP</p>
-                  <p className="text-gray-500 text-xs mt-1">Create Your Own Manufacturing ERP Account</p>
+                  <h1 className="text-4xl font-bold text-gray-900 mb-2">SMRT AI ERP</h1>
+                  <p className="text-gray-600 text-sm">AI-Powered Manufacturing ERP</p>
+                  <p className="text-gray-500 text-xs mt-1">Create your SMRT AI ERP account</p>
                 </div>
 
                 {success && (

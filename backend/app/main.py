@@ -79,7 +79,7 @@ settings = get_settings()
 setup_logging("INFO")
 logger = get_logger("smrt")
 
-app = FastAPI(title="SMRT Backend", version="1.0.0")
+app = FastAPI(title="SMRT AI ERP API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
