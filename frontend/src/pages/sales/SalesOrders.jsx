@@ -1,0 +1,130 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { Download, Eye, Filter, IndianRupee, Plus, RefreshCw, ShoppingCart, Truck } from "lucide-react";
+
+import DataTable from "../../components/common/DataTable";
+import RowActionMenu from "../../components/common/RowActionMenu";
+import Loader from "../../components/common/Loader";
+import SODetailModal from "../../components/sales/SODetailModal";
+import { useToast } from "../../context/ToastContext";
+import { getSOSummary, getSalesOrdersEnriched } from "../../api/salesApi";
+import { DEMO_SO_LIST, DEMO_SO_SUMMARY, formatInr, statusColor } from "../../data/salesMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
+
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
+
+const defaultFilters = { customer: "", status: "", sales_person: "" };
+
+export default function SalesOrders() {
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(DEMO_SO_SUMMARY);
+  const [rows, setRows] = useState(DEMO_SO_LIST);
+  const [filters, setFilters] = useState(defaultFilters);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, listRes] = await Promise.allSettled([getSOSummary(), getSalesOrdersEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_SO_SUMMARY, ...sumRes.value.data });
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
+      else setRows(DEMO_SO_LIST);
+    } catch {
+      addToast("Using demo sales order data", "info");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    let list = rows;
+    if (filters.customer) list = list.filter((r) => r.customer_name?.toLowerCase().includes(filters.customer.toLowerCase()));
+    if (filters.status) list = list.filter((r) => r.status === filters.status);
+    if (filters.sales_person) list = list.filter((r) => r.sales_person?.toLowerCase().includes(filters.sales_person.toLowerCase()));
+    return list;
+  }, [rows, filters]);
+
+  const columns = [
+    { key: "order_number", label: "SO No", render: (r) => (
+      typeof r.id === "number"
+        ? <Link to={`/sales/orders/${r.id}`} className="font-medium text-[#2563EB] hover:underline">{r.order_number}</Link>
+        : <span className="font-medium text-[#2563EB]">{r.order_number}</span>
+    )},
+    { key: "customer_name", label: "Customer" },
+    { key: "order_date", label: "Date", render: (r) => String(r.order_date || "").slice(0, 10) },
+    { key: "delivery_date", label: "Delivery Date", render: (r) => r.delivery_date || "—" },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "payment_terms", label: "Payment", render: (r) => r.payment_terms || "—" },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "actions", label: "Actions", sortable: false, render: (r) => (
+      <RowActionMenu
+        rowId={r.id}
+        openMenu={openMenu}
+        setOpenMenu={setOpenMenu}
+        items={[
+          { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setSelected(r) },
+        ]}
+      />
+    )},
+  ];
+
+  if (loading) return <Loader label="Loading sales orders..." />;
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Sales Orders</h1>
+          <p className="mt-1 text-sm text-slate-500">Manage orders from quotation to dispatch with production and inventory integration.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/sales/orders/create" className="ui-btn-primary"><Plus className="h-4 w-4" /> New Sales Order</Link>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "sales-orders")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <KpiCard label="Total Orders" value={summary.total_orders} icon={ShoppingCart} color="bg-blue-600" />
+        <KpiCard label="Pending" value={summary.pending} icon={ShoppingCart} color="bg-amber-500" />
+        <KpiCard label="Confirmed" value={summary.confirmed} icon={ShoppingCart} color="bg-indigo-600" />
+        <KpiCard label="Packed" value={summary.packed} icon={ShoppingCart} color="bg-purple-600" />
+        <KpiCard label="Shipped" value={summary.shipped} icon={Truck} color="bg-teal-600" />
+        <KpiCard label="Delivered" value={summary.delivered} icon={Truck} color="bg-green-600" />
+        <KpiCard label="Cancelled" value={summary.cancelled} icon={ShoppingCart} color="bg-red-500" />
+        <KpiCard label="Revenue" value={formatInr(summary.revenue)} icon={IndianRupee} color="bg-emerald-600" />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-slate-700"><Filter className="h-4 w-4" /> Filters</button>
+        {showAdvanced && (
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <input value={filters.customer} onChange={(e) => setFilters({ ...filters, customer: e.target.value })} placeholder="Customer" className="rounded-lg border px-3 py-2 text-sm" />
+            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="rounded-lg border px-3 py-2 text-sm">
+              <option value="">All Status</option>
+              {["draft", "pending", "confirmed", "packed", "shipped", "delivered", "cancelled"].map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <input value={filters.sales_person} onChange={(e) => setFilters({ ...filters, sales_person: e.target.value })} placeholder="Sales Person" className="rounded-lg border px-3 py-2 text-sm" />
+          </div>
+        )}
+        <DataTable columns={columns} data={filtered} searchPlaceholder="Search SO, customer..." searchKeys={["order_number", "customer_name", "sales_person"]} />
+      </div>
+
+      {selected && <SODetailModal order={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+}

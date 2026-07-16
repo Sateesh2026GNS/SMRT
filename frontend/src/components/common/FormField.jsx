@@ -1,0 +1,99 @@
+const inputBase =
+  "w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed";
+
+const labelBase = "block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5";
+
+export function FormField({ label, error, hint, required, children }) {
+  return (
+    <div className="space-y-1">
+      {label && (
+        <label className={labelBase}>
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+      )}
+      {children}
+      {hint && <p className="text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
+}
+
+export function Input({
+  label,
+  error,
+  hint,
+  required,
+  icon: Icon,
+  className = "",
+  ...props
+}) {
+  return (
+    <FormField label={label} error={error} hint={hint} required={required}>
+      <div className="relative">
+        {Icon && (
+          <Icon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+        )}
+        <input
+          className={`${inputBase} ${Icon ? "pl-10" : ""} ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
+          {...props}
+        />
+      </div>
+    </FormField>
+  );
+}
+
+export function Select({
+  label,
+  error,
+  hint,
+  required,
+  options = [],
+  placeholder = "Select...",
+  className = "",
+  ...props
+}) {
+  return (
+    <FormField label={label} error={error} hint={hint} required={required}>
+      <select
+        className={`${inputBase} ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
+        {...props}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </FormField>
+  );
+}
+
+export function Textarea({
+  label,
+  error,
+  hint,
+  required,
+  rows = 3,
+  className = "",
+  ...props
+}) {
+  return (
+    <FormField label={label} error={error} hint={hint} required={required}>
+      <textarea
+        rows={rows}
+        className={`${inputBase} resize-y min-h-[80px] ${error ? "border-red-500 dark:border-red-500" : ""} ${className}`}
+        {...props}
+      />
+    </FormField>
+  );
+}
+
+export function FormRow({ children, className = "" }) {
+  return (
+    <div className={`grid gap-4 sm:grid-cols-2 ${className}`}>
+      {children}
+    </div>
+  );
+}

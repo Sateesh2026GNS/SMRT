@@ -1,0 +1,425 @@
+"""Operator REST API — all /api/* endpoints."""
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.api.auth_deps import get_current_user
+from app.api.deps import get_db
+from app.models.user import User
+from app.routers.operator_deps import require_api_access, require_tenant
+from app.schemas.operator import (
+    BatchUpdateRequest,
+    MachineBreakdownRequest,
+    OperatorLoginRequest,
+    ShopFloorUpdateRequest,
+    WorkOrderActionRequest,
+    WorkOrderProgressRequest,
+)
+from app.services.operator_service import OperatorService
+from app.utils.api_response import success_response
+
+router = APIRouter(prefix="/api", tags=["Operator API"])
+
+
+def _svc(db: Session, tenant_id: int) -> OperatorService:
+    return OperatorService(db, tenant_id)
+
+
+# ── Authentication ─────────────────────────────────────────────────────────
+
+
+@router.post("/auth/login")
+def api_login(payload: OperatorLoginRequest, db: Session = Depends(get_db)):
+    from fastapi.responses import JSONResponse
+
+    from app.services.auth_service import authenticate_user, issue_auth_response_data
+    from app.utils.api_response import error_response
+
+    user = authenticate_user(db, payload.email, payload.password)
+    if not user:
+        return JSONResponse(
+            status_code=401,
+            content=error_response("Invalid email or password", errors=["authentication_failed"]),
+        )
+    data = issue_auth_response_data(db, user)
+    return success_response("Login successful", data)
+
+
+@router.post("/auth/logout")
+def api_logout(current_user: User = Depends(get_current_user)):
+    return success_response("Logged out successfully. Discard your access token on the client.")
+
+
+@router.get("/auth/profile")
+def api_profile(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    tenant_id = current_user.tenant_id
+    svc = _svc(db, tenant_id)
+    return success_response("Profile retrieved", svc.get_profile(current_user).model_dump())
+
+
+# ── Dashboard ──────────────────────────────────────────────────────────────
+
+
+@router.get("/dashboard")
+def api_dashboard(user_tenant: tuple[User, int] = Depends(require_tenant("dashboard")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Dashboard retrieved", _svc(db, tenant_id).get_dashboard(user))
+
+
+@router.get("/dashboard/operator")
+def api_operator_dashboard(user_tenant: tuple[User, int] = Depends(require_tenant("dashboard")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Operator dashboard retrieved", _svc(db, tenant_id).get_operator_dashboard(user))
+
+
+@router.get("/dashboard/summary")
+def api_dashboard_summary(user_tenant: tuple[User, int] = Depends(require_tenant("dashboard")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Dashboard summary retrieved", _svc(db, tenant_id).get_dashboard_summary(user))
+
+
+@router.get("/dashboard/today")
+def api_dashboard_today(user_tenant: tuple[User, int] = Depends(require_tenant("dashboard")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Today's dashboard retrieved", _svc(db, tenant_id).get_dashboard_today(user))
+
+
+# ── Products ───────────────────────────────────────────────────────────────
+
+
+@router.get("/products")
+def api_list_products(user_tenant: tuple[User, int] = Depends(require_tenant("products")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Products retrieved", _svc(db, tenant_id).list_products())
+
+
+@router.get("/products/search")
+def api_search_products(
+    q: str = Query(..., min_length=1),
+    user_tenant: tuple[User, int] = Depends(require_tenant("products")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Product search completed", _svc(db, tenant_id).search_products(q))
+
+
+@router.get("/products/{product_id}")
+def api_get_product(
+    product_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("products")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Product retrieved", _svc(db, tenant_id).get_product(product_id))
+
+
+# ── BOM ────────────────────────────────────────────────────────────────────
+
+
+@router.get("/bom")
+def api_list_bom(user_tenant: tuple[User, int] = Depends(require_tenant("bom")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("BOM retrieved", _svc(db, tenant_id).list_bom())
+
+
+@router.get("/bom/product/{product_id}")
+def api_bom_by_product(
+    product_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("bom")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Product BOM retrieved", _svc(db, tenant_id).get_bom_for_product(product_id))
+
+
+@router.get("/bom/{bom_id}")
+def api_get_bom(
+    bom_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("bom")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("BOM item retrieved", _svc(db, tenant_id).get_bom(bom_id))
+
+
+# ── Machines ───────────────────────────────────────────────────────────────
+
+
+@router.get("/machines")
+def api_list_machines(user_tenant: tuple[User, int] = Depends(require_tenant("machines")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Machines retrieved", _svc(db, tenant_id).list_machines())
+
+
+@router.get("/machines/status")
+def api_machine_status(user_tenant: tuple[User, int] = Depends(require_tenant("machines")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Machine status retrieved", _svc(db, tenant_id).get_machine_status_summary())
+
+
+@router.get("/machines/running")
+def api_running_machines(user_tenant: tuple[User, int] = Depends(require_tenant("machines")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Running machines retrieved", _svc(db, tenant_id).list_running_machines())
+
+
+@router.get("/machines/idle")
+def api_idle_machines(user_tenant: tuple[User, int] = Depends(require_tenant("machines")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Idle machines retrieved", _svc(db, tenant_id).list_idle_machines())
+
+
+@router.get("/machines/breakdowns")
+def api_breakdown_machines(user_tenant: tuple[User, int] = Depends(require_tenant("machines")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Breakdown machines retrieved", _svc(db, tenant_id).list_breakdown_machines())
+
+
+@router.get("/machines/{machine_id}")
+def api_get_machine(
+    machine_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("machines")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Machine retrieved", _svc(db, tenant_id).get_machine(machine_id))
+
+
+# ── Production Planning ────────────────────────────────────────────────────
+
+
+@router.get("/production/plans")
+def api_production_plans(user_tenant: tuple[User, int] = Depends(require_tenant("production")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Production plans retrieved", _svc(db, tenant_id).list_production_plans())
+
+
+@router.get("/production/plans/today")
+def api_production_plans_today(user_tenant: tuple[User, int] = Depends(require_tenant("production")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Today's production plans retrieved", _svc(db, tenant_id).list_today_plans())
+
+
+@router.get("/production/plans/{plan_id}")
+def api_production_plan(
+    plan_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("production")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Production plan retrieved", _svc(db, tenant_id).get_production_plan(plan_id))
+
+
+# ── Work Orders ────────────────────────────────────────────────────────────
+
+
+@router.get("/workorders")
+def api_workorders(user_tenant: tuple[User, int] = Depends(require_tenant("workorders")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Work orders retrieved", _svc(db, tenant_id).list_work_orders(user))
+
+
+@router.get("/workorders/today")
+def api_workorders_today(user_tenant: tuple[User, int] = Depends(require_tenant("workorders")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Today's work orders retrieved", _svc(db, tenant_id).list_today_work_orders(user))
+
+
+@router.get("/workorders/assigned")
+def api_workorders_assigned(user_tenant: tuple[User, int] = Depends(require_tenant("workorders")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Assigned work orders retrieved", _svc(db, tenant_id).list_assigned_work_orders(user))
+
+
+@router.get("/workorders/{work_order_id}")
+def api_workorder(
+    work_order_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Work order retrieved", _svc(db, tenant_id).get_work_order(work_order_id, user))
+
+
+@router.post("/workorders/start")
+def api_start_workorder(
+    payload: WorkOrderActionRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Work order started", _svc(db, tenant_id).start_work_order(user, payload))
+
+
+@router.post("/workorders/pause")
+def api_pause_workorder(
+    payload: WorkOrderActionRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Work order paused", _svc(db, tenant_id).pause_work_order(user, payload))
+
+
+@router.post("/workorders/resume")
+def api_resume_workorder(
+    payload: WorkOrderActionRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Work order resumed", _svc(db, tenant_id).resume_work_order(user, payload))
+
+
+@router.post("/workorders/complete")
+def api_complete_workorder(
+    payload: WorkOrderActionRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Work order completed", _svc(db, tenant_id).complete_work_order(user, payload))
+
+
+@router.post("/workorders/progress")
+def api_update_progress(
+    payload: WorkOrderProgressRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("workorders")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Production progress updated", _svc(db, tenant_id).update_production_progress(user, payload))
+
+
+# ── Shop Floor ─────────────────────────────────────────────────────────────
+
+
+@router.get("/shopfloor")
+def api_shopfloor(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Shop floor retrieved", _svc(db, tenant_id).get_shop_floor())
+
+
+@router.get("/shopfloor/live")
+def api_shopfloor_live(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Live shop floor retrieved", _svc(db, tenant_id).get_shop_floor_live())
+
+
+@router.get("/shopfloor/status")
+def api_shopfloor_status(user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Shop floor status retrieved", _svc(db, tenant_id).get_shop_floor_status())
+
+
+@router.post("/shopfloor/update")
+def api_shopfloor_update(
+    payload: ShopFloorUpdateRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Shop floor updated", _svc(db, tenant_id).update_shop_floor(user, payload))
+
+
+@router.post("/shopfloor/breakdown")
+def api_report_breakdown(
+    payload: MachineBreakdownRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("shopfloor")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Machine breakdown reported", _svc(db, tenant_id).report_breakdown(user, payload))
+
+
+# ── Machine Allocation ─────────────────────────────────────────────────────
+
+
+@router.get("/allocation")
+def api_allocation(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Machine allocation retrieved", _svc(db, tenant_id).get_allocation())
+
+
+@router.get("/allocation/operator")
+def api_allocation_operator(user_tenant: tuple[User, int] = Depends(require_tenant("allocation")), db: Session = Depends(get_db)):
+    user, tenant_id = user_tenant
+    return success_response("Operator allocation retrieved", _svc(db, tenant_id).get_operator_allocation(user))
+
+
+@router.get("/allocation/{machine_id}")
+def api_allocation_machine(
+    machine_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("allocation")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Machine allocation retrieved", _svc(db, tenant_id).get_allocation_for_machine(machine_id))
+
+
+# ── Batch Tracking ─────────────────────────────────────────────────────────
+
+
+@router.get("/batches")
+def api_batches(user_tenant: tuple[User, int] = Depends(require_tenant("batches")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Batches retrieved", _svc(db, tenant_id).list_batches())
+
+
+@router.get("/batches/running")
+def api_batches_running(user_tenant: tuple[User, int] = Depends(require_tenant("batches")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Running batches retrieved", _svc(db, tenant_id).list_running_batches())
+
+
+@router.get("/batches/completed")
+def api_batches_completed(user_tenant: tuple[User, int] = Depends(require_tenant("batches")), db: Session = Depends(get_db)):
+    _, tenant_id = user_tenant
+    return success_response("Completed batches retrieved", _svc(db, tenant_id).list_completed_batches())
+
+
+@router.get("/batches/{batch_id}")
+def api_batch(
+    batch_id: int,
+    user_tenant: tuple[User, int] = Depends(require_tenant("batches")),
+    db: Session = Depends(get_db),
+):
+    _, tenant_id = user_tenant
+    return success_response("Batch retrieved", _svc(db, tenant_id).get_batch(batch_id))
+
+
+@router.post("/batches/update")
+def api_batch_update(
+    payload: BatchUpdateRequest,
+    user_tenant: tuple[User, int] = Depends(require_tenant("batches")),
+    db: Session = Depends(get_db),
+):
+    user, tenant_id = user_tenant
+    return success_response("Batch updated", _svc(db, tenant_id).update_batch(user, payload))
+
+
+# ── AI Operator Assistant ────────────────────────────────────────────────────
+
+
+@router.post("/ai/chat")
+def api_ai_chat(
+    body: dict,
+    user_tenant: tuple[User, int] = Depends(require_tenant("ai")),
+    db: Session = Depends(get_db),
+):
+    from app.llm.operator_agent import OperatorAgent
+
+    message = body.get("message") or body.get("content") or ""
+    agent = OperatorAgent()
+    result = agent.process_message(db, user_tenant[0], message)
+    return success_response("AI response generated", result)
+
+
+@router.get("/ai/suggestions")
+def api_ai_suggestions(user_tenant: tuple[User, int] = Depends(require_tenant("ai"))):
+    from app.llm.operator_agent import OperatorAgent
+
+    return success_response("Suggestions retrieved", OperatorAgent().get_suggestions())

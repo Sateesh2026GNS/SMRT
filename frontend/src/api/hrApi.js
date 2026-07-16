@@ -1,0 +1,43 @@
+import api from "./axiosConfig";
+
+export const getHrDashboard = () => api.get("/hr/dashboard");
+export const getHRHub = () => api.get("/hr/hub");
+
+export const getEmployees = () => api.get("/hr/employees");
+export const getEmployeeSummary = () => api.get("/hr/employees/summary");
+export const getEmployeesEnriched = () => api.get("/hr/employees/enriched");
+export const createEmployee = (payload) => api.post("/hr/employees", payload);
+
+export const getShifts = () => api.get("/hr/shifts");
+export const createShift = (payload) => api.post("/hr/shifts", payload);
+
+export const getAttendance = (params = {}) => api.get("/hr/attendance", { params });
+export const getAttendanceSummary = (params = {}) => api.get("/hr/attendance/summary", { params });
+export const getAttendanceEnriched = (params = {}) => api.get("/hr/attendance/enriched", { params });
+export const createAttendance = (payload) => api.post("/hr/attendance", payload);
+export const clockIn = (_tenantId, employeeId, recordDate) =>
+  api.post("/hr/attendance/clock-in", null, { params: { employee_id: employeeId, record_date: recordDate } });
+export const clockOut = (_tenantId, employeeId, recordDate) =>
+  api.post("/hr/attendance/clock-out", null, { params: { employee_id: employeeId, record_date: recordDate } });
+
+export const getPayroll = (params = {}) => api.get("/hr/payroll", { params });
+export const getPayrollSummary = () => api.get("/hr/payroll/summary");
+export const getPayrollEnriched = () => api.get("/hr/payroll/enriched");
+export const createPayroll = (payload) => api.post("/hr/payroll", payload);
+
+export const getPerformanceReviews = (_tenantId, employeeId = null) =>
+  api.get("/hr/performance", { params: { employee_id: employeeId } });
+export const createPerformanceReview = (payload) => api.post("/hr/performance", payload);
+
+export const getLeaveRequests = (params = {}) => api.get("/hr/leave", { params });
+export const getLeaveSummary = () => api.get("/hr/leave/summary");
+export const getLeaveEnriched = () => api.get("/hr/leave/enriched");
+export const createLeaveRequest = (payload) => api.post("/hr/leave", payload);
+export const updateLeaveRequest = (leaveId, payload) => api.patch(`/hr/leave/${leaveId}`, payload);
+
+export const getDepartments = () => api.get("/hr/departments");
+export const getDepartmentSummary = () => api.get("/hr/departments/summary");
+export const getDepartmentDetail = (departmentId) => api.get(`/hr/departments/${departmentId}`);
+export const createDepartment = (payload) => api.post("/hr/departments", payload);
+export const updateDepartment = (departmentId, payload) => api.put(`/hr/departments/${departmentId}`, payload);
+export const deactivateDepartment = (departmentId) => api.patch(`/hr/departments/${departmentId}/deactivate`);

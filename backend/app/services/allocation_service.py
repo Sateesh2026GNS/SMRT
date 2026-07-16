@@ -1,0 +1,135 @@
+"""Machine allocation — assign work orders to machines, operators, shifts."""
+
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models.machine import Machine
+from app.models.product import Product
+from app.models.production import ProductionOrder, WorkOrder
+from app.models.user import User
+from app.schemas.allocation import (
+    AllocationAssignRequest,
+    AllocationRowRead,
+    AllocationSummaryRead,
+    MachineAvailabilityRead,
+)
+
+ALLOCATED_STATUSES = ("running", "in_progress")
+
+
+def get_allocation_summary(db: Session, tenant_id: int) -> AllocationSummaryRead:
+    machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
+    total = len(machines)
+    maintenance = sum(1 for m in machines if m.status in ("maintenance", "breakdown"))
+    allocated_ids = set()
+    for m in machines:
+        has = db.scalar(
+            select(func.count(WorkOrder.id)).where(
+                WorkOrder.machine_id == m.id,
+                WorkOrder.tenant_id == tenant_id,
+                WorkOrder.status.in_(ALLOCATED_STATUSES),
+            )
+        )
+        if has:
+            allocated_ids.add(m.id)
+    allocated = len(allocated_ids)
+    free = total - allocated - maintenance
+    util = round(allocated / total * 100, 1) if total else 0
+    return AllocationSummaryRead(
+        total_machines=total,
+        allocated=allocated,
+        free_machines=max(free, 0),
+        under_maintenance=maintenance,
+        utilization_pct=util,
+    )
+
+
+def get_allocation_list(db: Session, tenant_id: int) -> list[AllocationRowRead]:
+    wos = list(
+        db.scalars(
+            select(WorkOrder)
+            .where(WorkOrder.tenant_id == tenant_id)
+            .order_by(WorkOrder.id.desc())
+            .limit(30)
+        ).all()
+    )
+    rows = []
+    for wo in wos:
+        po = db.get(ProductionOrder, wo.production_order_id)
+        product = db.get(Product, po.product_id) if po else None
+        machine = db.get(Machine, wo.machine_id) if wo.machine_id else None
+        operator = db.get(User, wo.assigned_user_id) if wo.assigned_user_id else None
+        planned = float(wo.planned_quantity or 0)
+        actual = float(wo.actual_quantity or 0)
+        cap = round(actual / planned * 100, 1) if planned else 0
+        status = "unassigned" if not wo.machine_id else wo.status
+        rows.append(
+            AllocationRowRead(
+                work_order_id=wo.id,
+                work_order_number=wo.work_order_number,
+                product_name=product.name if product else "—",
+                machine_id=wo.machine_id,
+                machine_name=machine.name if machine else None,
+                operator_name=operator.full_name if operator else None,
+                shift=wo.shift,
+                supervisor=wo.supervisor,
+                capacity_pct=cap,
+                status=status,
+                priority=wo.priority or "medium",
+            )
+        )
+    return rows
+
+
+def get_machine_availability(db: Session, tenant_id: int) -> list[MachineAvailabilityRead]:
+    machines = list(
+        db.scalars(select(Machine).where(Machine.tenant_id == tenant_id).order_by(Machine.code)).all()
+    )
+    result = []
+    for m in machines:
+        wo = db.scalars(
+            select(WorkOrder)
+            .where(WorkOrder.machine_id == m.id, WorkOrder.tenant_id == tenant_id)
+            .order_by(WorkOrder.id.desc())
+        ).first()
+        util = 90 if m.status == "running" else 60 if wo else 20 if m.status == "idle" else 0
+        result.append(
+            MachineAvailabilityRead(
+                machine_id=m.id,
+                machine_name=m.name,
+                status=m.status,
+                free_time=None,
+                current_job=wo.work_order_number if wo else None,
+                utilization_pct=util,
+            )
+        )
+    return result
+
+
+def assign_allocation(db: Session, tenant_id: int, payload: AllocationAssignRequest) -> dict:
+    wo = db.scalars(
+        select(WorkOrder).where(WorkOrder.id == payload.work_order_id, WorkOrder.tenant_id == tenant_id)
+    ).first()
+    if not wo:
+        return {"success": False, "message": "Work order not found"}
+    machine = db.scalars(
+        select(Machine).where(Machine.id == payload.machine_id, Machine.tenant_id == tenant_id)
+    ).first()
+    if not machine:
+        return {"success": False, "message": "Machine not found"}
+    if machine.status in ("maintenance", "breakdown"):
+        return {"success": False, "message": "Machine under maintenance"}
+    wo.machine_id = payload.machine_id
+    if payload.shift:
+        wo.shift = payload.shift
+    if payload.supervisor:
+        wo.supervisor = payload.supervisor
+    if wo.status == "released":
+        wo.status = "machine_ready"
+    db.commit()
+    return {
+        "success": True,
+        "message": f"Assigned to {machine.name}",
+        "work_order_id": wo.id,
+        "machine_name": machine.name,
+    }

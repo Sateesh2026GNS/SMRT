@@ -1,0 +1,226 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Download, Eye, FileText, Filter, Plus, RefreshCw, XCircle } from "lucide-react";
+
+import DataTable from "../../components/common/DataTable";
+import RowActionMenu from "../../components/common/RowActionMenu";
+import Loader from "../../components/common/Loader";
+import QuoteDetailModal from "../../components/sales/QuoteDetailModal";
+import { useToast } from "../../context/ToastContext";
+import { getQuotationSummary, getQuotationsEnriched, updateQuotationStatus, createQuotation, getCustomers } from "../../api/salesApi";
+import { DEMO_QUOTE_LIST, DEMO_QUOTE_SUMMARY, formatInr, statusColor } from "../../data/salesMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
+
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
+
+export default function Quotations() {
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState(DEMO_QUOTE_SUMMARY);
+  const [rows, setRows] = useState(DEMO_QUOTE_LIST);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [newQuote, setNewQuote] = useState({
+    quote_number: "",
+    customer_id: "",
+    quote_date: new Date().toISOString().slice(0, 10),
+    valid_until: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+    total_amount: "",
+    notes: "",
+  });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_QUOTE_SUMMARY, ...sumRes.value.data });
+      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
+      else setRows(DEMO_QUOTE_LIST);
+
+      getCustomers().then(res => { if (res.data) setCustomers(res.data); }).catch(() => {});
+    } catch {
+      addToast("Using demo quotation data", "info");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!newQuote.customer_id) {
+      addToast("Please select a customer", "warning");
+      return;
+    }
+    const cust = customers.find(c => c.id === Number(newQuote.customer_id));
+    try {
+      await createQuotation({
+        tenant_id: 1,
+        ...newQuote,
+        customer_id: Number(newQuote.customer_id),
+        customer_name: cust ? cust.name : "",
+        total_amount: Number(newQuote.total_amount),
+      });
+      addToast("Quotation created successfully", "success");
+      setShowCreate(false);
+      setNewQuote({
+        quote_number: "",
+        customer_id: "",
+        quote_date: new Date().toISOString().slice(0, 10),
+        valid_until: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        total_amount: "",
+        notes: "",
+      });
+      load();
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Creation failed", "error");
+    }
+  };
+
+  const filtered = useMemo(() => {
+    if (!statusFilter) return rows;
+    return rows.filter((r) => r.status === statusFilter);
+  }, [rows, statusFilter]);
+
+  const handleStatus = async (quote, status) => {
+    if (typeof quote.id === "number") {
+      try {
+        await updateQuotationStatus(quote.id, status);
+        addToast(`Quotation marked as ${status}`);
+        load();
+      } catch (err) {
+        addToast(err.response?.data?.detail || "Update failed", "error");
+        return;
+      }
+    } else {
+      addToast(`Quotation marked as ${status} (demo)`);
+    }
+    setSelected(null);
+  };
+
+  const columns = [
+    { key: "quote_number", label: "Quote No", render: (r) => <span className="font-medium text-[#2563EB]">{r.quote_number}</span> },
+    { key: "customer_name", label: "Customer" },
+    { key: "sales_person", label: "Sales Person" },
+    { key: "amount", label: "Amount", render: (r) => formatInr(r.amount) },
+    { key: "valid_until", label: "Valid Until", render: (r) => String(r.valid_until || "").slice(0, 10) || "—" },
+    { key: "status", label: "Status", render: (r) => <span className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ${statusColor(r.status)}`}>{r.status}</span> },
+    { key: "actions", label: "Actions", sortable: false, render: (r) => (
+      <RowActionMenu
+        rowId={r.id}
+        openMenu={openMenu}
+        setOpenMenu={setOpenMenu}
+        items={[
+          { label: "View", icon: <Eye className="h-4 w-4" />, onClick: () => setSelected(r) },
+        ]}
+      />
+    )},
+  ];
+
+  if (loading) return <Loader label="Loading quotations..." />;
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Quotations</h1>
+          <p className="mt-1 text-sm text-slate-500">Create, approve, and send quotations with GST, discount, and PDF export.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setShowCreate(true)} className="ui-btn-primary"><Plus className="h-4 w-4" /> New Quotation</button>
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "quotations")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Quotations" value={summary.total_quotations} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Draft" value={summary.draft} icon={FileText} color="bg-slate-500" />
+        <KpiCard label="Sent" value={summary.sent} icon={FileText} color="bg-indigo-600" />
+        <KpiCard label="Accepted" value={summary.accepted} icon={FileText} color="bg-green-600" />
+        <KpiCard label="Rejected" value={summary.rejected} icon={FileText} color="bg-red-500" />
+        <KpiCard label="Expired" value={summary.expired} icon={FileText} color="bg-orange-500" />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
+        {["Sales Executive", "Quotation", "Manager Approval", "Customer", "Accepted"].map((s, i, arr) => (
+          <span key={s} className="flex items-center gap-2">
+            <span className="rounded-lg bg-white px-2 py-1 shadow-sm">{s}</span>
+            {i < arr.length - 1 && <span className="text-slate-400">↓</span>}
+          </span>
+        ))}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-3 flex items-center gap-2">
+          <Filter className="h-4 w-4 text-slate-500" />
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border px-3 py-2 text-sm">
+            <option value="">All Status</option>
+            {["draft", "sent", "accepted", "rejected", "expired"].map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <DataTable columns={columns} data={filtered} searchPlaceholder="Search quote, customer..." searchKeys={["quote_number", "customer_name", "sales_person"]} />
+      </div>
+
+      {selected && <QuoteDetailModal quote={selected} onClose={() => setSelected(null)} onStatusChange={handleStatus} />}
+
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4 sm:items-center">
+          <div className="flex max-h-[94vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-start justify-between border-b px-5 py-4">
+              <h2 className="text-xl font-bold text-slate-900">Create New Quotation</h2>
+              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"><XCircle className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={handleCreate} className="overflow-y-auto p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase">Quote Number</label>
+                <input required value={newQuote.quote_number} onChange={(e) => setNewQuote({ ...newQuote, quote_number: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g. QT-2026-0004" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase">Customer</label>
+                <select required value={newQuote.customer_id} onChange={(e) => setNewQuote({ ...newQuote, customer_id: e.target.value })} className="mt-1 w-full rounded-lg border px-2 py-2 text-sm bg-white font-medium text-slate-700">
+                  <option value="">Select Customer</option>
+                  {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase">Quote Date</label>
+                  <input type="date" required value={newQuote.quote_date} onChange={(e) => setNewQuote({ ...newQuote, quote_date: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase">Valid Until</label>
+                  <input type="date" required value={newQuote.valid_until} onChange={(e) => setNewQuote({ ...newQuote, valid_until: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase">Total Amount</label>
+                <input type="number" required value={newQuote.total_amount} onChange={(e) => setNewQuote({ ...newQuote, total_amount: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g. 150000" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 uppercase">Notes</label>
+                <textarea value={newQuote.notes} onChange={(e) => setNewQuote({ ...newQuote, notes: e.target.value })} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm" rows={2} placeholder="Add quotation details..." />
+              </div>
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="submit" className="rounded-lg bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Save Quotation</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

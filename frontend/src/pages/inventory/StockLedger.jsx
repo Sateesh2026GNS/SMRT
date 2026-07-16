@@ -1,0 +1,139 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowDown, ArrowUp, Download, RefreshCw, Repeat } from "lucide-react";
+
+import DataTable from "../../components/common/DataTable";
+import Loader from "../../components/common/Loader";
+import { useToast } from "../../context/ToastContext";
+import { getLedgerSummary, getStockLedger } from "../../api/inventoryApi";
+import { DEMO_LEDGER, DEMO_LEDGER_SUMMARY, TRANSACTION_TYPES, formatInr } from "../../data/inventoryMasterData";
+import { exportToExcel } from "../../utils/exportUtils";
+
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
+        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+      </div>
+    </div>
+  );
+}
+
+export default function StockLedger() {
+  const { addToast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [entries, setEntries] = useState(DEMO_LEDGER);
+  const [apiSummary, setApiSummary] = useState(null);
+  const [filters, setFilters] = useState({ date: "", warehouse: "", item: "", type: "", user: "", batch: "" });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [sumRes, listRes] = await Promise.allSettled([getLedgerSummary(), getStockLedger()]);
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
+        setApiSummary(sumRes.value.data);
+      }
+      if (listRes.status === "fulfilled" && listRes.value?.data) {
+        const apiRows = listRes.value.data;
+        if (apiRows.length > 0) {
+          setEntries([
+            ...apiRows,
+            ...DEMO_LEDGER.filter((d) => !apiRows.some((r) => r.reference === d.reference)),
+          ]);
+        } else {
+          setEntries(DEMO_LEDGER);
+        }
+      } else {
+        setEntries(DEMO_LEDGER);
+      }
+    } catch { addToast("Using demo ledger data", "info"); }
+    finally { setLoading(false); }
+  }, [addToast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = useMemo(() => {
+    let rows = entries;
+    if (filters.type) rows = rows.filter((r) => r.transaction === filters.type.toLowerCase());
+    if (filters.item) rows = rows.filter((r) => r.item_name?.toLowerCase().includes(filters.item.toLowerCase()));
+    return rows;
+  }, [entries, filters]);
+
+  const summary = useMemo(() => {
+    if (apiSummary && !filters.type && !filters.item) return apiSummary;
+    const totalTransactions = filtered.length;
+    let stockIn = 0;
+    let stockOut = 0;
+    let transfers = 0;
+    let adjustments = 0;
+
+    filtered.forEach((e) => {
+      const t = (e.transaction || "").toLowerCase();
+      if (t === "in" || t === "purchase" || t === "receipt") {
+        stockIn += Number(e.qty_in || 0);
+      } else if (t === "out" || t === "sales" || t === "issue") {
+        stockOut += Number(e.qty_out || 0);
+      } else if (t === "transfer") {
+        transfers += 1;
+      } else if (t === "adjustment") {
+        adjustments += 1;
+      }
+    });
+
+    return {
+      total_transactions: totalTransactions,
+      stock_in: stockIn,
+      stock_out: stockOut,
+      transfers: transfers,
+      adjustments: adjustments,
+      current_stock_value: apiSummary?.current_stock_value || 0,
+    };
+  }, [filtered, apiSummary, filters]);
+
+
+  const columns = [
+    { key: "date", label: "Date", render: (r) => r.date ? new Date(r.date).toLocaleString() : "—" },
+    { key: "transaction", label: "Transaction", render: (r) => <span className="capitalize">{r.transaction}</span> },
+    { key: "warehouse_name", label: "Warehouse" },
+    { key: "item_name", label: "Item" },
+    { key: "batch_number", label: "Batch", render: (r) => r.batch_number || "—" },
+    { key: "qty_in", label: "In", render: (r) => r.qty_in || "—" },
+    { key: "qty_out", label: "Out", render: (r) => r.qty_out || "—" },
+    { key: "balance", label: "Balance" },
+    { key: "user_name", label: "User" },
+    { key: "reference", label: "Reference", render: (r) => r.reference || "—" },
+  ];
+
+  if (loading) return <Loader label="Loading stock ledger..." />;
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div><h1 className="text-2xl font-bold text-slate-900">Stock Ledger</h1><p className="mt-1 text-sm text-slate-500">Complete history of all stock movements across the inventory module.</p></div>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => exportToExcel(filtered, columns.filter((c) => !c.render), "stock-ledger")} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><Download className="h-4 w-4" /> Export</button>
+          <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <KpiCard label="Total Transactions" value={summary.total_transactions?.toLocaleString()} icon={Repeat} color="bg-[#2563EB]" />
+        <KpiCard label="Stock In" value={summary.stock_in?.toLocaleString()} icon={ArrowDown} color="bg-green-500" />
+        <KpiCard label="Stock Out" value={summary.stock_out?.toLocaleString()} icon={ArrowUp} color="bg-red-500" />
+        <KpiCard label="Transfers" value={summary.transfers} icon={Repeat} color="bg-indigo-500" />
+        <KpiCard label="Adjustments" value={summary.adjustments} icon={Repeat} color="bg-amber-500" />
+        <KpiCard label="Stock Value" value={formatInr(summary.current_stock_value)} icon={Repeat} color="bg-teal-500" />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <input type="date" value={filters.date} onChange={(e) => setFilters((f) => ({ ...f, date: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+          <input placeholder="Item" value={filters.item} onChange={(e) => setFilters((f) => ({ ...f, item: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+          <select value={filters.type} onChange={(e) => setFilters((f) => ({ ...f, type: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm"><option value="">Transaction Type</option>{TRANSACTION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+          <input placeholder="Batch" value={filters.batch} onChange={(e) => setFilters((f) => ({ ...f, batch: e.target.value }))} className="rounded-lg border px-3 py-2 text-sm" />
+        </div>
+        <DataTable columns={columns} data={filtered.length ? filtered : DEMO_LEDGER} showSearch={false} />
+      </div>
+    </div>
+  );
+}

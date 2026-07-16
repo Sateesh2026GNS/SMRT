@@ -1,0 +1,127 @@
+from datetime import date
+
+from pydantic import BaseModel
+
+
+class MRSummaryRead(BaseModel):
+    total_requests: int = 0
+    pending_approval: int = 0
+    approved: int = 0
+    rejected: int = 0
+    converted_to_rfq: int = 0
+    urgent_requests: int = 0
+
+
+class MRListRead(BaseModel):
+    id: int
+    mr_number: str
+    request_date: str
+    department: str | None = None
+    requested_by: str | None = None
+    priority: str = "medium"
+    item_count: int = 0
+    status: str = "pending"
+    approval_status: str = "pending"
+    required_date: str | None = None
+
+
+class RFQSummaryRead(BaseModel):
+    open_rfqs: int = 0
+    vendor_responses: int = 0
+    expired_rfqs: int = 0
+    awarded_rfqs: int = 0
+
+
+class RFQListRead(BaseModel):
+    id: int
+    rfq_number: str
+    material_request_number: str | None = None
+    vendor_count: int = 0
+    due_date: str | None = None
+    quotation_count: int = 0
+    status: str = "open"
+
+
+class VendorComparisonRead(BaseModel):
+    supplier_id: int
+    supplier_name: str
+    price: float
+    delivery_days: int | None = None
+    gst_pct: float | None = None
+    warranty: str | None = None
+    rating: float | None = None
+    score: float = 0
+    is_best: bool = False
+
+
+class POSummaryRead(BaseModel):
+    total_po: int = 0
+    pending: int = 0
+    approved: int = 0
+    delivered: int = 0
+    cancelled: int = 0
+    po_value: float = 0
+
+
+class POListRead(BaseModel):
+    id: int
+    po_number: str
+    vendor_name: str
+    order_date: str
+    total_amount: float | None = None
+    expected_date: str | None = None
+    payment_terms: str | None = None
+    status: str = "draft"
+    buyer: str | None = None
+
+
+class GRNSummaryRead(BaseModel):
+    todays_grn: int = 0
+    pending_qc: int = 0
+    received: int = 0
+    rejected: int = 0
+    total_value: float = 0
+
+
+class GRNListRead(BaseModel):
+    id: int
+    grn_number: str
+    po_number: str | None = None
+    vendor_name: str | None = None
+    warehouse_name: str | None = None
+    quantity: float = 0
+    qc_status: str = "pending"
+    received_by: str | None = None
+    status: str = "received"
+    receipt_date: str | None = None
+
+
+class VendorBillSummaryRead(BaseModel):
+    total_bills: int = 0
+    due_bills: int = 0
+    paid: int = 0
+    outstanding: float = 0
+
+
+class VendorBillListRead(BaseModel):
+    id: int
+    bill_number: str
+    vendor_name: str
+    po_number: str | None = None
+    grn_number: str | None = None
+    amount: float
+    gst_amount: float | None = None
+    due_date: str | None = None
+    status: str = "pending"
+
+
+class ProcurementHubRead(BaseModel):
+    purchase_spend: float = 0
+    pending_approvals: int = 0
+    open_rfqs: int = 0
+    active_vendors: int = 0
+    outstanding_bills: float = 0
+    todays_deliveries: int = 0
+    top_vendors: list[dict] = []
+    pending_orders: list[dict] = []
+    alerts: list[dict] = []

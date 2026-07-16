@@ -1,0 +1,273 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ========== SMRT Design System – User-friendly UI/UX ========== */
+:root {
+  --color-primary: #0f6d84;
+  --color-primary-dark: #0c5b6f;
+  --color-primary-light: #38bdf8;
+  --color-accent: #f97316;
+  --color-accent-dark: #ea580c;
+  --color-accent-light: #fb923c;
+  --color-running: #22c55e;
+  --color-stopped: #ef4444;
+  --color-maintenance: #facc15;
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-text: #0f172a;
+  --color-text-muted: #475569;
+  /* UX: comfortable reading & touch */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --transition-fast: 150ms ease;
+  --transition-base: 200ms ease;
+}
+
+.dark {
+  --color-bg: #0f172a;
+  --color-surface: #1e293b;
+  --color-text: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+/* Selection – teal tint */
+::selection {
+  background-color: rgba(13, 148, 136, 0.2);
+  color: inherit;
+}
+
+/* Focus visible – keyboard users only (accessible, not noisy for mouse) */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Form controls – consistent min touch target ~44px where possible */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="number"],
+select,
+textarea {
+  min-height: 2.5rem;
+}
+
+/* Card surface – use class="ui-card" on panels */
+.ui-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgb(226 232 240);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-base);
+}
+.dark .ui-card {
+  border-color: rgb(51 65 85);
+  background: rgb(30 41 59);
+}
+.ui-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* Primary button helper – consistent CTA */
+.ui-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(15, 118, 150, 0.35);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+.ui-btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.45);
+}
+.ui-btn-primary:active {
+  transform: scale(0.98);
+}
+.ui-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Secondary / outline button */
+.ui-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: 1px solid rgb(203 213 225);
+  background: var(--color-surface);
+  color: var(--color-text);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+.dark .ui-btn-secondary {
+  border-color: rgb(71 85 105);
+  background: rgb(30 41 59);
+}
+.ui-btn-secondary:hover {
+  border-color: rgb(13 148 136);
+  background: rgb(240 253 250);
+}
+.dark .ui-btn-secondary:hover {
+  background: rgb(19 78 74 / 0.25);
+  border-color: rgb(45 212 191);
+}
+
+/* Standard form input */
+.ui-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgb(226 232 240);
+  background: var(--color-surface);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  color: var(--color-text);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+.dark .ui-input {
+  border-color: rgb(71 85 105);
+  background: rgb(30 41 59);
+}
+.ui-input:focus {
+  border-color: rgb(13 148 136);
+  box-shadow: 0 0 0 3px rgb(13 148 136 / 0.15);
+  outline: none;
+}
+
+/* Page content rhythm */
+.ui-page {
+  width: 100%;
+  max-width: 80rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+.ui-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+@media (min-width: 640px) {
+  .ui-stack {
+    gap: 2rem;
+  }
+}
+
+/* Muted helper text */
+.ui-hint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+/* Auth image slider */
+@keyframes authSlideZoom {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+@keyframes authCaptionIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.auth-slide-active {
+  animation: authSlideZoom 6s ease-out both;
+}
+.auth-caption {
+  animation: authCaptionIn 600ms ease both;
+}
+
+/* Sidebar scrollbar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 10px;
+}
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 5px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #94a3b8 #f8fafc;
+}
+.dark .sidebar-scroll::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #475569;
+}

@@ -1,0 +1,215 @@
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
+
+import PageHeader from "../../components/common/PageHeader";
+import InventoryLineItems from "../../components/common/InventoryLineItems";
+import useTenantId from "../../hooks/useTenantId";
+import { createGoodsReceipt, getPurchaseOrders } from "../../api/procurementApi";
+import { getWarehouses, getInventoryDashboard } from "../../api/inventoryApi";
+
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
+
+const STATUSES = ["received", "partial", "rejected"];
+
+export default function CreateGoodsReceipt() {
+  const navigate = useNavigate();
+  const tenantId = useTenantId();
+  const [warehouses, setWarehouses] = useState([]);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [lineItems, setLineItems] = useState([
+    { item_id: "", quantity_received: "", quantity_rejected: "0" },
+  ]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({
+    grn_number: "",
+    receipt_date: new Date().toISOString().slice(0, 10),
+    warehouse_id: "",
+    purchase_order_id: "",
+    status: "received",
+    notes: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      getWarehouses().then((r) => setWarehouses(r.data || [])),
+      getPurchaseOrders().then((r) => setPurchaseOrders(r.data || [])),
+      getInventoryDashboard().then((r) => setInventoryItems(r.data || [])),
+    ]).finally(() => setLoading(false));
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const validLines = lineItems.filter(
+      (l) => l.item_id && Number(l.quantity_received) > 0
+    );
+    if (validLines.length === 0) {
+      setError("Add at least one line with received quantity.");
+      return;
+    }
+    setError("");
+    setSaving(true);
+    try {
+      await createGoodsReceipt({
+        tenant_id: tenantId,
+        grn_number: form.grn_number || `GRN-${Date.now()}`,
+        receipt_date: form.receipt_date,
+        warehouse_id: Number(form.warehouse_id),
+        purchase_order_id: form.purchase_order_id
+          ? Number(form.purchase_order_id)
+          : null,
+        status: form.status,
+        notes: form.notes || null,
+        line_items: validLines.map((l) => ({
+          item_id: Number(l.item_id),
+          quantity_received: Number(l.quantity_received),
+          quantity_rejected: Number(l.quantity_rejected) || 0,
+        })),
+      });
+      navigate("/procurement/goods-receipt");
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message || "Failed to create goods receipt.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[12rem] items-center justify-center">
+        <p className="text-sm text-slate-500">Loading…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <Link
+        to="/procurement/goods-receipt"
+        className="inline-flex items-center gap-2 text-sm font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to goods receipts
+      </Link>
+      <PageHeader
+        title="New goods receipt (GRN)"
+        subtitle="Record received goods. Stock is updated automatically in the selected warehouse."
+      />
+      <form onSubmit={handleSubmit} className="ui-card space-y-4 p-6">
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-900/20 dark:text-red-200">
+            {typeof error === "string" ? error : JSON.stringify(error)}
+          </div>
+        )}
+        {warehouses.length === 0 && (
+          <p className="text-sm text-slate-500">
+            No warehouses yet.{" "}
+            <Link to="/inventory/warehouses/create" className="font-medium text-teal-600 hover:underline">
+              Add a warehouse first
+            </Link>
+            .
+          </p>
+        )}
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          GRN number
+          <input
+            type="text"
+            value={form.grn_number}
+            onChange={(e) => setForm((f) => ({ ...f, grn_number: e.target.value }))}
+            placeholder="Auto-generated if empty"
+            className={inputClass}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Receipt date *
+          <input
+            type="date"
+            required
+            value={form.receipt_date}
+            onChange={(e) => setForm((f) => ({ ...f, receipt_date: e.target.value }))}
+            className={inputClass}
+          />
+        </label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Warehouse *
+          <select
+            required
+            value={form.warehouse_id}
+            onChange={(e) => setForm((f) => ({ ...f, warehouse_id: e.target.value }))}
+            className={inputClass}
+          >
+            <option value="">Select warehouse</option>
+            {warehouses.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name} ({w.code})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Purchase order (optional)
+          <select
+            value={form.purchase_order_id}
+            onChange={(e) => setForm((f) => ({ ...f, purchase_order_id: e.target.value }))}
+            className={inputClass}
+          >
+            <option value="">— None —</option>
+            {purchaseOrders.map((po) => (
+              <option key={po.id} value={po.id}>
+                {po.po_number || `PO-${po.id}`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <InventoryLineItems
+          items={inventoryItems}
+          lines={lineItems}
+          onChange={setLineItems}
+          mode="grn"
+        />
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Status
+          <select
+            value={form.status}
+            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+            className={inputClass}
+          >
+            {STATUSES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+          Notes
+          <textarea
+            rows={2}
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            className={inputClass}
+          />
+        </label>
+        <div className="flex flex-wrap gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={saving || !form.warehouse_id}
+            className="ui-btn-primary disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Create goods receipt"}
+          </button>
+          <Link
+            to="/procurement/goods-receipt"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+          >
+            Cancel
+          </Link>
+        </div>
+      </form>
+    </div>
+  );
+}

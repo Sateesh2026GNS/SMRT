@@ -1,0 +1,405 @@
+import { useCallback, useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, ShieldCheck, UserCog } from "lucide-react";
+
+import PageHeader from "../../components/common/PageHeader";
+import DataTable from "../../components/common/DataTable";
+import { Input } from "../../components/common/FormField";
+import AdminModal from "../../components/admin/AdminModal";
+import ConfirmDialog from "../../components/admin/ConfirmDialog";
+import AccessDenied from "../../components/admin/AccessDenied";
+import usePermissions from "../../hooks/usePermissions";
+import { useToast } from "../../context/ToastContext";
+import {
+  getUsers,
+  getRoles,
+  createUser,
+  updateUser,
+  deleteUser,
+} from "../../api/adminApi";
+
+const EMPTY_FORM = {
+  full_name: "",
+  email: "",
+  phone: "",
+  password: "",
+  is_active: true,
+  role_ids: [],
+};
+
+function StatusBadge({ active }) {
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        active
+          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+          : "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400"
+      }`}
+    >
+      <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-green-500" : "bg-slate-400"}`} />
+      {active ? "Active" : "Inactive"}
+    </span>
+  );
+}
+
+export default function UserManagement() {
+  const { isAdmin, user: currentUser } = usePermissions();
+  const { addToast } = useToast();
+
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [toDelete, setToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    Promise.all([getUsers(), getRoles()])
+      .then(([u, r]) => {
+        setUsers(u.data || []);
+        setRoles(r.data || []);
+      })
+      .catch(() => addToast("Failed to load users", "error"))
+      .finally(() => setLoading(false));
+  }, [addToast]);
+
+  useEffect(() => {
+    if (isAdmin) load();
+  }, [isAdmin, load]);
+
+  if (!isAdmin) return <AccessDenied />;
+
+  const openCreate = () => {
+    setEditing(null);
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  const openEdit = (u) => {
+    setEditing(u);
+    setForm({
+      full_name: u.full_name || "",
+      email: u.email || "",
+      phone: u.phone || "",
+      password: "",
+      is_active: u.is_active,
+      role_ids: (u.roles || []).map((r) => r.id),
+    });
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  const toggleRole = (id) => {
+    setForm((f) => ({
+      ...f,
+      role_ids: f.role_ids.includes(id)
+        ? f.role_ids.filter((x) => x !== id)
+        : [...f.role_ids, id],
+    }));
+  };
+
+  const validate = () => {
+    const e = {};
+    if (!form.full_name.trim()) e.full_name = "Name is required";
+    if (!form.email.trim()) e.email = "Email is required";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Enter a valid email";
+    if (!editing && form.password.length < 6) e.password = "Password must be at least 6 characters";
+    if (editing && form.password && form.password.length < 6)
+      e.password = "Password must be at least 6 characters";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!validate()) return;
+    setSaving(true);
+    try {
+      if (editing) {
+        const payload = {
+          full_name: form.full_name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || null,
+          is_active: form.is_active,
+          role_ids: form.role_ids,
+        };
+        if (form.password) payload.password = form.password;
+        await updateUser(editing.id, payload);
+        addToast("User updated");
+      } else {
+        await createUser({
+          full_name: form.full_name.trim(),
+          email: form.email.trim(),
+          phone: form.phone.trim() || null,
+          password: form.password,
+          is_active: form.is_active,
+          role_ids: form.role_ids,
+        });
+        addToast("User created");
+      }
+      setModalOpen(false);
+      load();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Could not save user", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await deleteUser(toDelete.id);
+      addToast("User deleted");
+      setToDelete(null);
+      load();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      addToast(typeof detail === "string" ? detail : "Could not delete user", "error");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const columns = [
+    {
+      key: "full_name",
+      label: "Name",
+      render: (r) => (
+        <div>
+          <div className="font-medium text-slate-800 dark:text-slate-200">{r.full_name}</div>
+          <div className="text-xs text-slate-400">{r.email}</div>
+        </div>
+      ),
+    },
+    { key: "phone", label: "Phone", render: (r) => r.phone || "—" },
+    {
+      key: "roles",
+      label: "Roles",
+      sortable: false,
+      render: (r) =>
+        r.roles && r.roles.length ? (
+          <div className="flex flex-wrap gap-1">
+            {r.roles.map((role) => (
+              <span
+                key={role.id}
+                className="inline-flex items-center gap-1 rounded-md bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700 dark:bg-teal-900/30 dark:text-teal-300"
+              >
+                {role.name === "Admin" && <ShieldCheck className="h-3 w-3" />}
+                {role.name}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-slate-400">No role</span>
+        ),
+    },
+    {
+      key: "is_active",
+      label: "Status",
+      render: (r) => <StatusBadge active={r.is_active} />,
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      sortable: false,
+      render: (r) => (
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => openEdit(r)}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-900/20"
+            title="Edit user"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setToDelete(r)}
+            disabled={r.id === currentUser?.id}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30 dark:hover:bg-red-900/20"
+            title={r.id === currentUser?.id ? "You cannot delete your own account" : "Delete user"}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="User Management"
+        subtitle="Create, view, and manage all user accounts and their assigned roles."
+        action={
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-teal-700"
+          >
+            <Plus className="h-4 w-4" />
+            Add User
+          </button>
+        }
+      />
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total Users" value={users.length} icon={UserCog} />
+        <StatCard
+          label="Active"
+          value={users.filter((u) => u.is_active).length}
+          icon={UserCog}
+        />
+        <StatCard
+          label="Administrators"
+          value={users.filter((u) => (u.roles || []).some((r) => r.name === "Admin")).length}
+          icon={ShieldCheck}
+        />
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800 sm:p-6">
+        {loading ? (
+          <p className="py-10 text-center text-sm text-slate-500">Loading users…</p>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={users}
+            searchKeys={["full_name", "email", "phone"]}
+            searchPlaceholder="Search users by name, email, or phone…"
+            pageSize={10}
+          />
+        )}
+      </div>
+
+      <AdminModal
+        title={editing ? "Edit User" : "Add User"}
+        subtitle={editing ? editing.email : "Create a new user account and assign roles."}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      >
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
+            label="Full Name"
+            required
+            value={form.full_name}
+            error={errors.full_name}
+            onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
+            placeholder="Jane Doe"
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Email"
+              type="email"
+              required
+              value={form.email}
+              error={errors.email}
+              onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="jane@company.com"
+            />
+            <Input
+              label="Phone"
+              value={form.phone}
+              onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+              placeholder="Optional"
+            />
+          </div>
+          <Input
+            label={editing ? "New Password" : "Password"}
+            type="password"
+            required={!editing}
+            value={form.password}
+            error={errors.password}
+            hint={editing ? "Leave blank to keep the current password." : "Minimum 6 characters."}
+            onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+            placeholder="••••••"
+          />
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-slate-700 dark:text-slate-300">
+              Roles
+            </label>
+            {roles.length === 0 ? (
+              <p className="text-xs text-slate-400">No roles available. Create roles first.</p>
+            ) : (
+              <div className="grid max-h-44 grid-cols-1 gap-1.5 overflow-y-auto rounded-xl border border-slate-200 p-2 dark:border-slate-600 sm:grid-cols-2">
+                {roles.map((r) => (
+                  <label
+                    key={r.id}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={form.role_ids.includes(r.id)}
+                      onChange={() => toggleRole(r.id)}
+                      className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    />
+                    <span className="text-slate-700 dark:text-slate-300">{r.name}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={form.is_active}
+              onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
+              className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+            />
+            Account is active
+          </label>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => setModalOpen(false)}
+              className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-teal-600 px-5 py-2 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : editing ? "Save Changes" : "Create User"}
+            </button>
+          </div>
+        </form>
+      </AdminModal>
+
+      <ConfirmDialog
+        open={Boolean(toDelete)}
+        title="Delete user"
+        message={`Permanently delete ${toDelete?.full_name || "this user"}? This action cannot be undone.`}
+        confirmLabel="Delete"
+        loading={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setToDelete(null)}
+      />
+    </div>
+  );
+}
+
+function StatCard({ label, value, icon: Icon }) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-teal-50 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400">
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{value}</div>
+        <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      </div>
+    </div>
+  );
+}

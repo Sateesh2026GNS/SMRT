@@ -1,0 +1,30 @@
+"""Standard API response envelope for Operator module."""
+
+from datetime import datetime, timezone
+from typing import Any
+
+from pydantic import BaseModel, Field
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+class ApiResponse(BaseModel):
+    success: bool
+    message: str
+    data: Any = None
+    errors: list[str] | str | None = None
+    timestamp: str = Field(default_factory=_timestamp)
+
+
+def success_response(message: str, data: Any = None) -> dict:
+    return ApiResponse(success=True, message=message, data=data, errors=None).model_dump()
+
+
+def error_response(
+    message: str,
+    errors: list[str] | str | None = None,
+    data: Any = None,
+) -> dict:
+    return ApiResponse(success=False, message=message, data=data, errors=errors).model_dump()
