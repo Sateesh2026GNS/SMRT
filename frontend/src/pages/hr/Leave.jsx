@@ -23,7 +23,7 @@ export default function Leave() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_LEAVE_SUMMARY);
-  const [rows, setRows] = useState(DEMO_LEAVE_LIST);
+  const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState("table");
 
@@ -33,9 +33,8 @@ export default function Leave() {
       const [sumRes, listRes] = await Promise.allSettled([getLeaveSummary(), getLeaveEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_LEAVE_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_LEAVE_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo leave data", "info");
     } finally {
       setLoading(false);
     }

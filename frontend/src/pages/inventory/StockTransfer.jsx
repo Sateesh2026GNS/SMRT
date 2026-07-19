@@ -21,7 +21,7 @@ export default function StockTransfer() {
   const tenantId = useTenantId();
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [transfers, setTransfers] = useState(DEMO_TRANSFERS);
+  const [transfers, setTransfers] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ from_warehouse_id: "", to_warehouse_id: "", item_id: "", batch_number: "", quantity: "", vehicle: "", driver: "", notes: "" });

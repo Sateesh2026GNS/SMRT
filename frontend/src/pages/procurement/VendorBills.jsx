@@ -36,7 +36,7 @@ export default function VendorBills() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_BILL_SUMMARY);
-  const [rows, setRows] = useState(DEMO_BILL_LIST);
+  const [rows, setRows] = useState([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -44,9 +44,8 @@ export default function VendorBills() {
       const [sumRes, listRes] = await Promise.allSettled([getVendorBillSummary(), getVendorBills()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_BILL_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_BILL_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo vendor bill data", "info");
     } finally {
       setLoading(false);
     }

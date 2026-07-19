@@ -1,11 +1,44 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, ChevronRight, Cog } from "lucide-react";
+import {
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  Factory,
+  Landmark,
+  Layers,
+  LayoutDashboard,
+  Settings,
+  ShoppingCart,
+  Users,
+  Wallet,
+  Wrench,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 
+import BrandLogo from "../common/BrandLogo";
 import useAuth from "../../hooks/useAuth";
+import { getSidebarMenus } from "../../api/authApi";
 import { userCanAccess } from "../../config/permissions";
 import { SIDEBAR_NAV, sectionHasActiveChild } from "../../config/sidebarNav";
+
+const ICON_BY_KEY = {
+  dashboard: LayoutDashboard,
+  masters: Layers,
+  production: Factory,
+  inventory: Boxes,
+  procurement: ShoppingCart,
+  sales: Wallet,
+  hr: Users,
+  finance: Landmark,
+  quality: CheckCircle2,
+  maintenance: Wrench,
+  analytics: BarChart3,
+  settings: Settings,
+  admin: Settings,
+};
 
 function FactorySkyline() {
   return (
@@ -22,9 +55,47 @@ function FactorySkyline() {
   );
 }
 
-function buildInitialExpanded(pathname) {
+function mapApiMenusToNav(menus) {
+  return (menus || []).map((section) => {
+    const Icon = ICON_BY_KEY[section.key] || LayoutDashboard;
+    if (section.path && !(section.children && section.children.length)) {
+      return {
+        key: section.key,
+        label: section.label,
+        to: section.path,
+        icon: Icon,
+        module: section.module,
+        end: section.path === "/",
+      };
+    }
+    return {
+      key: section.key,
+      label: section.label,
+      icon: Icon,
+      module: section.module,
+      children: (section.children || []).map((c) => ({
+        label: c.label,
+        to: c.path,
+        module: c.module,
+      })),
+    };
+  });
+}
+
+function filterStaticNav(user) {
+  return SIDEBAR_NAV.map((section) => {
+    if (section.to) {
+      return userCanAccess(user, section.module) ? section : null;
+    }
+    const children = (section.children || []).filter((c) => userCanAccess(user, c.module));
+    if (children.length === 0) return null;
+    return { ...section, children };
+  }).filter(Boolean);
+}
+
+function buildInitialExpanded(pathname, nav) {
   const state = {};
-  SIDEBAR_NAV.forEach((section) => {
+  nav.forEach((section) => {
     if (section.children && sectionHasActiveChild(pathname, section)) {
       state[section.key] = true;
     }
@@ -34,32 +105,48 @@ function buildInitialExpanded(pathname) {
 
 export default function Sidebar({ collapsed, onClose }) {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const location = useLocation();
-  const [expanded, setExpanded] = useState(() => buildInitialExpanded(location.pathname));
+  const [apiNav, setApiNav] = useState(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setApiNav(null);
+      return;
+    }
+    let cancelled = false;
+    getSidebarMenus()
+      .then((menus) => {
+        if (!cancelled) setApiNav(mapApiMenusToNav(menus));
+      })
+      .catch(() => {
+        if (!cancelled) setApiNav(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, user?.id, user?.role, user?.role_id]);
 
   const visibleNav = useMemo(() => {
-    return SIDEBAR_NAV.map((section) => {
-      if (section.to) {
-        return userCanAccess(user, section.module) ? section : null;
-      }
-      const children = (section.children || []).filter((c) => userCanAccess(user, c.module));
-      if (children.length === 0) return null;
-      return { ...section, children };
-    }).filter(Boolean);
-  }, [user]);
+    if (apiNav && apiNav.length) return apiNav;
+    return filterStaticNav(user);
+  }, [apiNav, user]);
+
+  const [expanded, setExpanded] = useState(() =>
+    buildInitialExpanded(location.pathname, visibleNav)
+  );
 
   useEffect(() => {
     setExpanded((prev) => {
       const next = { ...prev };
-      SIDEBAR_NAV.forEach((section) => {
+      visibleNav.forEach((section) => {
         if (section.children && sectionHasActiveChild(location.pathname, section)) {
           next[section.key] = true;
         }
       });
       return next;
     });
-  }, [location.pathname]);
+  }, [location.pathname, visibleNav]);
 
   const toggleSection = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -79,23 +166,24 @@ export default function Sidebar({ collapsed, onClose }) {
         : "text-slate-400 hover:bg-white/10 hover:text-slate-200"
     }`;
 
-  const sectionButtonClass = (isOpen, hasActive) =>
+  const sectionButtonClass = (_isOpen, hasActive) =>
     `flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
       hasActive
         ? "bg-white/10 text-white"
         : "text-slate-300 hover:bg-white/10 hover:text-white"
     }`;
 
+  const sectionLabel = (section) => section.label || (section.labelKey ? t(section.labelKey) : section.key);
+  const childLabel = (child) => child.label || (child.labelKey ? t(child.labelKey) : child.to);
+
   return (
     <aside className="flex h-full w-60 shrink-0 flex-col bg-[#001B3D] text-white">
       <div className={`shrink-0 border-b border-white/10 ${collapsed ? "p-3" : "px-4 py-5"}`}>
         <Link to="/" className={`flex items-center ${collapsed ? "justify-center" : "gap-3"}`} onClick={() => onClose?.()}>
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#22C55E] to-[#3B82F6] shadow-lg">
-            <Cog className="h-5 w-5 text-white" strokeWidth={2} />
-          </div>
+          <BrandLogo size="md" imageClassName="rounded-lg bg-white/95 p-0.5" />
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-lg font-bold tracking-tight">SMRT AI ERP</p>
+              <p className="text-lg font-bold tracking-tight">GNS Insights</p>
               <p className="text-[9px] leading-tight text-slate-400">{t("nav.tagline")}</p>
             </div>
           )}
@@ -105,8 +193,8 @@ export default function Sidebar({ collapsed, onClose }) {
       <nav className="sidebar-scroll flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {visibleNav.map((section) => {
           if (section.to) {
-            const Icon = section.icon;
-            const label = t(section.labelKey);
+            const Icon = section.icon || LayoutDashboard;
+            const label = sectionLabel(section);
             return (
               <NavLink
                 key={section.key}
@@ -122,10 +210,10 @@ export default function Sidebar({ collapsed, onClose }) {
             );
           }
 
-          const Icon = section.icon;
+          const Icon = section.icon || LayoutDashboard;
           const isOpen = expanded[section.key];
           const hasActive = sectionHasActiveChild(location.pathname, section);
-          const label = t(section.labelKey);
+          const label = sectionLabel(section);
 
           return (
             <div key={section.key} className="space-y-0.5">
@@ -153,7 +241,7 @@ export default function Sidebar({ collapsed, onClose }) {
                       onClick={() => onClose?.()}
                       className={childLinkClass}
                     >
-                      {t(child.labelKey)}
+                      {childLabel(child)}
                     </NavLink>
                   ))}
                 </div>

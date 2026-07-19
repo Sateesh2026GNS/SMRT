@@ -22,7 +22,7 @@ export default function MachineHistory() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [rows, setRows] = useState(DEMO_HISTORY_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState("timeline");
@@ -33,11 +33,10 @@ export default function MachineHistory() {
     try {
       const res = await getMachineHistory();
       if (res.data?.length) setRows(res.data);
-      else setRows(DEMO_HISTORY_LIST);
+      else setRows([]);
     } catch (e) {
       setError(e.message || "Network error");
-      setRows(DEMO_HISTORY_LIST);
-      addToast("Using demo machine history data", "info");
+      setRows([]);
     } finally {
       setLoading(false);
     }

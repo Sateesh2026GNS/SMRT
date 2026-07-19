@@ -17,3 +17,6 @@ class Role(Base, TimestampMixin):
 
     tenant = relationship("Tenant", back_populates="roles")
     users = relationship("User", secondary="user_roles", back_populates="roles")
+    permission_links = relationship(
+        "RolePermission", back_populates="role", cascade="all, delete-orphan"
+    )

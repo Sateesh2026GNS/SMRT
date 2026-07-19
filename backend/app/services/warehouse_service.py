@@ -256,8 +256,8 @@ def get_warehouse_detail(
         int(r[2]) for r in movements if r[3] == "out" and r[4] and r[4].date() == today
     )
     detail.bin_tree = _default_bin_tree(wh)
-    detail.rack_count = wh.rack_count or 2
-    detail.bin_count = wh.bin_count or 3
+    detail.rack_count = wh.rack_count
+    detail.bin_count = wh.bin_count
     return detail
 
 

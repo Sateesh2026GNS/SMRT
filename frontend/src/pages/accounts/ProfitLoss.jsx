@@ -42,7 +42,6 @@ export default function ProfitLoss() {
       const res = await getProfitLossExtended(year);
       if (res.data) setData({ ...DEMO_PL, ...res.data });
     } catch {
-      addToast("Using demo P&L data", "info");
     } finally {
       setLoading(false);
     }

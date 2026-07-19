@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 
 /**
- * SMRT AI ERP sidebar structure. Children are filtered by RBAC per-item `module`.
+ * GNS Insights sidebar structure. Children are filtered by RBAC per-item `module`.
  * Routes map to existing pages where available; others use /erp/* placeholders.
  */
 export const SIDEBAR_NAV = [
@@ -31,8 +31,8 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.masters",
     icon: Layers,
     children: [
-      { labelKey: "erpNav.products", to: "/masters/products", module: "production" },
-      { labelKey: "erpNav.bom", to: "/masters/bom", module: "production" },
+      { labelKey: "erpNav.products", to: "/masters/products", module: "masters" },
+      { labelKey: "erpNav.bom", to: "/masters/bom", module: "masters" },
       { labelKey: "erpNav.customers", to: "/sales/customers", module: "sales" },
       { labelKey: "erpNav.vendors", to: "/procurement/vendors", module: "procurement" },
       { labelKey: "erpNav.warehouses", to: "/inventory/warehouses", module: "inventory" },
@@ -97,7 +97,7 @@ export const SIDEBAR_NAV = [
     children: [
       { labelKey: "erpNav.hrDashboard", to: "/hr", module: "hr" },
       { labelKey: "erpNav.employees", to: "/hr/employees", module: "hr" },
-      { labelKey: "erpNav.attendance", to: "/hr/attendance", module: "hr" },
+      { labelKey: "erpNav.attendance", to: "/hr/attendance", module: "attendance" },
       { labelKey: "erpNav.leave", to: "/hr/leave", module: "hr" },
       { labelKey: "erpNav.payroll", to: "/hr/payroll", module: "hr" },
     ],
@@ -159,9 +159,10 @@ export const SIDEBAR_NAV = [
     labelKey: "erpNav.settings",
     icon: Settings,
     children: [
-      { labelKey: "erpNav.users", to: "/admin/users", module: "admin" },
-      { labelKey: "erpNav.roles", to: "/admin/roles", module: "admin" },
-      { labelKey: "erpNav.permissions", to: "/admin/permissions", module: "admin" },
+      { labelKey: "erpNav.settings", to: "/settings", module: "settings", end: true },
+      { labelKey: "erpNav.users", to: "/admin/users", module: "settings" },
+      { labelKey: "erpNav.roles", to: "/admin/roles", module: "settings" },
+      { labelKey: "erpNav.permissions", to: "/admin/permissions", module: "settings" },
       { labelKey: "erpNav.auditLogs", to: "/admin/audit-logs", module: "admin" },
     ],
   },

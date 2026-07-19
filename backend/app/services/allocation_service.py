@@ -36,11 +36,11 @@ def get_allocation_summary(db: Session, tenant_id: int) -> AllocationSummaryRead
     free = total - allocated - maintenance
     util = round(allocated / total * 100, 1) if total else 0
     return AllocationSummaryRead(
-        total_machines=total or 25,
-        allocated=allocated or 18,
-        free_machines=max(free, 0) or 5,
-        under_maintenance=maintenance or 2,
-        utilization_pct=util or 72.0,
+        total_machines=total,
+        allocated=allocated,
+        free_machines=max(free, 0),
+        under_maintenance=maintenance,
+        utilization_pct=util,
     )
 
 

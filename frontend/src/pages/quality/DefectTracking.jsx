@@ -32,7 +32,7 @@ export default function DefectTracking() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_DEFECT_SUMMARY);
-  const [rows, setRows] = useState(DEMO_DEFECT_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("");
 
@@ -42,9 +42,8 @@ export default function DefectTracking() {
       const [sumRes, listRes] = await Promise.allSettled([getDefectSummary(), getDefectsEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_DEFECT_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_DEFECT_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo defect tracking data", "info");
     } finally {
       setLoading(false);
     }

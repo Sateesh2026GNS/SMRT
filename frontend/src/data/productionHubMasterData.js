@@ -1,30 +1,20 @@
 /** Production hub demo data. */
 
 export const DEMO_HUB = {
-  running_jobs: 12,
-  machines_running: 8,
-  machines_idle: 5,
-  machines_down: 2,
-  production_in_progress: 18,
-  production_completed_today: 6,
-  material_shortages: 2,
-  material_available: 15,
-  operators_present: 42,
-  operators_absent: 3,
-  quality_passed: 28,
-  quality_failed: 2,
-  recent_jobs: [
-    { work_order_number: "WO-1001", product: "Chair", machine: "CNC-01", status: "running", progress_pct: 65 },
-    { work_order_number: "WO-1002", product: "Table", machine: "CNC-02", status: "running", progress_pct: 30 },
-    { work_order_number: "WO-1003", product: "Steel Frame", machine: "Unassigned", status: "planned", progress_pct: 0 },
-  ],
-  machine_status: [
-    { name: "CNC-01", status: "running", code: "M-01" },
-    { name: "CNC-02", status: "running", code: "M-02" },
-    { name: "CNC-03", status: "breakdown", code: "M-03" },
-    { name: "CNC-04", status: "idle", code: "M-04" },
-    { name: "CNC-05", status: "idle", code: "M-05" },
-  ],
+  running_jobs: 0,
+  machines_running: 0,
+  machines_idle: 0,
+  machines_down: 0,
+  production_in_progress: 0,
+  production_completed_today: 0,
+  material_shortages: 0,
+  material_available: 0,
+  operators_present: 0,
+  operators_absent: 0,
+  quality_passed: 0,
+  quality_failed: 0,
+  recent_jobs: [],
+  machine_status: [],
 };
 
 export const HUB_MODULES = [

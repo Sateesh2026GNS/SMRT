@@ -23,7 +23,7 @@ export default function FinalQC() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_FINAL_SUMMARY);
-  const [rows, setRows] = useState(DEMO_FINAL_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("");
 
@@ -33,9 +33,8 @@ export default function FinalQC() {
       const [sumRes, listRes] = await Promise.allSettled([getFinalSummary(), getFinalEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_FINAL_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_FINAL_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo final QC data", "info");
     } finally {
       setLoading(false);
     }

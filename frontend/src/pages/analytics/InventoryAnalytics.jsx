@@ -42,7 +42,6 @@ export default function InventoryAnalytics() {
       if (res.data) setData({ ...DEMO_INVENTORY, ...res.data });
     } catch {
       setData(DEMO_INVENTORY);
-      addToast("Using demo inventory analytics", "info");
     } finally {
       setLoading(false);
     }

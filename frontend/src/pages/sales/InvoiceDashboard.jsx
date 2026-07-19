@@ -27,7 +27,7 @@ export default function InvoiceDashboard() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_INVOICE_SUMMARY);
-  const [rows, setRows] = useState(DEMO_INVOICE_LIST);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [statusFilter, setStatusFilter] = useState("");
@@ -39,9 +39,8 @@ export default function InvoiceDashboard() {
       const [sumRes, listRes] = await Promise.allSettled([getInvoiceSummary(), getInvoicesEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_INVOICE_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_INVOICE_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo invoice data", "info");
     } finally {
       setLoading(false);
     }
@@ -63,7 +62,7 @@ export default function InvoiceDashboard() {
   }, [rows, statusFilter]);
 
   const copyData = useMemo(() => {
-    if (!detail?.invoice) return SAMPLE_INVOICE_COPY;
+    if (!detail?.invoice) return null;
     return mergeWithSampleIfEmpty(mapDetailToInvoiceCopy(detail, settings || {}));
   }, [detail, settings]);
 

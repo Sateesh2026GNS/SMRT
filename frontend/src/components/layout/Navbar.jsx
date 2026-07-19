@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   Calendar,
   ChevronDown,
-  LogOut,
   Maximize2,
   Menu,
   Minimize2,
-  UserCircle,
 } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
-import { userCanAccess } from "../../config/permissions";
 import GlobalSearch from "../common/GlobalSearch";
+import ClientProfilePanel from "../common/ClientProfilePanel";
 import NotificationBell from "../notifications/NotificationBell";
 
 function getPageMeta(pathname, t) {
@@ -31,15 +29,16 @@ function getPageMeta(pathname, t) {
 export default function Navbar({ onMenuClick }) {
   const { t } = useTranslation();
   const location = useLocation();
-  const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [now, setNow] = useState(() => new Date());
   const [showProfile, setShowProfile] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const profileRef = useRef(null);
 
   const page = getPageMeta(location.pathname, t);
-  const displayName = user?.name || "Admin";
+  const displayName = user?.full_name || user?.name || "User";
+  const firstName = String(displayName).trim().split(/\s+/)[0] || "User";
+  const welcomeLabel = `Welcome, ${firstName}`;
   const displayRole = user?.role || t("nav.superAdmin");
 
   useEffect(() => {
@@ -103,6 +102,9 @@ export default function Navbar({ onMenuClick }) {
           </button>
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-[#1E293B]">{page.title}</h1>
+            <p className="mt-0.5 text-xs font-medium text-teal-700 sm:text-sm">
+              {welcomeLabel}
+            </p>
             {page.subtitle && (
               <p className="mt-0.5 hidden text-xs text-slate-500 sm:block leading-snug">{page.subtitle}</p>
             )}
@@ -151,16 +153,7 @@ export default function Navbar({ onMenuClick }) {
               <ChevronDown className="hidden h-4 w-4 text-slate-400 sm:block" />
             </button>
             {showProfile && (
-              <div className="absolute right-0 top-full z-50 w-52 pt-1">
-                <div className="rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
-                <Link to="/settings" onClick={() => setShowProfile(false)} className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-                  <UserCircle className="h-4 w-4" /> {t("common.myAccount")}
-                </Link>
-                <button type="button" onClick={() => { logout(); navigate("/login"); }} className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50">
-                  <LogOut className="h-4 w-4" /> {t("common.signOut")}
-                </button>
-                </div>
-              </div>
+              <ClientProfilePanel onClose={() => setShowProfile(false)} />
             )}
           </div>
         </div>

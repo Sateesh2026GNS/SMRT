@@ -54,12 +54,12 @@ def get_ap_summary(db: Session, tenant_id: int) -> APSummaryRead:
     )
     pending = sum(1 for b in bills if b.status == "pending")
     return APSummaryRead(
-        outstanding_payables=outstanding or 8_50_000,
-        due_this_week=due_week or 5,
-        overdue_bills=overdue or 3,
-        paid_this_month=paid_month or 4_20_000,
-        pending_approvals=pending or 6,
-        vendor_count=vendors or 25,
+        outstanding_payables=outstanding,
+        due_this_week=due_week,
+        overdue_bills=overdue,
+        paid_this_month=paid_month,
+        pending_approvals=pending,
+        vendor_count=vendors,
     )
 
 
@@ -135,14 +135,14 @@ def get_ar_summary(db: Session, tenant_id: int) -> ARSummaryRead:
         bucket = _aging_bucket(max(0, days))
         aging[bucket] += bal
     return ARSummaryRead(
-        total_receivables=total_recv or 12_50_000,
-        received_today=received_today or 85_000,
-        overdue=overdue_amt or 4_20_000,
-        pending_collection=pending or 6_80_000,
-        credit_customers=credit_cust or 18,
-        aging_0_30=aging["0-30"] or 5_80_000,
-        aging_31_60=aging["31-60"] or 3_20_000,
-        aging_61_90=aging["61-90"] or 2_10_000,
+        total_receivables=total_recv,
+        received_today=received_today,
+        overdue=overdue_amt,
+        pending_collection=pending,
+        credit_customers=credit_cust,
+        aging_0_30=aging["0-30"],
+        aging_31_60=aging["31-60"],
+        aging_61_90=aging["61-90"],
         aging_90_plus=aging["90+"] or 1_40_000,
     )
 
@@ -193,10 +193,10 @@ def get_payment_summary(db: Session, tenant_id: int) -> PaymentSummaryRead:
     bank = sum(float(p.amount or 0) for p in cust_pays if p.method in ("neft", "rtgs", "bank", "cheque"))
     bank += sum(float(p.amount or 0) for p in vend_pays if p.payment_method in ("neft", "rtgs", "bank"))
     return PaymentSummaryRead(
-        cash_received_today=cash_today or 1_25_000,
-        online_payments=online or 8_50_000,
-        cash_payments=cash_all or 2_40_000,
-        bank_transfers=bank or 15_60_000,
+        cash_received_today=cash_today,
+        online_payments=online,
+        cash_payments=cash_all,
+        bank_transfers=bank,
         failed_payments=2,
         pending_payments=5,
     )
@@ -284,10 +284,10 @@ def get_gl_summary(db: Session, tenant_id: int) -> GLSummaryRead:
             select(func.coalesce(func.sum(Income.amount), 0)).where(Income.tenant_id == tenant_id)
         ) or 0
     )
-    revenue = rev + inc or 45_00_000
-    expenses = exp or 32_00_000
-    assets = revenue * 1.8 or 85_00_000
-    liabilities = expenses * 0.6 or 28_00_000
+    revenue = rev + inc
+    expenses = exp
+    assets = revenue * 1.8
+    liabilities = expenses * 0.6
     equity = assets - liabilities
     return GLSummaryRead(
         total_assets=assets,
@@ -378,13 +378,13 @@ def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
     ]
     return GSTExtendedRead(
         year=year,
-        sgst=sgst or 4_50_000,
-        cgst=cgst or 4_50_000,
-        igst=igst or 2_80_000,
-        total_gst=total or 11_80_000,
-        taxable_value=taxable or 65_00_000,
-        gst_payable=total * 0.6 or 7_08_000,
-        gst_receivable=total * 0.4 or 4_72_000,
+        sgst=sgst,
+        cgst=cgst,
+        igst=igst,
+        total_gst=total,
+        taxable_value=taxable,
+        gst_payable=total * 0.6,
+        gst_receivable=total * 0.4,
         monthly_collection=monthly,
         gst_trend=trend,
         gst_by_customer=by_cust,
@@ -394,8 +394,8 @@ def get_gst_extended(db: Session, tenant_id: int, year: int) -> GSTExtendedRead:
 
 def get_pl_extended(db: Session, tenant_id: int, year: int) -> PLExtendedRead:
     base = get_profit_loss(db, tenant_id, year)
-    rev = base["total_revenue"] or 45_00_000
-    exp = base["total_expenses"] or 32_00_000
+    rev = base["total_revenue"]
+    exp = base["total_expenses"]
     profit = base["profit"] or rev - exp
     mfg = exp * 0.45
     inv_cost = exp * 0.2

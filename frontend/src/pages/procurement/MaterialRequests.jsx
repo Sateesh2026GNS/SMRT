@@ -75,7 +75,7 @@ export default function MaterialRequests() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_MR_SUMMARY);
-  const [rows, setRows] = useState(DEMO_MR_LIST);
+  const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -86,9 +86,8 @@ export default function MaterialRequests() {
       const [sumRes, listRes] = await Promise.allSettled([getMRSummary(), getMREnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_MR_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_MR_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo material request data", "info");
     } finally {
       setLoading(false);
     }

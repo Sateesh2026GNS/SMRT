@@ -179,10 +179,10 @@
     "financeAccounts": "Finance & Accounts",
     "reportsAnalytics": "Reports & Analytics",
     "crm": "CRM",
-    "tagline": "Systematic Manufacturing Real-time Tracking",
+    "tagline": "Business Intelligence • Analytics • AI",
     "userRole": "User Role",
     "superAdmin": "Super Admin",
-    "footerTagline": "SMRT AI ERP · Powering Smart Manufacturing"
+    "footerTagline": "GNS Insights · Business Intelligence • Analytics • AI"
   },
   "common": {
     "cancel": "Cancel",
@@ -342,7 +342,7 @@
     "powerConsumption": "Power Consumption",
     "productionEfficiency": "Production Efficiency",
     "targetAchievement": "Target Achievement",
-    "copyright": "© 2026 SMRT AI ERP. All rights reserved.",
+    "copyright": "© 2026 GNS Insights. All rights reserved.",
     "poweredBy": "Powered by GNS Software Pvt Ltd",
     "alertDelayed": "Work Order WO-1025 is delayed",
     "alertMaintenance": "Machine CNC-03 requires maintenance",

@@ -1,6 +1,43 @@
-# SMRT AI ERP
+# GNS Insights
 
-A full-stack **Production Management**, **Inventory & Raw Material Management**, **Sales & Billing**, and **Accounts & Reports** system with multi-tenant support.
+**GNS Insights** is a full-stack business intelligence platform for manufacturing, combining analytics, AI, and operational reporting. It covers **Production Management**, **Inventory & Raw Material Management**, **Sales & Billing**, and **Accounts & Reports**.
+
+## Branding & Assets
+
+| Item | Location | Usage |
+|------|----------|--------|
+| **Product name** | — | **GNS Insights** (browser title, sidebar, login, landing, i18n) |
+| **Tagline** | `frontend/src/locales/en.json` → `nav.tagline` | Business Intelligence • Analytics • AI |
+| **Logo** | `frontend/public/logo.png` | Favicon + UI branding |
+| **Auth hero image** | `frontend/public/auth/slide-1.png` | Login/Register slider + landing hero background |
+| **Brand component** | `frontend/src/components/common/BrandLogo.jsx` | Reusable logo with `sm` / `md` / `lg` / `xl` / `hero` sizes |
+
+### Where the logo appears
+
+- **Landing page** — navigation bar, hero section, footer
+- **Login & Register** — header above the form title
+- **Sidebar** — app header (logo only when collapsed)
+- **Loading screen** — shown while the app bootstraps (`main.jsx`)
+- **Browser tab** — favicon via `<link rel="icon" href="/logo.png">` in `index.html`
+
+### Auth slider images
+
+The sign-in / sign-up right panel (`AuthSlider.jsx`) rotates background slides:
+
+| File | Slide | Fallback |
+|------|-------|----------|
+| `frontend/public/auth/slide-1.png` | GNS Insights (installed) | — |
+| `frontend/public/auth/slide-2.png` | Analytics | Themed gradient if missing |
+| `frontend/public/auth/slide-3.png` | Inventory | Themed gradient if missing |
+
+### Replace the logo
+
+1. Save your image as `frontend/public/logo.png` (PNG recommended; keep a wide aspect ratio).
+2. Refresh the app — `BrandLogo` loads from `/logo.png` with no code changes.
+
+**Note:** Demo tenant emails (`@smrt.local`) are sample data, not the product brand.
+
+To add or replace slides, drop PNG/JPG files into `frontend/public/auth/` using the names above. See `frontend/public/auth/README.txt` for copy commands.
 
 ## Tech Stack
 
@@ -96,7 +133,7 @@ A full-stack **Production Management**, **Inventory & Raw Material Management**,
 
 All flows follow the pattern: **Select → Enter → Save → View**. Tasks complete in **3 steps max**.
 
-### 1. Overall SMRT Flow
+### 1. Overall GNS Insights Flow
 Login → Dashboard → Choose Module → Perform Action → Save Data → View Reports
 
 ### 2. Production Management
@@ -125,7 +162,7 @@ Login → Admin Panel → Create User → Assign Role → Set Permissions
 ## Project Structure
 
 ```
-SMRT/
+GNS Insights/
 ├── backend/
 │   ├── app/
 │   │   ├── main.py              # FastAPI app, CORS, router registration, DB init
@@ -140,9 +177,15 @@ SMRT/
 │   └── .env
 │
 ├── frontend/
+│   ├── public/
+│   │   ├── logo.png             # GNS Insights product logo (favicon + UI)
+│   │   └── auth/
+│   │       ├── slide-1.png      # Auth slider / landing hero background
+│   │       ├── slide-2.png      # Optional (gradient fallback if missing)
+│   │       └── slide-3.png      # Optional (gradient fallback if missing)
 │   ├── src/
 │   │   ├── api/                 # axiosConfig, notificationService, productionApi, salesApi, …
-│   │   ├── components/          # layout (Navbar, Sidebar), notifications (NotificationBell, …), common (ConfirmationDialog, …)
+│   │   ├── components/          # layout (Navbar, Sidebar), notifications, common (BrandLogo, ConfirmationDialog, …)
 │   │   ├── context/             # AuthContext, ToastContext, SettingsContext
 │   │   ├── hooks/               # useAuth, useNotifications
 │   │   ├── pages/               # auth, dashboard, production, inventory, procurement, sales, accounts, hr, quality, maintenance, analytics, alerts, admin, documents, settings
@@ -176,7 +219,7 @@ SMRT/
 
 | Area | Pages | API Client |
 |------|-------|------------|
-| Auth | Login, Register | authApi |
+| Auth | Login, Register | authApi, `BrandLogo`, `AuthSlider` |
 | Dashboard | Dashboard (KPIs, charts) | productionApi, inventoryApi, hrApi, analyticsApi, accountsApi |
 | Production | Planning, WorkOrders, BatchTracking, MachineStatus, DailyReports, CreateProduction, CreateMachine | productionApi |
 | Inventory | Dashboard, InventoryList, Warehouses, Suppliers, StockMovement, CreateItem/Warehouse/Supplier | inventoryApi |
@@ -273,8 +316,8 @@ Every response uses the standard envelope:
 ### Try It
 
 1. Start backend and frontend (see Setup below).
-2. Log in as `admin@smrt.local` / `admin123`.
-3. Click the bell icon in the top bar — five demo notifications are seeded on first run.
+2. Register a tenant admin and log in with your own company email.
+3. Click the bell icon in the top bar — demo notifications are created for local testing.
 4. Open notifications one by one; the badge count drops instantly (5 → 4 → … → 0).
 5. Use **Mark all read**, **Clear** (confirmation dialog), or per-item delete/mark-read actions.
 
@@ -337,16 +380,9 @@ React (Settings pages) → /admin/* or /api/settings/* → SettingsService → r
 
 Login events are recorded automatically via `POST /auth/login`.
 
-### Demo users (tenant 1)
+### User Accounts
 
-| Email | Password | Role |
-|-------|----------|------|
-| admin@smrt.local | admin123 | Admin |
-| production@smrt.local | demo123 | Production Manager |
-| store@smrt.local | demo123 | Store Manager |
-| hr@smrt.local | demo123 | HR Manager |
-| accounts@smrt.local | demo123 | Accountant |
-| operator@smrt.local | demo123 | Operator |
+The application uses registration and tenant-based user management. There are no default seeded users with production credentials.
 
 ## Prerequisites
 
@@ -383,7 +419,7 @@ No extra database server is required. The SQLite file `backend/smrt.db` is creat
 - **File location:** `backend/smrt.db` (relative to the backend folder when you run uvicorn from `backend/`)
 - **Open the database:** Use [DB Browser for SQLite](https://sqlitebrowser.org/) to inspect tables and data
 - **Important:** Stop the backend before opening the file in DB Browser — SQLite uses file locking while the app is running
-- **Seeded admin user** (created on first start): `admin@smrt.local` / `admin123`
+- The first administrative user is created through `POST /auth/register`.
 
 Run the backend:
 
@@ -391,7 +427,7 @@ Run the backend:
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-API docs: http://localhost:8000/docs
+API docs: http://localhost:8000/docs (title: **GNS Insights API**)
 
 ### 2. Frontend
 
@@ -412,7 +448,20 @@ Run the frontend:
 npm run dev
 ```
 
-App: http://localhost:5173
+App: http://localhost:5173 (title: **GNS Insights**)
+
+### Docker (optional)
+
+```bash
+docker compose up --build
+```
+
+| Service | URL | Notes |
+|---------|-----|--------|
+| Frontend | http://localhost:8080 | Nginx serves the built app + proxies API routes |
+| Backend | http://localhost:8000 | SQLite persisted in Docker volume `smrt_data` |
+
+The frontend image is built with `VITE_API_BASE_URL=""` so API calls use same-origin routing through nginx.
 
 ## Auth API (Login & Registration)
 
@@ -435,18 +484,16 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
   "token_type": "bearer",
   "user": {
     "id": 1,
-    "email": "admin@smrt.local",
-    "full_name": "Admin",
+    "email": "user@example.com",
+    "full_name": "Admin User",
     "tenant_id": 1,
-    "tenant_name": "GNS",
+    "tenant_name": "Company Name",
     "role": "Admin"
   }
 }
 ```
 
 **Errors:** `401` — Invalid email or password.
-
-**Default seeded user (after first backend start):** `admin@smrt.local` / `admin123`
 
 ### POST `/auth/register`
 
@@ -467,7 +514,6 @@ Base URL: `http://localhost:8000` (or your `VITE_API_BASE_URL`).
 
 - **Login** (`/login`): Calls `POST /auth/login`, stores `access_token` in `localStorage` as `smrt-token`, persists user in `smrt-user`. Axios sends `Authorization: Bearer <token>` on subsequent requests.
 - **Register** (`/register`): Calls `POST /auth/register`, then same as login.
-- **Demo login:** Still available without API (role picker).
 
 Optional `backend/.env`:
 
@@ -477,7 +523,7 @@ JWT_SECRET_KEY=your-long-random-secret
 
 ## Usage
 
-1. **Login:** API login with `admin@smrt.local` / `admin123`, or use "Continue as …" for demo without backend.
+1. **Login:** API login with your registered company email and password.
 2. **Language:** Click the Language button (🌐) in the top bar to switch between English, Hindi, Tamil, or Telugu.
 3. **Notifications:** Click the bell icon (🔔) in the top bar to view in-app notifications. Unread items are highlighted; opening one marks it read and updates the badge without refreshing the page.
 4. **Dashboard:** View production, inventory, HR, and machine status summaries.

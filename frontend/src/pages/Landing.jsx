@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import BrandLogo from "../components/common/BrandLogo";
 
 const features = [
   { icon: "🏭", title: "Production Management", desc: "Work orders, batch tracking, machine status in real-time." },
@@ -15,26 +16,34 @@ export default function Landing() {
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white font-bold" style={{ background: "var(--color-primary)" }}>S</div>
-            <span className="font-bold text-xl" style={{ color: "var(--color-dark-bg)" }}>SMRT AI ERP</span>
-          </div>
+          <BrandLogo
+            size="md"
+            showName
+            nameClassName="font-bold text-xl"
+            nameStyle={{ color: "var(--color-dark-bg)" }}
+          />
           <div className="flex items-center gap-4">
-            <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900">Login</Link>
-            <Link to="/register" className="rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ background: "var(--color-primary)" }}>Start Free Trial</Link>
+            <Link to="/login" className="rounded-lg px-4 py-2 text-sm font-medium text-white" style={{ background: "var(--color-primary)" }}>Sign In</Link>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="mx-auto max-w-4xl text-center">
+      <section
+        className="relative pt-32 pb-20 px-6 bg-cover bg-center"
+        style={{ backgroundImage: "url(/auth/slide-1.png)" }}
+      >
+        <div className="absolute inset-0 bg-white/85" aria-hidden />
+        <div className="relative mx-auto max-w-4xl text-center">
+          <div className="mb-8 flex justify-center">
+            <BrandLogo size="hero" />
+          </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl md:text-6xl" style={{ color: "var(--color-dark-bg)" }}>
             Control Your Factory in Real-Time with{" "}
-            <span style={{ color: "var(--color-primary)" }}>SMRT AI ERP</span>
+            <span style={{ color: "var(--color-primary)" }}>GNS Insights</span>
           </h1>
           <p className="mt-6 text-xl text-slate-600">
-            Production, inventory, sales, and analytics in one platform. Built for modern manufacturers.
+            Business Intelligence • Analytics • AI for modern manufacturing operations.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
             <Link
@@ -45,15 +54,15 @@ export default function Landing() {
               Request Demo
             </Link>
             <Link
-              to="/register"
+              to="/login"
               className="rounded-xl border-2 px-8 py-4 text-lg font-semibold transition hover:bg-slate-100"
               style={{ borderColor: "var(--color-primary)", color: "var(--color-primary)" }}
             >
-              Start Free Trial
+              Sign In
             </Link>
           </div>
           <p className="mt-6 text-sm text-slate-500">
-            Demo: demo@smrt.com / demo123
+            Companies are provisioned by GNS. Contact your administrator for access.
           </p>
         </div>
       </section>
@@ -92,7 +101,7 @@ export default function Landing() {
               <h3 className="text-xl font-semibold text-slate-900">Professional</h3>
               <p className="mt-2 text-4xl font-bold" style={{ color: "var(--color-primary)" }}>Custom</p>
               <p className="mt-2 text-sm text-slate-600">Full features, dedicated support</p>
-              <Link to="/register" className="mt-6 block rounded-lg py-3 text-center font-medium text-white" style={{ background: "var(--color-primary)" }}>Contact Sales</Link>
+              <Link to="/login" className="mt-6 block rounded-lg py-3 text-center font-medium text-white" style={{ background: "var(--color-primary)" }}>Contact Sales</Link>
             </div>
           </div>
         </div>
@@ -116,17 +125,18 @@ export default function Landing() {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-12 px-6">
         <div className="mx-auto max-w-6xl flex flex-wrap justify-between items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg text-white font-bold text-sm" style={{ background: "var(--color-primary)" }}>S</div>
-            <span className="font-bold" style={{ color: "var(--color-dark-bg)" }}>SMRT AI ERP</span>
-          </div>
+          <BrandLogo
+            size="sm"
+            showName
+            nameClassName="font-bold"
+            nameStyle={{ color: "var(--color-dark-bg)" }}
+          />
           <div className="flex gap-6 text-sm text-slate-600">
             <Link to="/login" className="hover:text-slate-900">Login</Link>
-            <Link to="/register" className="hover:text-slate-900">Register</Link>
             <a href="#contact" className="hover:text-slate-900">Contact</a>
           </div>
         </div>
-        <p className="mt-6 text-center text-sm text-slate-500">© 2025 GNM. All rights reserved.</p>
+        <p className="mt-6 text-center text-sm text-slate-500">© 2026 GNS Insights. All rights reserved.</p>
       </footer>
     </div>
   );

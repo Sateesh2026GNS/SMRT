@@ -3,27 +3,9 @@
 import uuid
 
 
-def _login_admin(client):
-    from app.core.database import SessionLocal
-    from app.core.seed_roles import seed_roles
-    from app.core.seed_tenant import seed_tenant
-    from app.core.seed_users import seed_admin_user
-
-    db = SessionLocal()
-    try:
-        seed_tenant(db)
-        seed_roles(db)
-        seed_admin_user(db)
-    finally:
-        db.close()
-
-    resp = client.post(
-        "/auth/login",
-        json={"email": "admin@smrt.local", "password": "admin123"},
-    )
-    assert resp.status_code == 200, resp.text
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+def _login_admin(client, register_admin):
+    admin = register_admin()
+    return admin["headers"]
 
 
 def _unwrap(response):
@@ -34,18 +16,21 @@ def _unwrap(response):
     return body
 
 
-def test_admin_users_crud(client):
-    headers = _login_admin(client)
+def test_admin_users_crud(client, register_admin):
+    admin = register_admin()
+    headers = admin["headers"]
 
     stats = client.get("/admin/users/stats", headers=headers)
     assert stats.status_code == 200
     stats_data = stats.json()
-    assert stats_data["total_users"] >= 6
-    assert stats_data["active_users"] >= 6
+    assert stats_data["total_users"] >= 1
+    assert stats_data["active_users"] >= 1
     assert stats_data["administrators"] >= 1
 
     roles = client.get("/admin/roles", headers=headers).json()
-    email = f"settings-{uuid.uuid4().hex[:8]}@example.com"
+    admin_email = admin["email"]
+    domain = admin_email.split("@", 1)[1]
+    email = f"settings-{uuid.uuid4().hex[:8]}@{domain}"
 
     create = client.post(
         "/admin/users",
@@ -54,7 +39,7 @@ def test_admin_users_crud(client):
             "full_name": "Settings Test User",
             "email": email,
             "phone": "6302828004",
-            "password": "demo1234",
+            "password": "Passw0rd!123",
             "is_active": True,
             "role_ids": [roles[0]["id"]],
         },
@@ -72,8 +57,8 @@ def test_admin_users_crud(client):
     assert update.json()["full_name"] == "Settings Updated"
 
 
-def test_admin_roles_and_permissions(client):
-    headers = _login_admin(client)
+def test_admin_roles_and_permissions(client, register_admin):
+    headers = _login_admin(client, register_admin)
 
     modules = client.get("/admin/permissions/modules", headers=headers)
     assert modules.status_code == 200
@@ -91,14 +76,14 @@ def test_admin_roles_and_permissions(client):
     assert "inventory" in updated.json()["permissions"]
 
 
-def test_settings_api_envelope(client):
-    headers = _login_admin(client)
+def test_settings_api_envelope(client, register_admin):
+    headers = _login_admin(client, register_admin)
 
     resp = client.get("/api/settings/users/stats", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
     assert body["success"] is True
-    assert body["data"]["total_users"] >= 6
+    assert body["data"]["total_users"] >= 1
 
     perms = client.get("/api/settings/permissions", headers=headers)
     assert perms.status_code == 200
@@ -106,10 +91,14 @@ def test_settings_api_envelope(client):
     assert len(roles) >= 6
 
 
-def test_audit_logs(client):
-    headers = _login_admin(client)
+def test_audit_logs(client, register_admin):
+    admin = register_admin()
+    headers = admin["headers"]
 
-    client.post("/auth/login", json={"email": "hr@smrt.local", "password": "demo123"})
+    client.post(
+        "/auth/login",
+        json={"email": admin["email"], "password": admin["password"], "role": "Admin"},
+    )
 
     logs = client.get("/admin/access-logs", headers=headers)
     assert logs.status_code == 200

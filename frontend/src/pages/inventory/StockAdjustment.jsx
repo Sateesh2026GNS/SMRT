@@ -12,7 +12,7 @@ const APPROVAL_FLOW = ["Store Executive", "Store Manager", "Inventory Manager"];
 export default function StockAdjustment() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [adjustments, setAdjustments] = useState(DEMO_ADJUSTMENTS);
+  const [adjustments, setAdjustments] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [items, setItems] = useState([]);
   const [form, setForm] = useState({ warehouse_id: "", item_id: "", new_qty: "", reason: "Physical Count" });

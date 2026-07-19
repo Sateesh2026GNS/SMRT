@@ -41,11 +41,11 @@ def get_preventive_summary(db: Session, tenant_id: int) -> PreventiveSummaryRead
     running = sum(1 for m in machines if m.status == "running")
     avail = (running / len(machines) * 100) if machines else 92.5
     return PreventiveSummaryRead(
-        total_machines=len(machines) or 24,
-        scheduled_today=scheduled_today or 5,
-        overdue_tasks=overdue or 3,
-        completed_this_month=completed_month or 18,
-        upcoming_maintenance=upcoming or 12,
+        total_machines=len(machines),
+        scheduled_today=scheduled_today,
+        overdue_tasks=overdue,
+        completed_this_month=completed_month,
+        upcoming_maintenance=upcoming,
         machine_availability_pct=round(avail, 1),
     )
 
@@ -88,16 +88,16 @@ def get_breakdown_summary(db: Session, tenant_id: int) -> BreakdownSummaryRead:
     pending = sum(1 for b in breakdowns if b.status in ("reported", "assigned"))
     emergency = sum(1 for b in breakdowns if getattr(b, "priority", "") == "critical" or getattr(b, "severity", "") == "critical")
     downtime = sum(b.downtime_minutes or 0 for b in breakdowns) / 60
-    mttr = (sum(b.downtime_minutes or 120 for b in breakdowns if b.status == "resolved") / max(1, sum(1 for b in breakdowns if b.status == "resolved"))) / 60
+    mttr = (sum(b.downtime_minutes for b in breakdowns if b.status == "resolved") / max(1, sum(1 for b in breakdowns if b.status == "resolved"))) / 60
     machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
     breakdown_count = sum(1 for m in machines if m.status == "breakdown")
     avail = ((len(machines) - breakdown_count) / len(machines) * 100) if machines else 88.0
     return BreakdownSummaryRead(
-        active_breakdowns=active or 4,
-        total_downtime_hours=round(downtime or 48.5, 1),
-        avg_repair_time_mttr=round(mttr or 2.4, 1),
+        active_breakdowns=active,
+        total_downtime_hours=round(downtime, 1),
+        avg_repair_time_mttr=round(mttr, 1),
         machine_availability_pct=round(avail, 1),
-        pending_repairs=pending or 3,
+        pending_repairs=pending,
         emergency_breakdowns=emergency or 1,
     )
 
@@ -190,7 +190,7 @@ def get_maintenance_hub(db: Session, tenant_id: int) -> MaintenanceHubRead:
     maintenance = sum(1 for m in machines if m.status in ("maintenance", "under_maintenance"))
     breakdown = sum(1 for m in machines if m.status == "breakdown")
     idle = sum(1 for m in machines if m.status == "idle")
-    health_scores = [float(m.health_score or 85) for m in machines]
+    health_scores = [float(m.health_score) for m in machines]
     health_pct = sum(health_scores) / len(health_scores) if health_scores else 87.5
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"]
     calendar = [
@@ -201,11 +201,11 @@ def get_maintenance_hub(db: Session, tenant_id: int) -> MaintenanceHubRead:
         {"day": 12, "machine": "Mill-04", "type": "Inspection"},
     ]
     return MaintenanceHubRead(
-        total_machines=len(machines) or 24,
-        running=running or 18,
-        under_maintenance=maintenance or 2,
+        total_machines=len(machines),
+        running=running,
+        under_maintenance=maintenance,
         breakdown=breakdown or 1,
-        idle=idle or 3,
+        idle=idle,
         machine_health_pct=round(health_pct, 1),
         mttr_hours=bd_sum.avg_repair_time_mttr,
         mtbf_hours=168.0,
@@ -215,7 +215,7 @@ def get_maintenance_hub(db: Session, tenant_id: int) -> MaintenanceHubRead:
         total_cost=322_000,
         calendar_events=calendar,
         machine_health=[
-            {"name": m.name, "health": float(m.health_score or 85), "code": m.code}
+            {"name": m.name, "health": float(m.health_score), "code": m.code}
             for m in machines[:6]
         ] or [
             {"name": "CNC-01", "health": 95, "code": "CNC-01"},

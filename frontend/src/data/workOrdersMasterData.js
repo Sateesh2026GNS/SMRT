@@ -41,89 +41,15 @@ export const STATUS_FLOW = [
 ];
 
 export const DEMO_WO_SUMMARY = {
-  total_work_orders: 125,
-  planned_orders: 20,
-  in_progress_orders: 45,
-  completed_orders: 52,
-  delayed_orders: 8,
-  high_priority_orders: 12,
+  total_work_orders: 0,
+  planned_orders: 0,
+  in_progress_orders: 0,
+  completed_orders: 0,
+  delayed_orders: 0,
+  high_priority_orders: 0,
 };
 
-const CUSTOMERS = ["Tata Motors", "Bosch India", "Mahindra", "Ashok Leyland", "Hyundai"];
-const PRODUCTS = ["Gear Housing", "Shaft Assembly", "Brake Drum", "Engine Block", "Transmission Case"];
-const MACHINES = ["CNC Unit 1", "Lathe Unit 3", "Press Unit 5", "Milling Unit 2"];
-const OPERATORS = ["Ravi Kumar", "Priya Sharma", "Suresh Reddy", "Anita Desai", "Vikram Singh"];
-
-const STATUS_POOL = [
-  "planned", "released", "material_ready", "machine_ready",
-  "running", "running", "in_progress", "paused",
-  "completed", "completed", "completed", "closed",
-  "running", "planned", "running", "completed", "machine_ready", "running",
-];
-
-function buildWo(i) {
-  const n = i + 1;
-  const status = STATUS_POOL[i % STATUS_POOL.length];
-  const planned = 400 + i * 80;
-  const produced = ["completed", "closed"].includes(status) ? planned :
-    ["running", "in_progress", "paused"].includes(status) ? Math.round(planned * (0.5 + (i % 5) * 0.08)) : 0;
-  const remaining = Math.max(planned - produced, 0);
-  const progress = planned ? Math.round((produced / planned) * 1000) / 10 : 0;
-  const priority = PRIORITIES[i % 3];
-  const isDelayed = i % 7 === 0 && !["completed", "closed"].includes(status);
-
-  return {
-    id: `demo-wo-${n}`,
-    work_order_number: `WO-2026-${String(2000 + n)}`,
-    production_order_id: n,
-    production_order_number: `PO-2026-${String(1000 + n)}`,
-    product_name: PRODUCTS[i % PRODUCTS.length],
-    customer_name: CUSTOMERS[i % CUSTOMERS.length],
-    bom_version: `BOM v${1 + (i % 3)}.0`,
-    batch_number: produced > 0 ? `BATCH-${String(n).padStart(4, "0")}` : null,
-    machine_id: (i % 4) + 1,
-    machine_name: MACHINES[i % MACHINES.length],
-    machine_code: `MCH${String((i % 8) + 1).padStart(3, "0")}`,
-    machine_status: ["running", "in_progress", "paused"].includes(status) ? "running" : "idle",
-    assigned_user_id: (i % 5) + 1,
-    operator_name: OPERATORS[i % OPERATORS.length],
-    supervisor: "Ramesh Gupta",
-    department: DEPARTMENTS[i % DEPARTMENTS.length],
-    shift: SHIFTS[i % 3],
-    planned_quantity: planned,
-    produced_quantity: produced,
-    actual_quantity: produced || null,
-    remaining_quantity: remaining,
-    scrap_quantity: produced > 0 ? Math.round(produced * 0.02) : 0,
-    rework_quantity: produced > 0 ? Math.round(produced * 0.01) : 0,
-    priority,
-    planned_start: `2026-07-${String((i % 15) + 1).padStart(2, "0")}`,
-    planned_end: `2026-07-${String((i % 15) + 12).padStart(2, "0")}`,
-    status,
-    progress_pct: progress,
-    is_delayed: isDelayed,
-    machine_efficiency_pct: status === "running" ? 82 + (i % 10) : null,
-    machine_utilization_pct: status === "running" ? 75 + (i % 15) : null,
-    operator_efficiency_pct: progress,
-    oee_pct: status === "running" ? 68 + (i % 12) : null,
-    production_efficiency_pct: progress,
-    scrap_pct: produced ? 2.0 : 0,
-    downtime_minutes: isDelayed ? 30 + i * 3 : 0,
-    quality_status: status === "completed" ? "passed" : status === "running" ? "in_progress" : "pending",
-    created_at: "2026-07-01T09:00:00",
-    started_at: produced > 0 ? "2026-07-02T06:30:00" : null,
-    paused_at: status === "paused" ? "2026-07-05T14:00:00" : null,
-    completed_at: ["completed", "closed"].includes(status) ? "2026-07-10T18:00:00" : null,
-    materials: [
-      { component_name: "Steel Plate", required_qty: planned * 0.4, issued_qty: planned * 0.4, balance_qty: 0, unit: "kg" },
-      { component_name: "Bearing Set", required_qty: planned * 0.05, issued_qty: planned * 0.05, balance_qty: 0, unit: "pcs" },
-    ],
-    documents: [{ name: "Job Card", type: "PDF" }, { name: "Routing Sheet", type: "PDF" }],
-    audit_logs: [{ action: "WO Created", user: "Planner", timestamp: "2026-07-01 09:00" }],
-  };
-}
-
-export const DEMO_WORK_ORDERS = Array.from({ length: 18 }, (_, i) => buildWo(i));
+export const DEMO_WORK_ORDERS = [];
 
 export function enrichApiWorkOrder(row, index = 0) {
   const planned = Number(row.planned_quantity || 0);

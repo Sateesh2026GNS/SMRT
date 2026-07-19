@@ -58,14 +58,14 @@ def get_employee_summary(db: Session, tenant_id: int) -> EmployeeSummaryRead:
     contract = sum(1 for e in emps if getattr(e, "employment_type", None) == "contract")
     new_joiners = sum(1 for e in emps if e.hire_date and e.hire_date >= today - timedelta(days=30))
     return EmployeeSummaryRead(
-        total_employees=len(emps) or 248,
-        present_today=present or 198,
+        total_employees=len(emps),
+        present_today=present,
         absent=(len(emps) - present - on_leave) if emps else 32,
-        on_leave=on_leave or 18,
-        overtime=ot or 42.5,
-        departments=depts or 12,
-        contract_employees=contract or 45,
-        new_joiners=new_joiners or 8,
+        on_leave=on_leave,
+        overtime=ot,
+        departments=depts,
+        contract_employees=contract,
+        new_joiners=new_joiners,
     )
 
 
@@ -109,13 +109,13 @@ def get_attendance_summary(db: Session, tenant_id: int, record_date: date | None
     emp_count = int(db.scalar(select(func.count(Employee.id)).where(Employee.tenant_id == tenant_id, Employee.is_active)) or 0)
     absent = max(0, emp_count - present)
     return AttendanceSummaryRead(
-        present=present or 198,
-        absent=absent or 32,
-        late=late or 12,
-        half_day=half or 6,
-        overtime=ot or 42.5,
-        night_shift=sum(1 for r in records if r.shift_id) or 28,
-        total_working_hours=wh or 1584,
+        present=present,
+        absent=absent,
+        late=late,
+        half_day=half,
+        overtime=ot,
+        night_shift=sum(1 for r in records if r.shift_id),
+        total_working_hours=wh,
     )
 
 
@@ -195,12 +195,12 @@ def get_payroll_summary(db: Session, tenant_id: int) -> PayrollSummaryRead:
     pf = sum(float(getattr(r, "pf", 0) or 0) for r in records) or monthly * 0.12
     esi = sum(float(getattr(r, "esi", 0) or 0) for r in records) or monthly * 0.0075
     return PayrollSummaryRead(
-        monthly_payroll=monthly or 4_250_000,
-        pending_salary=pending or 320_000,
-        processed_salary=processed or 3_930_000,
-        overtime_cost=ot_cost or 185_000,
-        pf=pf or 510_000,
-        esi=esi or 31_875,
+        monthly_payroll=monthly,
+        pending_salary=pending,
+        processed_salary=processed,
+        overtime_cost=ot_cost,
+        pf=pf,
+        esi=esi,
         professional_tax=2500 * max(len(records), 1),
     )
 

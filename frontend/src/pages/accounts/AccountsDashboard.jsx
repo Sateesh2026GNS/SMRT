@@ -40,7 +40,6 @@ export default function AccountsDashboard() {
       const res = await getFinanceHub();
       if (res.data) setHub({ ...DEMO_FINANCE_HUB, ...res.data });
     } catch {
-      addToast("Using demo finance hub data", "info");
     } finally {
       setLoading(false);
     }

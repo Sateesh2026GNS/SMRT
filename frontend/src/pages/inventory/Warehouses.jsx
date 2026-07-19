@@ -104,19 +104,10 @@ export default function Warehouses() {
         getWarehouseSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = wRes.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((row, i) => enrichApiWarehouse(row, i));
-        const demoCodes = new Set(DEMO_WAREHOUSES.map((w) => w.code));
-        setWarehouses([
-          ...DEMO_WAREHOUSES,
-          ...enriched.filter((w) => !demoCodes.has(w.code)),
-        ]);
-      } else {
-        setWarehouses(DEMO_WAREHOUSES);
-      }
+      setWarehouses(apiRows.map((row, i) => enrichApiWarehouse(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setWarehouses(DEMO_WAREHOUSES);
+      setWarehouses([]);
     } finally {
       setLoading(false);
     }

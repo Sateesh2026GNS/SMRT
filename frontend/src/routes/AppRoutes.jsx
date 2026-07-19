@@ -13,7 +13,12 @@ export default function AppRoutes() {
     <Routes>
       <Route path="/landing" element={<P.Landing />} />
       <Route path="/login" element={<P.Login />} />
-      <Route path="/register" element={<P.Register />} />
+      <Route path="/register" element={<Navigate to="/login" replace />} />
+      <Route path="/gns-admin/login" element={<P.SuperAdminLogin />} />
+      <Route path="/gns-admin/verify-otp" element={<P.SuperAdminVerifyOtp />} />
+      <Route path="/gns-admin" element={<P.SuperAdminDashboard />} />
+      <Route path="/gns-admin/companies/new" element={<P.CreateCompany />} />
+      <Route path="/gns-admin/companies/:tenantId" element={<P.CompanyDetail />} />
       <Route path="/forgot-password" element={<P.ForgotPassword />} />
       <Route path="/reset-password" element={<P.ResetPassword />} />
       <Route path="/verify-email" element={<P.VerifyEmail />} />
@@ -486,38 +491,13 @@ export default function AppRoutes() {
       <Route path="/documents/quality" element={<ProtectedRoute><P.QualityCertificates /></ProtectedRoute>} />
       <Route path="/documents/reports" element={<ProtectedRoute><P.ReportsArchive /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><P.SettingsLayout /></ProtectedRoute>}>
-        <Route index element={<Navigate to="/settings/company-profile" replace />} />
-        <Route path="company-profile" element={<P.SettingsCompanyProfile />} />
-        <Route path="users" element={<P.SettingsUsers />} />
-        <Route path="teams" element={<P.SettingsTeams />} />
-        <Route path="addresses">
-          <Route index element={<Navigate to="/settings/addresses/billing" replace />} />
-          <Route path="billing" element={<P.SettingsBillingAddress />} />
-          <Route path="delivery" element={<P.SettingsDeliveryLocation />} />
-        </Route>
-        <Route path="permissions" element={<P.SettingsMyPermissions />} />
-        <Route path="subscription" element={<P.SettingsMySubscription />} />
-        <Route path="alerts" element={<P.SettingsAlertsPreferences />} />
-        <Route path="accounts">
-          <Route index element={<Navigate to="/settings/accounts/bank-details" replace />} />
-          <Route path="bank-details" element={<P.SettingsBankDetails />} />
-          <Route path="payment-terms" element={<P.SettingsPaymentTerms />} />
-          <Route path="tax-options" element={<P.SettingsTaxOptions />} />
-        </Route>
-        <Route path="documents">
-          <Route index element={<Navigate to="/settings/documents/number-format" replace />} />
-          <Route path="logistic-details" element={<P.SettingsLogisticDetails />} />
-          <Route path="terms-conditions" element={<P.SettingsTermsConditions />} />
-          <Route path="number-format" element={<P.SettingsDocumentNumberFormat />} />
-          <Route path="package-type" element={<P.SettingsPackageTypeMaster />} />
-          <Route path="transporter" element={<PlaceholderPage title="Transporter Details" />} />
-          <Route path="custom-fields" element={<PlaceholderPage title="Custom Fields" />} />
-          <Route path="excel" element={<PlaceholderPage title="Excel Documents" />} />
-        </Route>
-        <Route path="inventory" element={<PlaceholderPage title="Inventory" />} />
-        <Route path="production" element={<PlaceholderPage title="Production" />} />
-        <Route path="buyers" element={<PlaceholderPage title="Buyers & Suppliers" />} />
-        <Route path="gst" element={<PlaceholderPage title="GST API" />} />
+        <Route index element={<P.SettingsHome />} />
+        <Route path=":sectionId" element={<P.SettingsSectionPage />} />
+        {/* Legacy deep links → section pages keep working via redirects inside SettingsSectionPage */}
+        <Route path="addresses/billing" element={<Navigate to="/settings/company" replace />} />
+        <Route path="addresses/delivery" element={<Navigate to="/settings/inventory" replace />} />
+        <Route path="accounts/*" element={<Navigate to="/settings/finance" replace />} />
+        <Route path="documents/*" element={<Navigate to="/settings/documents" replace />} />
       </Route>
       <Route path="/masters/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
       <Route path="/masters/bom" element={<ProtectedRoute><P.BomMaster /></ProtectedRoute>} />

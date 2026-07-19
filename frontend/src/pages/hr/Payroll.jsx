@@ -24,7 +24,7 @@ export default function Payroll() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_PAY_SUMMARY);
-  const [rows, setRows] = useState(DEMO_PAY_LIST);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
@@ -33,9 +33,8 @@ export default function Payroll() {
       const [sumRes, listRes] = await Promise.allSettled([getPayrollSummary(), getPayrollEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PAY_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_PAY_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo payroll data", "info");
     } finally {
       setLoading(false);
     }

@@ -89,7 +89,7 @@ export default function RFQ() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_RFQ_SUMMARY);
-  const [rows, setRows] = useState(DEMO_RFQ_LIST);
+  const [rows, setRows] = useState([]);
   const [comparison, setComparison] = useState(DEMO_VENDOR_COMPARISON);
   const [selectedRfq, setSelectedRfq] = useState(null);
 
@@ -102,11 +102,10 @@ export default function RFQ() {
         setRows(listRes.value.data);
         setSelectedRfq(listRes.value.data[0]);
       } else {
-        setRows(DEMO_RFQ_LIST);
-        setSelectedRfq(DEMO_RFQ_LIST[0]);
+        setRows([]);
+        setSelectedRfq([]);
       }
     } catch {
-      addToast("Using demo RFQ data", "info");
     } finally {
       setLoading(false);
     }
@@ -119,7 +118,7 @@ export default function RFQ() {
     const rfqId = typeof selectedRfq.id === "number" ? selectedRfq.id : 1;
     getRFQComparison(rfqId)
       .then((res) => { if (res.data?.length) setComparison(res.data); })
-      .catch(() => setComparison(DEMO_VENDOR_COMPARISON));
+      .catch(() => setComparison([]));
   }, [selectedRfq]);
 
   const bestVendor = comparison.find((v) => v.is_best) || comparison[0];

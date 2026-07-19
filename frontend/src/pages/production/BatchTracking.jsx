@@ -54,7 +54,7 @@ export default function BatchTracking() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_BATCH_SUMMARY);
-  const [batches, setBatches] = useState(DEMO_BATCHES);
+  const [batches, setBatches] = useState([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
 
@@ -72,7 +72,6 @@ export default function BatchTracking() {
         setBatches(listRes.value.data);
       }
     } catch {
-      addToast("Using demo batch data", "info");
     } finally {
       setLoading(false);
     }
@@ -99,7 +98,7 @@ export default function BatchTracking() {
         addToast("Could not load batch detail", "error");
       }
     }
-    setSelected({ ...DEMO_BATCH_DETAIL, ...row, batch_code: row.batch_code });
+    setSelected({ ...row, batch_code: row.batch_code });
   };
 
   const columns = [

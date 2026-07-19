@@ -58,6 +58,32 @@ class LoginAttempt(Base, TimestampMixin):
     failure_reason: Mapped[str | None] = mapped_column(String(64))
 
 
+class LoginHistory(Base, TimestampMixin):
+    """Enterprise login audit trail (success + failure) with device metadata."""
+
+    __tablename__ = "login_history"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+    company_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tenants.id", ondelete="SET NULL"), index=True
+    )
+    full_name: Mapped[str | None] = mapped_column(String(255))
+    company_name: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    role: Mapped[str | None] = mapped_column(String(100))
+    ip_address: Mapped[str | None] = mapped_column(String(64))
+    browser: Mapped[str | None] = mapped_column(String(128))
+    operating_system: Mapped[str | None] = mapped_column(String(128))
+    device_type: Mapped[str | None] = mapped_column(String(32))
+    login_status: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    login_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    logout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    user_agent: Mapped[str | None] = mapped_column(String(512))
+
+
 class AuditLog(Base, TimestampMixin):
     """CRUD and admin action audit trail."""
 
@@ -76,16 +102,33 @@ class AuditLog(Base, TimestampMixin):
 
 
 class AccessLog(Base, TimestampMixin):
+    """Enterprise audit / access log (backward compatible with legacy columns)."""
+
     __tablename__ = "access_logs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     tenant_id: Mapped[int] = mapped_column(
         ForeignKey("tenants.id"), nullable=False, index=True
     )
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    # Alias / denormalized company fields (company_id mirrors tenant_id)
+    company_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    company_name: Mapped[str | None] = mapped_column(String(255))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
+    full_name: Mapped[str | None] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(255), index=True)
+    role: Mapped[str | None] = mapped_column(String(100), index=True)
+    action: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    module_name: Mapped[str | None] = mapped_column(String(64), index=True)
     resource: Mapped[str | None] = mapped_column(String(128))
     resource_id: Mapped[int | None] = mapped_column(Integer)
+    login_status: Mapped[str | None] = mapped_column(String(32), index=True)
     ip_address: Mapped[str | None] = mapped_column(String(64))
+    browser: Mapped[str | None] = mapped_column(String(128))
+    operating_system: Mapped[str | None] = mapped_column(String(128))
+    device_type: Mapped[str | None] = mapped_column(String(32))
+    session_id: Mapped[str | None] = mapped_column(String(64), index=True)
     user_agent: Mapped[str | None] = mapped_column(String(512))
-    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    logout_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    details: Mapped[str | None] = mapped_column(Text)

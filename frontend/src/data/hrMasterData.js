@@ -18,49 +18,27 @@ export const DEPARTMENT_COLORS = {
 };
 
 export const DEMO_EMP_SUMMARY = {
-  total_employees: 248, present_today: 198, absent: 32, on_leave: 18,
-  overtime: 42.5, departments: 12, contract_employees: 45, new_joiners: 8,
+  total_employees: 0, present_today: 0, absent: 0, on_leave: 0,
+  overtime: 0, departments: 0, contract_employees: 0, new_joiners: 0,
 };
 
-export const DEMO_EMP_LIST = [
-  { id: "e1", employee_id: "EMP-00248", full_name: "Ravi Kumar", department: "Production", designation: "Machine Operator", shift: "Morning", reporting_manager: "Suresh Reddy", employment_type: "permanent", status: "active", phone: "+91 98765 43210", email: "ravi@smrt.com", joining_date: "2024-03-15", salary: 28000, initials: "RK" },
-  { id: "e2", employee_id: "EMP-00247", full_name: "Priya Sharma", department: "Quality", designation: "QC Inspector", shift: "General", reporting_manager: "Mahesh Patel", employment_type: "permanent", status: "active", phone: "+91 91234 56789", email: "priya@smrt.com", joining_date: "2023-08-01", salary: 32000, initials: "PS" },
-  { id: "e3", employee_id: "EMP-00246", full_name: "Mahesh Patel", department: "Maintenance", designation: "Technician", shift: "Evening", reporting_manager: "Anita Desai", employment_type: "contract", status: "active", phone: "+91 99887 76655", email: "mahesh@smrt.com", joining_date: "2025-06-20", salary: 24000, initials: "MP" },
-  { id: "e4", employee_id: "EMP-00245", full_name: "Anita Desai", department: "HR", designation: "HR Manager", shift: "General", reporting_manager: "CEO", employment_type: "permanent", status: "active", phone: "+91 97654 32109", email: "anita@smrt.com", joining_date: "2022-01-10", salary: 55000, initials: "AD" },
-];
+export const DEMO_EMP_LIST = [];
 
-export const DEMO_ATT_SUMMARY = { present: 198, absent: 32, late: 12, half_day: 6, overtime: 42.5, night_shift: 28, total_working_hours: 1584 };
-export const DEMO_ATT_LIST = [
-  { id: "a1", employee_name: "Ravi Kumar", shift: "Morning", check_in: "06:02", check_out: "14:05", break_minutes: 30, working_hours: 7.5, overtime: 0.5, status: "present", source: "biometric", record_date: "2026-07-09" },
-  { id: "a2", employee_name: "Priya Sharma", shift: "General", check_in: "09:18", check_out: "18:00", break_minutes: 45, working_hours: 8, overtime: 0, status: "late", source: "rfid", record_date: "2026-07-09" },
-  { id: "a3", employee_name: "Mahesh Patel", shift: "Evening", check_in: "14:00", check_out: "22:30", break_minutes: 30, working_hours: 8, overtime: 0.5, status: "present", source: "gps", record_date: "2026-07-09" },
-];
+export const DEMO_ATT_SUMMARY = { present: 0, absent: 0, late: 0, half_day: 0, overtime: 0, night_shift: 0, total_working_hours: 0 };
+export const DEMO_ATT_LIST = [];
 
-export const DEMO_LEAVE_SUMMARY = { pending_leave: 14, approved: 86, rejected: 8, available_leave: 12, sick_leave: 8, casual_leave: 6, earned_leave: 15 };
-export const DEMO_LEAVE_LIST = [
-  { id: "l1", employee_name: "Ravi Kumar", leave_type: "casual", start_date: "2026-07-12", end_date: "2026-07-13", days: 2, reason: "Family function", status: "pending" },
-  { id: "l2", employee_name: "Priya Sharma", leave_type: "sick", start_date: "2026-07-08", end_date: "2026-07-09", days: 2, reason: "Medical", status: "approved" },
-  { id: "l3", employee_name: "Mahesh Patel", leave_type: "earned", start_date: "2026-07-20", end_date: "2026-07-25", days: 6, reason: "Vacation", status: "pending" },
-];
+export const DEMO_LEAVE_SUMMARY = { pending_leave: 0, approved: 0, rejected: 0, available_leave: 0, sick_leave: 0, casual_leave: 0, earned_leave: 0 };
+export const DEMO_LEAVE_LIST = [];
 
-export const DEMO_PAY_SUMMARY = { monthly_payroll: 4_250_000, pending_salary: 320_000, processed_salary: 3_930_000, overtime_cost: 185_000, pf: 510_000, esi: 31_875, professional_tax: 2500 };
-export const DEMO_PAY_LIST = [
-  { id: "p1", employee_name: "Ravi Kumar", basic: 22000, allowance: 4000, overtime: 2000, bonus: 0, pf: 2640, esi: 165, tax: 0, net_salary: 25195, status: "processed", period_start: "2026-07-01", period_end: "2026-07-31" },
-  { id: "p2", employee_name: "Priya Sharma", basic: 26000, allowance: 5000, overtime: 0, bonus: 1000, pf: 3120, esi: 195, tax: 500, net_salary: 28185, status: "processed", period_start: "2026-07-01", period_end: "2026-07-31" },
-  { id: "p3", employee_name: "Mahesh Patel", basic: 18000, allowance: 4000, overtime: 1500, bonus: 0, pf: 2160, esi: 135, tax: 0, net_salary: 21205, status: "draft", period_start: "2026-07-01", period_end: "2026-07-31" },
-];
+export const DEMO_PAY_SUMMARY = { monthly_payroll: 0, pending_salary: 0, processed_salary: 0, overtime_cost: 0, pf: 0, esi: 0, professional_tax: 0 };
+export const DEMO_PAY_LIST = [];
 
 export const DEMO_HR_HUB = {
-  total_employees: 248, present_today: 198, pending_leave: 14, monthly_payroll: 4_250_000,
-  overtime_hours: 42.5, new_joiners: 8, attrition_rate: 2.4,
-  department_strength: [{ name: "Production", count: 85 }, { name: "Quality", count: 32 }, { name: "Maintenance", count: 28 }, { name: "Stores", count: 22 }],
-  shift_utilization: [{ name: "Morning", utilization: 92 }, { name: "General", utilization: 88 }, { name: "Evening", utilization: 78 }, { name: "Night", utilization: 65 }],
-  alerts: [
-    { type: "certification", message: "3 operators — Machine Safety certification expiring" },
-    { type: "leave", message: "14 leave requests pending HR approval" },
-    { type: "payroll", message: "July payroll — ₹3.2L pending processing" },
-    { type: "attendance", message: "12 employees late today" },
-  ],
+  total_employees: 0, present_today: 0, pending_leave: 0, monthly_payroll: 0,
+  overtime_hours: 0, new_joiners: 0, attrition_rate: 0,
+  department_strength: [],
+  shift_utilization: [],
+  alerts: [],
 };
 
 export function formatInr(v) {

@@ -46,7 +46,6 @@ export default function ProductionAnalytics() {
       if (res.data) setData({ ...DEMO_PRODUCTION, ...res.data });
     } catch {
       setData(DEMO_PRODUCTION);
-      addToast("Using demo production analytics", "info");
     } finally {
       setLoading(false);
     }

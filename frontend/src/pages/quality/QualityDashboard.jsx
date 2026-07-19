@@ -38,7 +38,6 @@ export default function QualityDashboard() {
       const res = await getQualityHub();
       if (res.data) setHub({ ...DEMO_QUALITY_HUB, ...res.data });
     } catch {
-      addToast("Using demo quality hub data", "info");
     } finally {
       setLoading(false);
     }

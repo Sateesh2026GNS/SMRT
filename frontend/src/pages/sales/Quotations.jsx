@@ -24,7 +24,7 @@ export default function Quotations() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_QUOTE_SUMMARY);
-  const [rows, setRows] = useState(DEMO_QUOTE_LIST);
+  const [rows, setRows] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [selected, setSelected] = useState(null);
 
@@ -34,9 +34,8 @@ export default function Quotations() {
       const [sumRes, listRes] = await Promise.allSettled([getQuotationSummary(), getQuotationsEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_QUOTE_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_QUOTE_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo quotation data", "info");
     } finally {
       setLoading(false);
     }

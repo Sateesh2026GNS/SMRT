@@ -1,6 +1,6 @@
 /**
  * Enterprise RBAC — module codes, action permissions, and route mapping.
- * Keep in sync with backend `app/core/permissions.py` PERMISSION_MATRIX.
+ * Keep in sync with backend `app/core/rbac_constants.py` PERMISSION_MATRIX.
  */
 
 export const ROLES = [
@@ -13,22 +13,27 @@ export const ROLES = [
 ];
 
 export const MODULES = [
-  "dashboard", "production", "inventory", "procurement", "hr", "sales",
-  "accounts", "quality", "maintenance", "analytics", "alerts", "admin",
-  "documents", "factoryMonitor", "iot",
+  "dashboard", "masters", "production", "inventory", "procurement", "hr", "attendance",
+  "sales", "accounts", "quality", "maintenance", "analytics", "alerts", "admin",
+  "documents", "factoryMonitor", "iot", "settings",
 ];
 
 /** Static fallback matrix — API permissions take precedence when present. */
 export const ROLE_PERMISSIONS = {
   Admin: MODULES,
-  "Production Manager": ["dashboard", "production", "quality", "maintenance", "analytics", "alerts", "factoryMonitor", "iot"],
-  "Store Manager": ["dashboard", "inventory", "procurement", "alerts"],
-  "HR Manager": ["dashboard", "hr"],
-  Accountant: ["dashboard", "accounts", "sales", "documents"],
+  "Production Manager": [
+    "dashboard", "production", "quality", "analytics", "factoryMonitor", "alerts", "masters",
+  ],
+  "Store Manager": [
+    "dashboard", "inventory", "procurement", "masters", "alerts", "analytics",
+  ],
+  "HR Manager": ["dashboard", "hr", "attendance", "analytics", "alerts"],
+  Accountant: ["dashboard", "accounts", "sales", "documents", "analytics", "alerts"],
   Operator: [
-    "dashboard", "production", "factoryMonitor", "iot",
+    "dashboard", "production", "factoryMonitor", "attendance",
     "production:read", "production:create_entry", "production:update_qty",
     "production:update_machine_status", "production:report_breakdown",
+    "attendance:read",
   ],
 };
 
@@ -41,13 +46,14 @@ export const VALID_ACTIONS = new Set([
 
 /** Path-specific overrides evaluated before prefix matching. */
 export const ROUTE_MODULE_OVERRIDES = {
-  "/settings/permissions": "dashboard",
+  "/settings/permissions": "settings",
   "/settings/alerts": "dashboard",
-  "/settings/subscription": "dashboard",
+  "/settings/subscription": "settings",
   "/masters/departments": "hr",
-  "/masters/products": "production",
-  "/masters/bom": "production",
+  "/masters/products": "masters",
+  "/masters/bom": "masters",
   "/production/schedule": "production",
+  "/hr/attendance": "attendance",
   "/procurement/rfq": "procurement",
   "/finance/accounts-payable": "accounts",
   "/finance/accounts-receivable": "accounts",
@@ -63,7 +69,7 @@ export const ROUTE_MODULE_OVERRIDES = {
 
 export const ROUTE_MODULES = {
   "/": "dashboard",
-  "/masters": "production",
+  "/masters": "masters",
   "/production": "production",
   "/inventory": "inventory",
   "/procurement": "procurement",
@@ -76,7 +82,7 @@ export const ROUTE_MODULES = {
   "/analytics": "analytics",
   "/alerts": "alerts",
   "/admin": "admin",
-  "/settings": "admin",
+  "/settings": "settings",
   "/documents": "documents",
   "/factory-monitor": "factoryMonitor",
   "/iot": "iot",
@@ -97,7 +103,7 @@ export function getModuleForPath(pathname) {
 export function isAdmin(user) {
   if (!user) return false;
   const roles = Array.isArray(user.roles) ? user.roles : [];
-  if (user.role === "Admin" || roles.includes("Admin")) return true;
+  if (user.role === "Admin" || user.role_name === "Admin" || roles.includes("Admin")) return true;
   const perms = Array.isArray(user.permissions) ? user.permissions : [];
   return perms.includes("admin") || perms.includes("*");
 }
@@ -107,7 +113,9 @@ export function getEffectivePermissions(user) {
   if (Array.isArray(user.permissions) && user.permissions.length > 0) {
     return user.permissions;
   }
-  const roles = Array.isArray(user.roles) && user.roles.length ? user.roles : [user.role];
+  const roles = Array.isArray(user.roles) && user.roles.length
+    ? user.roles
+    : [user.role_name || user.role];
   const merged = new Set();
   for (const role of roles) {
     (ROLE_PERMISSIONS[role] || []).forEach((p) => merged.add(p));
@@ -145,7 +153,7 @@ export function userCanAccess(user, module) {
 export function isOperator(user) {
   if (!user) return false;
   const roles = Array.isArray(user.roles) ? user.roles : [];
-  return user.role === "Operator" || roles.includes("Operator");
+  return user.role === "Operator" || user.role_name === "Operator" || roles.includes("Operator");
 }
 
 /** Human-readable label for a module code or granular permission (e.g. production:read). */

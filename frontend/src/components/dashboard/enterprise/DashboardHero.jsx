@@ -30,11 +30,10 @@ export default function DashboardHero({ now }) {
         <div>
           <p className="text-sm font-medium text-blue-200/90">{greeting}, {user?.name || "Admin"}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-            SMRT Command Center
+            GNS Insights Command Center
           </h1>
           <p className="mt-2 max-w-xl text-sm text-slate-300">
-            Systematic Manufacturing Real-Time Tracking — unified view of production, inventory,
-            quality, and shop floor performance.
+            Unified view of production, inventory, quality, and shop floor performance.
           </p>
         </div>
 

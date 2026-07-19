@@ -2,7 +2,11 @@ import { lazy } from "react";
 
 export const Landing = lazy(() => import("../pages/Landing"));
 export const Login = lazy(() => import("../pages/auth/Login"));
-export const Register = lazy(() => import("../pages/auth/Register"));
+export const SuperAdminLogin = lazy(() => import("../pages/platform/SuperAdminLogin"));
+export const SuperAdminVerifyOtp = lazy(() => import("../pages/platform/SuperAdminVerifyOtp"));
+export const SuperAdminDashboard = lazy(() => import("../pages/platform/SuperAdminDashboard"));
+export const CreateCompany = lazy(() => import("../pages/platform/CreateCompany"));
+export const CompanyDetail = lazy(() => import("../pages/platform/CompanyDetail"));
 export const ForgotPassword = lazy(() => import("../pages/auth/ForgotPassword"));
 export const ResetPassword = lazy(() => import("../pages/auth/ResetPassword"));
 export const VerifyEmail = lazy(() => import("../pages/auth/VerifyEmail"));
@@ -117,6 +121,9 @@ export const ProductionFiles = lazy(() => import("../pages/documents/ProductionF
 export const QualityCertificates = lazy(() => import("../pages/documents/QualityCertificates"));
 export const ReportsArchive = lazy(() => import("../pages/documents/ReportsArchive"));
 export const Settings = lazy(() => import("../pages/settings/Settings"));
+export const SettingsLayout = lazy(() => import("../pages/settings/SettingsLayout"));
+export const SettingsHome = lazy(() => import("../pages/settings/SettingsHome"));
+export const SettingsSectionPage = lazy(() => import("../pages/settings/SettingsSectionPage"));
 export const SettingsCompanyProfile = lazy(() => import("../pages/settings/SettingsCompanyProfile"));
 export const SettingsBillingAddress = lazy(() => import("../pages/settings/SettingsBillingAddress"));
 export const SettingsDeliveryLocation = lazy(() => import("../pages/settings/SettingsDeliveryLocation"));
@@ -130,7 +137,6 @@ export const SettingsTermsConditions = lazy(() => import("../pages/settings/Sett
 export const SettingsPaymentTerms = lazy(() => import("../pages/settings/SettingsPaymentTerms"));
 export const SettingsTaxOptions = lazy(() => import("../pages/settings/SettingsTaxOptions"));
 export const SettingsMySubscription = lazy(() => import("../pages/settings/SettingsMySubscription"));
-export const SettingsLayout = lazy(() => import("../pages/settings/SettingsLayout"));
 export const SettingsTeams = lazy(() => import("../pages/settings/SettingsTeams"));
 export const SettingsUsers = lazy(() => import("../pages/settings/SettingsUsers"));
 export const IotDashboard = lazy(() => import("../pages/iot/IotDashboard"));

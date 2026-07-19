@@ -31,7 +31,6 @@ export default function SupplyChainDashboard() {
       const res = await getProcurementHub();
       if (res.data) setHub({ ...DEMO_PROCUREMENT_HUB, ...res.data });
     } catch {
-      addToast("Using demo procurement hub data", "info");
     } finally {
       setLoading(false);
     }

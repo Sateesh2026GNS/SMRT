@@ -51,7 +51,7 @@ export default function MachineAllocation() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_ALLOC_SUMMARY);
-  const [allocations, setAllocations] = useState(DEMO_ALLOCATIONS);
+  const [allocations, setAllocations] = useState([]);
   const [machines, setMachines] = useState(DEMO_MACHINE_AVAIL);
   const [unassigned, setUnassigned] = useState(DEMO_UNASSIGNED);
   const [dragWo, setDragWo] = useState(null);
@@ -84,7 +84,6 @@ export default function MachineAllocation() {
         setMachines(machRes.value.data);
       }
     } catch {
-      addToast("Using demo allocation data", "info");
     } finally {
       setLoading(false);
     }

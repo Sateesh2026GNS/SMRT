@@ -26,7 +26,7 @@ export default function IncomingInspection() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_INCOMING_SUMMARY);
-  const [rows, setRows] = useState(DEMO_INCOMING_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("");
 
@@ -36,9 +36,8 @@ export default function IncomingInspection() {
       const [sumRes, listRes] = await Promise.allSettled([getIncomingSummary(), getIncomingEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_INCOMING_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_INCOMING_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo incoming inspection data", "info");
     } finally {
       setLoading(false);
     }

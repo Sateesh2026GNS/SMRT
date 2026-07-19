@@ -41,11 +41,10 @@ export default function FinanceAnalytics() {
       const res = await getFinanceAnalytics();
       if (res.data) {
         setData({ ...DEMO_FINANCE, ...res.data });
-        setDrillTrail(res.data.drill_revenue || DEMO_FINANCE.drill_revenue);
+        setDrillTrail(res.data.drill_revenue .drill_revenue);
       }
     } catch {
       setData(DEMO_FINANCE);
-      addToast("Using demo finance analytics", "info");
     } finally {
       setLoading(false);
     }

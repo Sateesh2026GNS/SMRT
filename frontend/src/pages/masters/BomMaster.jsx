@@ -80,15 +80,9 @@ export default function BomMaster() {
     try {
       const res = await getBillOfMaterials();
       const apiRows = res.data || [];
-      if (apiRows.length > 0) {
-        const fromApi = groupApiBomRows(apiRows);
-        const demoNums = new Set(DEMO_BOMS.map((b) => b.product_code));
-        setBoms([...DEMO_BOMS, ...fromApi.filter((b) => !demoNums.has(b.product_code))]);
-      } else {
-        setBoms(DEMO_BOMS);
-      }
+      setBoms(groupApiBomRows(apiRows));
     } catch {
-      setBoms(DEMO_BOMS);
+      setBoms([]);
     } finally {
       setLoading(false);
     }
@@ -184,7 +178,6 @@ export default function BomMaster() {
       addToast("BOM updated");
     } else {
       const newBom = {
-        ...DEMO_BOMS[0],
         id: `new-${Date.now()}`,
         bom_number: `BOM${String(boms.length + 1).padStart(3, "0")}`,
         ...form,

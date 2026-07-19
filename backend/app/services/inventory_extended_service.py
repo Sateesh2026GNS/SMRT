@@ -75,11 +75,11 @@ def get_materials_summary(db: Session, tenant_id: int) -> InventorySummaryRead:
             available += 1
         value += (float(item.unit_cost or 0)) * qty
     return InventorySummaryRead(
-        total_items=len(items) or 1250,
-        available_stock=available or 980,
-        low_stock=low or 42,
-        out_of_stock=out or 8,
-        stock_value=round(value, 2) or 18_000_000,
+        total_items=len(items),
+        available_stock=available,
+        low_stock=low,
+        out_of_stock=out,
+        stock_value=round(value, 2),
         expiring_soon=12,
     )
 
@@ -193,12 +193,12 @@ def get_finished_goods_summary(db: Session, tenant_id: int) -> dict:
             reserved += max(int(qty * 0.1), 0)
             dispatch += max(int(qty * 0.6), 0)
     return {
-        "total_products": total or 85,
-        "available": avail or 62,
-        "reserved": reserved or 18,
-        "ready_to_dispatch": dispatch or 45,
-        "damaged": damaged or 3,
-        "stock_value": round(value, 2) or 2_400_000,
+        "total_products": total,
+        "available": avail,
+        "reserved": reserved,
+        "ready_to_dispatch": dispatch,
+        "damaged": damaged,
+        "stock_value": round(value, 2),
     }
 
 
@@ -379,11 +379,11 @@ def get_ledger_summary(db: Session, tenant_id: int) -> LedgerSummaryRead:
     stock_out = sum(abs(m.quantity) for m in movements if m.movement_type == "out")
     dash = get_materials_summary(db, tenant_id)
     return LedgerSummaryRead(
-        total_transactions=len(movements) + transfers + adjustments or 2450,
-        stock_in=stock_in or 1250,
-        stock_out=stock_out or 980,
-        transfers=transfers or 45,
-        adjustments=adjustments or 28,
+        total_transactions=len(movements) + transfers + adjustments,
+        stock_in=stock_in,
+        stock_out=stock_out,
+        transfers=transfers,
+        adjustments=adjustments,
         current_stock_value=dash.stock_value,
     )
 

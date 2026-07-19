@@ -20,6 +20,11 @@ from app.api.alerts import router as alerts_router
 from app.api.analytics import router as analytics_router
 from app.api.audit_logs import router as audit_logs_router
 from app.api.auth import router as auth_router
+from app.api.audit_api import router as audit_api_router
+from app.api.login_history import router as login_history_router
+from app.api.platform_api import router as platform_router
+from app.api.rbac_api import router as rbac_api_router
+from app.middleware.audit_middleware import AuditMiddleware
 from app.api.dispatch import router as dispatch_router
 from app.api.documents import router as documents_router
 from app.api.factory_monitor import router as factory_monitor_router
@@ -63,6 +68,8 @@ from app.models import (  # noqa: F401
     machine,
     maintenance,
     notification,
+    permission,
+    platform,
     procurement,
     production,
     product,
@@ -77,10 +84,11 @@ from app.models import (  # noqa: F401
 
 settings = get_settings()
 setup_logging("INFO")
-logger = get_logger("smrt")
+logger = get_logger("gns_insights")
 
-app = FastAPI(title="SMRT AI ERP API", version="1.0.0")
+app = FastAPI(title="GNS Insights API", version="1.0.0")
 
+app.add_middleware(AuditMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
@@ -239,6 +247,33 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
+    _access_log_columns = [
+        "ALTER TABLE access_logs ADD COLUMN company_id INTEGER",
+        "ALTER TABLE access_logs ADD COLUMN company_name VARCHAR(255)",
+        "ALTER TABLE access_logs ADD COLUMN full_name VARCHAR(255)",
+        "ALTER TABLE access_logs ADD COLUMN email VARCHAR(255)",
+        "ALTER TABLE access_logs ADD COLUMN role VARCHAR(100)",
+        "ALTER TABLE access_logs ADD COLUMN module_name VARCHAR(64)",
+        "ALTER TABLE access_logs ADD COLUMN login_status VARCHAR(32)",
+        "ALTER TABLE access_logs ADD COLUMN browser VARCHAR(128)",
+        "ALTER TABLE access_logs ADD COLUMN operating_system VARCHAR(128)",
+        "ALTER TABLE access_logs ADD COLUMN device_type VARCHAR(32)",
+        "ALTER TABLE access_logs ADD COLUMN session_id VARCHAR(64)",
+        "ALTER TABLE access_logs ADD COLUMN login_at DATETIME",
+        "ALTER TABLE access_logs ADD COLUMN logout_at DATETIME",
+        "ALTER TABLE access_logs ADD COLUMN details TEXT",
+    ]
+    for ddl in _access_log_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
+    try:
+        with engine.begin() as conn:
+            conn.execute(text("UPDATE access_logs SET company_id = tenant_id WHERE company_id IS NULL"))
+    except Exception:
+        pass
     _rbac_columns = [
         "ALTER TABLE users ADD COLUMN plant_code VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN department VARCHAR(128)",
@@ -283,6 +318,27 @@ def on_startup():
         "ALTER TABLE work_orders ADD COLUMN shift VARCHAR(64)",
         "ALTER TABLE work_orders ADD COLUMN department VARCHAR(128)",
         "ALTER TABLE work_orders ADD COLUMN supervisor VARCHAR(255)",
+        "ALTER TABLE tenants ADD COLUMN email VARCHAR(255)",
+        "ALTER TABLE tenants ADD COLUMN phone VARCHAR(50)",
+        "ALTER TABLE tenants ADD COLUMN address TEXT",
+        "ALTER TABLE tenants ADD COLUMN subscription VARCHAR(50) DEFAULT 'trial'",
+        "ALTER TABLE tenants ADD COLUMN trial_status BOOLEAN DEFAULT 1",
+        "ALTER TABLE tenants ADD COLUMN company_code VARCHAR(32)",
+        "ALTER TABLE tenants ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE tenants ADD COLUMN state VARCHAR(128)",
+        "ALTER TABLE tenants ADD COLUMN country VARCHAR(128)",
+        "ALTER TABLE tenants ADD COLUMN pin_code VARCHAR(16)",
+        "ALTER TABLE tenants ADD COLUMN gst_number VARCHAR(64)",
+        "ALTER TABLE tenants ADD COLUMN status VARCHAR(32) DEFAULT 'active'",
+        "ALTER TABLE tenants ADD COLUMN trial_days INTEGER DEFAULT 5",
+        "ALTER TABLE tenants ADD COLUMN trial_expires_at DATETIME",
+        "ALTER TABLE tenants ADD COLUMN license_status VARCHAR(32) DEFAULT 'active'",
+        "ALTER TABLE users ADD COLUMN employee_id VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN designation VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN last_login_at DATETIME",
+        "ALTER TABLE otp_challenges ADD COLUMN invalidated BOOLEAN DEFAULT 0",
+        "ALTER TABLE otp_challenges ADD COLUMN purpose VARCHAR(32) DEFAULT 'super_admin_login'",
+        "ALTER TABLE otp_challenges ADD COLUMN last_sent_at DATETIME",
     ]
     for ddl in _production_order_columns:
         try:
@@ -299,14 +355,14 @@ def on_startup():
     from app.core.seed_notifications import seed_notifications
     from app.core.seed_products import seed_products
     from app.core.seed_roles import seed_roles
+    from app.core.seed_super_admin import seed_super_admin
     from app.core.seed_tenant import seed_tenant
-    from app.core.seed_users import seed_admin_user
 
     db = SessionLocal()
     try:
         seed_tenant(db)  # Ensure tenant 1 exists
+        seed_super_admin(db)  # GNS Super Admin from .env
         seed_roles(db)  # Seeds default roles for tenant 1
-        seed_admin_user(db)  # admin@smrt.local / admin123 if no users
         seed_products(db)  # Seeds sample products for tenant 1
         seed_notifications(db)  # Demo bell notifications per user
     except Exception:
@@ -323,6 +379,15 @@ app.include_router(masters_api_router)
 app.include_router(production_api_router)
 app.include_router(ai_assistant_router)
 app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api")
+app.include_router(login_history_router)
+app.include_router(login_history_router, prefix="/api")
+app.include_router(audit_api_router, prefix="/api")
+app.include_router(platform_router)
+app.include_router(rbac_api_router)
+# /api aliases for auth RBAC catalog (users, roles, permissions, sidebar, profile)
+app.include_router(rbac_api_router, prefix="/api")
+
 # ERP domain modules (Sales, Finance, Procurement, Quality, Maintenance, Analytics, HR, Inventory)
 app.include_router(sales_router)
 app.include_router(accounts_router)

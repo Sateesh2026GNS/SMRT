@@ -39,12 +39,12 @@ def get_mr_summary(db: Session, tenant_id: int) -> MRSummaryRead:
     rfq_count = int(db.scalar(select(func.count(RFQ.id)).where(RFQ.tenant_id == tenant_id)) or 0)
     urgent = sum(1 for m in mrs if getattr(m, "priority", "medium") == "high")
     return MRSummaryRead(
-        total_requests=len(mrs) or 48,
-        pending_approval=pending or 12,
-        approved=approved or 28,
-        rejected=rejected or 3,
-        converted_to_rfq=rfq_count or 8,
-        urgent_requests=urgent or 5,
+        total_requests=len(mrs),
+        pending_approval=pending,
+        approved=approved,
+        rejected=rejected,
+        converted_to_rfq=rfq_count,
+        urgent_requests=urgent,
     )
 
 
@@ -67,7 +67,7 @@ def list_mr_enriched(db: Session, tenant_id: int) -> list[MRListRead]:
                 department=getattr(mr, "department", None) or "Production",
                 requested_by=mr.requested_by,
                 priority=getattr(mr, "priority", "medium") or "medium",
-                item_count=lines or 3,
+                item_count=lines,
                 status=mr.status,
                 approval_status=getattr(mr, "approval_status", mr.status) or "pending",
                 required_date=mr.required_date.isoformat() if mr.required_date else None,
@@ -84,7 +84,7 @@ def get_rfq_summary(db: Session, tenant_id: int) -> RFQSummaryRead:
     responses = int(
         db.scalar(select(func.count(VendorQuotation.id)).where(VendorQuotation.tenant_id == tenant_id)) or 0
     )
-    return RFQSummaryRead(open_rfqs=open_r or 6, vendor_responses=responses or 18, expired_rfqs=expired or 2, awarded_rfqs=awarded or 4)
+    return RFQSummaryRead(open_rfqs=open_r, vendor_responses=responses, expired_rfqs=expired, awarded_rfqs=awarded)
 
 
 def list_rfq_enriched(db: Session, tenant_id: int) -> list[RFQListRead]:
@@ -100,7 +100,7 @@ def list_rfq_enriched(db: Session, tenant_id: int) -> list[RFQListRead]:
                 id=rfq.id,
                 rfq_number=rfq.rfq_number,
                 material_request_number=mr.mr_number if mr else None,
-                vendor_count=q_count or 3,
+                vendor_count=q_count,
                 due_date=rfq.due_date.isoformat() if rfq.due_date else None,
                 quotation_count=q_count,
                 status=rfq.status,
@@ -128,7 +128,7 @@ def get_rfq_comparison(db: Session, tenant_id: int, rfq_id: int) -> list[VendorC
     best_id = None
     for q in quotes:
         supplier = q.supplier or db.get(Supplier, q.supplier_id)
-        score = 100 - (float(q.price) / 1000) + (float(q.rating or 0)) * 10 - (q.delivery_days or 7)
+        score = 100 - (float(q.price) / 1000) + (float(q.rating or 0)) * 10 - (q.delivery_days)
         items.append(
             VendorComparisonRead(
                 supplier_id=q.supplier_id,
@@ -154,12 +154,12 @@ def get_po_summary(db: Session, tenant_id: int) -> POSummaryRead:
     pos = list(db.scalars(select(PurchaseOrder).where(PurchaseOrder.tenant_id == tenant_id)).all())
     value = sum(float(p.total_amount or 0) for p in pos)
     return POSummaryRead(
-        total_po=len(pos) or 85,
+        total_po=len(pos),
         pending=sum(1 for p in pos if p.status in ("draft", "pending")) or 12,
         approved=sum(1 for p in pos if p.status == "approved") or 45,
         delivered=sum(1 for p in pos if p.status in ("received", "delivered")) or 22,
         cancelled=sum(1 for p in pos if p.status == "cancelled") or 3,
-        po_value=value or 4_500_000,
+        po_value=value,
     )
 
 
@@ -192,7 +192,7 @@ def get_grn_summary(db: Session, tenant_id: int) -> GRNSummaryRead:
     grns = list(db.scalars(select(GoodsReceipt).where(GoodsReceipt.tenant_id == tenant_id)).all())
     today = date.today()
     return GRNSummaryRead(
-        todays_grn=sum(1 for g in grns if g.receipt_date == today) or 4,
+        todays_grn=sum(1 for g in grns if g.receipt_date == today),
         pending_qc=sum(1 for g in grns if getattr(g, "qc_status", "pending") == "pending") or 6,
         received=sum(1 for g in grns if g.status == "received") or 32,
         rejected=sum(1 for g in grns if g.status == "rejected") or 2,
@@ -235,10 +235,10 @@ def get_vendor_bill_summary(db: Session, tenant_id: int) -> VendorBillSummaryRea
     bills = list(db.scalars(select(VendorBill).where(VendorBill.tenant_id == tenant_id)).all())
     outstanding = sum(float(b.amount or 0) for b in bills if b.status in ("pending", "due"))
     return VendorBillSummaryRead(
-        total_bills=len(bills) or 42,
+        total_bills=len(bills),
         due_bills=sum(1 for b in bills if b.status == "due") or 8,
         paid=sum(1 for b in bills if b.status == "paid") or 28,
-        outstanding=outstanding or 850_000,
+        outstanding=outstanding,
     )
 
 
@@ -287,7 +287,7 @@ def get_procurement_hub(db: Session, tenant_id: int) -> ProcurementHubRead:
         purchase_spend=po_sum.po_value,
         pending_approvals=mr_sum.pending_approval + po_sum.pending,
         open_rfqs=rfq_sum.open_rfqs,
-        active_vendors=vendors or 25,
+        active_vendors=vendors,
         outstanding_bills=bill_sum.outstanding,
         todays_deliveries=4,
         top_vendors=[{"name": v.name, "rating": float(v.rating or 0)} for v in top],

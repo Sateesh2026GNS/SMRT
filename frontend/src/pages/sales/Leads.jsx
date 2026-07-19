@@ -38,7 +38,7 @@ export default function Leads() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_LEAD_SUMMARY);
-  const [rows, setRows] = useState(DEMO_LEAD_LIST);
+  const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [view, setView] = useState("table");
@@ -50,9 +50,8 @@ export default function Leads() {
       const [sumRes, listRes] = await Promise.allSettled([getLeadSummary(), getLeadsEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_LEAD_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_LEAD_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo lead data", "info");
     } finally {
       setLoading(false);
     }

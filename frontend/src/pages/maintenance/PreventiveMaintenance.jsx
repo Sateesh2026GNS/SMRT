@@ -25,7 +25,7 @@ export default function PreventiveMaintenance() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(DEMO_PREVENTIVE_SUMMARY);
-  const [rows, setRows] = useState(DEMO_PREVENTIVE_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
@@ -37,13 +37,11 @@ export default function PreventiveMaintenance() {
       if (sumRes.status === "rejected" && listRes.status === "rejected") throw new Error("Network error");
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PREVENTIVE_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_PREVENTIVE_LIST);
-      if (sumRes.status === "rejected" || listRes.status === "rejected") addToast("Using demo preventive maintenance data", "info");
+      else setRows([]);
     } catch (e) {
       setError(e.message || "Failed to load data");
       setSummary(DEMO_PREVENTIVE_SUMMARY);
-      setRows(DEMO_PREVENTIVE_LIST);
-      addToast("Using demo preventive maintenance data", "info");
+      setRows([]);
     } finally {
       setLoading(false);
     }

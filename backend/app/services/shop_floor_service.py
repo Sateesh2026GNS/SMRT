@@ -72,14 +72,14 @@ def get_shop_floor_summary(db: Session, tenant_id: int) -> ShopFloorSummaryRead:
     oee = round(running / len(machines) * 100, 1) if machines else 0
 
     return ShopFloorSummaryRead(
-        running_jobs=running_jobs or 12,
-        active_machines=active_machines or 8,
-        operators_working=operators or 45,
-        todays_production=todays_production or 8450,
-        todays_target=todays_target or 12500,
-        scrap_qty=scrap_qty or 120,
-        downtime_minutes=downtime or 45,
-        oee_pct=oee or 82.3,
+        running_jobs=running_jobs,
+        active_machines=active_machines,
+        operators_working=operators,
+        todays_production=todays_production,
+        todays_target=todays_target,
+        scrap_qty=scrap_qty,
+        downtime_minutes=downtime,
+        oee_pct=oee,
     )
 
 

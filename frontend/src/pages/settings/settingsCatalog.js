@@ -1,0 +1,201 @@
+/**
+ * Settings module catalog — card home + search index.
+ */
+
+export const SETTINGS_CATEGORIES = [
+  {
+    id: "company",
+    title: "Company Profile",
+    description: "Logo, legal identity, GST, address, timezone, and currency.",
+    icon: "Building2",
+    accent: "bg-sky-500",
+    soft: "bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
+    keywords: ["company", "profile", "gst", "pan", "address", "timezone", "currency", "logo", "phone", "email", "website"],
+  },
+  {
+    id: "users",
+    title: "User Management",
+    description: "Users, teams, roles, permissions, invites, and access control.",
+    icon: "Users",
+    accent: "bg-violet-500",
+    soft: "bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300",
+    keywords: ["users", "user", "team", "teams", "roles", "permissions", "invite", "password", "deactivate", "department"],
+  },
+  {
+    id: "security",
+    title: "Security",
+    description: "Password policy, 2FA, sessions, OTP, and lockout rules.",
+    icon: "Shield",
+    accent: "bg-rose-500",
+    soft: "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300",
+    keywords: [
+      "security",
+      "password",
+      "2fa",
+      "otp",
+      "sessions",
+      "devices",
+      "lock",
+      "authentication",
+      "login history",
+      "login",
+      "audit",
+      "audit logs",
+    ],
+  },
+  {
+    id: "subscription",
+    title: "Subscription",
+    description: "Plan, licenses, trial, renewals, invoices, and billing history.",
+    icon: "CreditCard",
+    accent: "bg-emerald-500",
+    soft: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+    keywords: ["subscription", "plan", "license", "trial", "renew", "invoice", "payment", "upgrade"],
+  },
+  {
+    id: "ai",
+    title: "AI & LLM",
+    description: "AI assistant, providers, API keys, models, and usage.",
+    icon: "Bot",
+    accent: "bg-fuchsia-500",
+    soft: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-300",
+    keywords: ["ai", "llm", "openai", "gemini", "ollama", "deepseek", "copilot", "model", "prompt"],
+  },
+  {
+    id: "notifications",
+    title: "Notifications",
+    description: "Email, SMS, push, and operational alert preferences.",
+    icon: "Bell",
+    accent: "bg-amber-500",
+    soft: "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+    keywords: ["notifications", "email", "sms", "push", "alerts", "stock", "machine", "production"],
+  },
+  {
+    id: "appearance",
+    title: "Appearance",
+    description: "Theme, accent color, language, and display density.",
+    icon: "Palette",
+    accent: "bg-indigo-500",
+    soft: "bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300",
+    keywords: ["appearance", "theme", "dark", "light", "language", "telugu", "hindi", "font", "compact"],
+  },
+  {
+    id: "inventory",
+    title: "Inventory Settings",
+    description: "Warehouses, units, barcode, batch, and low-stock rules.",
+    icon: "Package",
+    accent: "bg-orange-500",
+    soft: "bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+    keywords: ["inventory", "warehouse", "barcode", "batch", "expiry", "stock", "units"],
+  },
+  {
+    id: "production",
+    title: "Production Settings",
+    description: "Shifts, work orders, machines, calendar, and scheduling.",
+    icon: "Factory",
+    accent: "bg-cyan-500",
+    soft: "bg-cyan-50 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300",
+    keywords: ["production", "shift", "work order", "machine", "calendar", "scheduling"],
+  },
+  {
+    id: "finance",
+    title: "Finance Settings",
+    description: "GST, tax rules, invoice prefix, FY, and currency.",
+    icon: "Wallet",
+    accent: "bg-lime-600",
+    soft: "bg-lime-50 text-lime-700 dark:bg-lime-900/30 dark:text-lime-300",
+    keywords: ["finance", "gst", "tax", "invoice", "financial year", "currency", "bank", "payment"],
+  },
+  {
+    id: "documents",
+    title: "Documents",
+    description: "Templates, letterheads, invoice layouts, and company docs.",
+    icon: "FileText",
+    accent: "bg-slate-600",
+    soft: "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
+    keywords: ["documents", "templates", "letterhead", "invoice template", "logo", "number format"],
+  },
+  {
+    id: "integrations",
+    title: "Integrations",
+    description: "Email, SMS, WhatsApp, Google, Microsoft, and gateways.",
+    icon: "Puzzle",
+    accent: "bg-teal-500",
+    soft: "bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+    keywords: ["integrations", "whatsapp", "google", "microsoft", "sms", "payment gateway", "erp"],
+  },
+  {
+    id: "api",
+    title: "API & Webhooks",
+    description: "API keys, webhook URLs, tokens, and developer access.",
+    icon: "KeyRound",
+    accent: "bg-blue-600",
+    soft: "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+    keywords: ["api", "webhooks", "keys", "token", "developer", "revoke"],
+  },
+  {
+    id: "backup",
+    title: "Backup & Restore",
+    description: "Database backup, restore, schedules, and downloads.",
+    icon: "HardDrive",
+    accent: "bg-stone-600",
+    soft: "bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-200",
+    keywords: ["backup", "restore", "database", "download", "schedule"],
+  },
+  {
+    id: "audit",
+    title: "Audit Logs",
+    description: "Login history, activity logs, and system change trails.",
+    icon: "ScrollText",
+    accent: "bg-red-500",
+    soft: "bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+    keywords: ["audit", "logs", "login history", "activity", "role changes"],
+  },
+  {
+    id: "help",
+    title: "Help & Support",
+    description: "Docs, tickets, FAQ, and contact options.",
+    icon: "LifeBuoy",
+    accent: "bg-green-600",
+    soft: "bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+    keywords: ["help", "support", "ticket", "faq", "documentation", "chat"],
+  },
+  {
+    id: "about",
+    title: "About System",
+    description: "Version, build, license, and environment details.",
+    icon: "Info",
+    accent: "bg-neutral-600",
+    soft: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200",
+    keywords: ["about", "version", "build", "license", "database", "update"],
+  },
+];
+
+/** Map legacy settings URLs to new section ids. */
+export const LEGACY_SETTINGS_REDIRECTS = {
+  "company-profile": "company",
+  users: "users",
+  teams: "users",
+  permissions: "users",
+  subscription: "subscription",
+  alerts: "notifications",
+  inventory: "inventory",
+  production: "production",
+  gst: "finance",
+  buyers: "integrations",
+  documents: "documents",
+  finance: "finance",
+};
+
+export function findSettingsCategory(id) {
+  return SETTINGS_CATEGORIES.find((c) => c.id === id) || null;
+}
+
+export function searchSettingsCategories(query) {
+  const q = (query || "").trim().toLowerCase();
+  if (!q) return SETTINGS_CATEGORIES;
+  return SETTINGS_CATEGORIES.filter((c) => {
+    const hay = [c.title, c.description, ...(c.keywords || [])].join(" ").toLowerCase();
+    return hay.includes(q);
+  });
+}

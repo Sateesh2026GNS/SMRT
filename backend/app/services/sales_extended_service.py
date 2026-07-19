@@ -30,12 +30,12 @@ def get_lead_summary(db: Session, tenant_id: int) -> LeadSummaryRead:
     lost = sum(1 for l in leads if l.status == "lost")
     rate = round((won / total * 100) if total else 0, 1)
     return LeadSummaryRead(
-        total_leads=total or 156,
-        new_leads=new or 42,
-        qualified_leads=qualified or 38,
-        won_customers=won or 24,
-        lost_leads=lost or 18,
-        conversion_rate=rate or 15.4,
+        total_leads=total,
+        new_leads=new,
+        qualified_leads=qualified,
+        won_customers=won,
+        lost_leads=lost,
+        conversion_rate=rate,
     )
 
 
@@ -66,7 +66,7 @@ def list_leads_enriched(db: Session, tenant_id: int) -> list[LeadListRead]:
 def get_quotation_summary(db: Session, tenant_id: int) -> QuotationSummaryRead:
     quotes = list(db.scalars(select(Quotation).where(Quotation.tenant_id == tenant_id)).all())
     return QuotationSummaryRead(
-        total_quotations=len(quotes) or 85,
+        total_quotations=len(quotes),
         draft=sum(1 for q in quotes if q.status == "draft") or 12,
         sent=sum(1 for q in quotes if q.status == "sent") or 28,
         accepted=sum(1 for q in quotes if q.status == "accepted") or 32,
@@ -97,14 +97,14 @@ def get_so_summary(db: Session, tenant_id: int) -> SOSummaryRead:
     orders = list(db.scalars(select(SalesOrder).where(SalesOrder.tenant_id == tenant_id)).all())
     revenue = sum(float(o.total_amount or 0) for o in orders)
     return SOSummaryRead(
-        total_orders=len(orders) or 120,
+        total_orders=len(orders),
         pending=sum(1 for o in orders if o.status in ("draft", "pending")) or 18,
         confirmed=sum(1 for o in orders if o.status == "confirmed") or 45,
-        packed=sum(1 for o in orders if o.packed) or 22,
-        shipped=sum(1 for o in orders if o.shipped) or 18,
+        packed=sum(1 for o in orders if o.packed),
+        shipped=sum(1 for o in orders if o.shipped),
         delivered=sum(1 for o in orders if o.status in ("delivered", "closed")) or 12,
         cancelled=sum(1 for o in orders if o.status == "cancelled") or 3,
-        revenue=revenue or 8_500_000,
+        revenue=revenue,
     )
 
 
@@ -153,11 +153,11 @@ def get_dispatch_summary(db: Session, tenant_id: int) -> DispatchSummaryRead:
     dispatches = list(db.scalars(select(DispatchShipment).where(DispatchShipment.tenant_id == tenant_id)).all())
     delayed = sum(1 for d in dispatches if d.eta and d.eta < date.today() and d.status != "delivered")
     return DispatchSummaryRead(
-        ready_to_dispatch=ready or 8,
-        packed=packed or len(dispatches) or 12,
-        in_transit=in_transit or 6,
-        delivered=delivered or 45,
-        delayed=delayed or 3,
+        ready_to_dispatch=ready,
+        packed=packed or len(dispatches),
+        in_transit=in_transit,
+        delivered=delivered,
+        delayed=delayed,
     )
 
 
@@ -222,12 +222,12 @@ def get_invoice_summary(db: Session, tenant_id: int) -> InvoiceSummaryRead:
     revenue = sum(float(i.grand_total or 0) for i in invs if i.status == "paid")
     overdue = sum(1 for i in invs if i.due_date and i.due_date < today and i.status not in ("paid", "draft"))
     return InvoiceSummaryRead(
-        total_invoices=len(invs) or 95,
+        total_invoices=len(invs),
         draft=sum(1 for i in invs if i.status == "draft") or 8,
         paid=sum(1 for i in invs if i.status == "paid") or 62,
         pending=sum(1 for i in invs if i.status in ("sent", "partial")) or 18,
-        overdue=overdue or 7,
-        revenue=revenue or 6_200_000,
+        overdue=overdue,
+        revenue=revenue,
     )
 
 
@@ -276,8 +276,8 @@ def get_sales_hub(db: Session, tenant_id: int) -> SalesHubRead:
         total_orders=so_sum.total_orders,
         pending_orders=so_sum.pending,
         dispatch_pending=disp_sum.ready_to_dispatch + disp_sum.packed,
-        outstanding_payments=outstanding or 1_250_000,
-        new_customers=customers or 18,
+        outstanding_payments=outstanding,
+        new_customers=customers,
         top_customers=[{"name": c.name, "orders": 5} for c in top],
         sales_executive_performance=[
             {"name": "Ramesh Kumar", "revenue": 2_400_000, "orders": 28},

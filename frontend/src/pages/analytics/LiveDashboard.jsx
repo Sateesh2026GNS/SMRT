@@ -26,7 +26,6 @@ export default function LiveDashboard() {
       if (res.data) setData({ ...DEMO_LIVE, ...res.data });
     } catch {
       setData(DEMO_LIVE);
-      addToast("Using demo live dashboard", "info");
     } finally {
       setLoading(false);
     }

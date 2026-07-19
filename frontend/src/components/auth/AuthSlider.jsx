@@ -28,8 +28,8 @@ const WarehouseIcon = (props) => (
 const SLIDES = [
   {
     image: "/auth/slide-1.png",
-    badge: "Production",
-    text: "Track work orders, machines, and live output across your factory floor.",
+    badge: "GNS Insights",
+    text: "Business Intelligence • Analytics • AI — production, inventory, and manufacturing insights in one platform.",
     gradient: "from-teal-500 via-teal-600 to-emerald-700",
     Icon: RobotArmIcon,
   },

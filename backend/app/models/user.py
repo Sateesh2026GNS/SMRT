@@ -32,6 +32,11 @@ class User(Base, TimestampMixin):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    employee_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    designation: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_login_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     plant_code: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     department: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     assigned_machine_id: Mapped[int | None] = mapped_column(

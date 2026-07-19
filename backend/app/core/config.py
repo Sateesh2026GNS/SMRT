@@ -2,7 +2,7 @@ from pathlib import Path
 
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # .env path relative to backend/
@@ -10,7 +10,11 @@ _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=_env_path, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=_env_path,
+        extra="ignore",
+        populate_by_name=True,
+    )
 
     # Database (SQLite only)
     database_url: str = "sqlite:///./smrt.db"
@@ -28,18 +32,34 @@ class Settings(BaseSettings):
 
     # Email verification & password reset
     email_verification_expire_hours: int = 24
-    password_reset_expire_minutes: int = 30
+    password_reset_expire_minutes: int = 15
+    forgot_password_rate_limit: int = 5
+    forgot_password_rate_window_seconds: int = 3600
     frontend_base_url: str = "http://localhost:5173"
 
-    # SMTP (optional — logs to console in development when unset)
+    # SMTP (required for password-reset emails — never fake success)
     smtp_host: str = ""
     smtp_port: int = 587
-    smtp_user: str = ""
+    smtp_user: str = Field(
+        default="",
+        validation_alias=AliasChoices("SMTP_USERNAME", "SMTP_USER", "smtp_user"),
+    )
     smtp_password: str = ""
-    smtp_from_email: str = "noreply@smrt.local"
+    smtp_from_email: str = "noreply@gnssoftwares.com"
 
     # Environment: "development" | "production"
     environment: str = "development"
+
+    # Public self-registration (disabled for SaaS — companies created by Super Admin)
+    allow_public_registration: bool = False
+
+    # GNS Super Admin (single platform administrator)
+    super_admin_email: str = ""
+    super_admin_password: str = ""
+    super_admin_mobile: str = ""
+
+    # SMS OTP (optional — logs OTP in development when unset)
+    sms_api_key: str = ""
 
     # CORS: comma-separated list of allowed origins
     cors_origins: str = "http://localhost:5173,http://localhost:3000"

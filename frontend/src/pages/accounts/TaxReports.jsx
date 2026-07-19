@@ -44,7 +44,6 @@ export default function TaxReports() {
       const res = await getGSTExtended(year);
       if (res.data) setData({ ...DEMO_GST, ...res.data });
     } catch {
-      addToast("Using demo GST data", "info");
     } finally {
       setLoading(false);
     }

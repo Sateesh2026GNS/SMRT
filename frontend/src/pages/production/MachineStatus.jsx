@@ -170,19 +170,10 @@ export default function MachineStatus() {
         getMachineSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = mRes.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((row, i) => enrichApiMachine(row, i));
-        const demoCodes = new Set(DEMO_MACHINES.map((m) => m.code));
-        setMachines([
-          ...DEMO_MACHINES,
-          ...enriched.filter((m) => !demoCodes.has(m.code)),
-        ]);
-      } else {
-        setMachines(DEMO_MACHINES);
-      }
+      setMachines(apiRows.map((row, i) => enrichApiMachine(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setMachines(DEMO_MACHINES);
+      setMachines([]);
     } finally {
       setLoading(false);
     }

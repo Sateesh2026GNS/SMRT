@@ -31,7 +31,6 @@ export default function HRDashboard() {
       const res = await getHRHub();
       if (res.data) setHub({ ...DEMO_HR_HUB, ...res.data });
     } catch {
-      addToast("Using demo HR hub data", "info");
     } finally {
       setLoading(false);
     }

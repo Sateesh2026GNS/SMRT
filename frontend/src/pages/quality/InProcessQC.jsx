@@ -23,7 +23,7 @@ export default function InProcessQC() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_PROCESS_SUMMARY);
-  const [rows, setRows] = useState(DEMO_PROCESS_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("");
 
@@ -33,9 +33,8 @@ export default function InProcessQC() {
       const [sumRes, listRes] = await Promise.allSettled([getProcessSummary(), getProcessEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PROCESS_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_PROCESS_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo in-process QC data", "info");
     } finally {
       setLoading(false);
     }

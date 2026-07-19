@@ -56,13 +56,13 @@ def get_schedule_dashboard(db: Session, tenant_id: int) -> ScheduleDashboardRead
 
     return ScheduleDashboardRead(
         today=date.today().isoformat(),
-        production_target=target or 12500,
-        completed=completed or 8450,
-        pending=pending or 4050,
-        overall_progress_pct=progress or 68.0,
-        machine_utilization_pct=util or 84.0,
-        operators_present=operators or 126,
-        delayed_orders=delayed or 3,
+        production_target=target,
+        completed=completed,
+        pending=pending,
+        overall_progress_pct=progress,
+        machine_utilization_pct=util,
+        operators_present=operators,
+        delayed_orders=delayed,
         material_shortage=0,
     )
 

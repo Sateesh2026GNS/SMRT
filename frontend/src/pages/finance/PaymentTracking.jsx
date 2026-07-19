@@ -24,7 +24,7 @@ export default function PaymentTracking() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_PAY_SUMMARY);
-  const [rows, setRows] = useState(DEMO_PAY_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [financialYear, setFinancialYear] = useState("2025-26");
   const [month, setMonth] = useState("All Months");
@@ -36,9 +36,8 @@ export default function PaymentTracking() {
       const [sumRes, listRes] = await Promise.allSettled([getPaymentSummary(), getPaymentsEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PAY_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_PAY_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo payment tracking data", "info");
     } finally {
       setLoading(false);
     }

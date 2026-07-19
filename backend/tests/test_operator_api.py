@@ -49,7 +49,7 @@ def operator_auth(client, register_admin):
     finally:
         db.close()
 
-    login = client.post("/api/auth/login", json={"email": email, "password": password})
+    login = client.post("/api/auth/login", json={"email": email, "password": password, "role": "Operator"})
     assert login.status_code == 200, login.text
     body = login.json()
     assert body["success"] is True
@@ -62,7 +62,7 @@ def operator_auth(client, register_admin):
 
 
 def test_api_login_invalid_credentials(client):
-    resp = client.post("/api/auth/login", json={"email": "nope@x.com", "password": "wrong"})
+    resp = client.post("/api/auth/login", json={"email": "nope@x.com", "password": "wrong", "role": "Admin"})
     assert resp.status_code == 401
     body = resp.json()
     assert body["success"] is False

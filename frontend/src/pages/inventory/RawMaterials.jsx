@@ -38,7 +38,7 @@ export default function RawMaterials() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_MATERIALS_SUMMARY);
-  const [materials, setMaterials] = useState(DEMO_MATERIALS);
+  const [materials, setMaterials] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -51,7 +51,7 @@ export default function RawMaterials() {
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_MATERIALS_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setMaterials(listRes.value.data);
       else setMaterials(DEMO_MATERIALS);
-    } catch { addToast("Using demo materials data", "info"); }
+    } catch { }
     finally { setLoading(false); }
   }, [addToast]);
 
@@ -71,7 +71,7 @@ export default function RawMaterials() {
     if (typeof row.id === "number") {
       try { const res = await getRawMaterialDetail(row.id); setSelected(res.data); return; } catch { /* fallback */ }
     }
-    setSelected({ ...DEMO_MATERIAL_DETAIL, ...row });
+    setSelected({ ...row });
   };
 
   const handleBarcode = async (e) => {

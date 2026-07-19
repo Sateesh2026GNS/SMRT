@@ -98,19 +98,10 @@ export default function DepartmentManagement() {
         getDepartmentSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = dRes.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((row, i) => enrichApiDepartment(row, i));
-        const demoCodes = new Set(DEMO_DEPARTMENTS.map((d) => d.code));
-        setDepartments([
-          ...DEMO_DEPARTMENTS,
-          ...enriched.filter((d) => !demoCodes.has(d.code)),
-        ]);
-      } else {
-        setDepartments(DEMO_DEPARTMENTS);
-      }
+      setDepartments(apiRows.map((row, i) => enrichApiDepartment(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setDepartments(DEMO_DEPARTMENTS);
+      setDepartments([]);
     } finally {
       setLoading(false);
     }

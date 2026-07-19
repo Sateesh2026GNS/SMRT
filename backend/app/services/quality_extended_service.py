@@ -90,11 +90,11 @@ def get_incoming_summary(db: Session, tenant_id: int) -> InspectionSummaryRead:
     times = [float(r.inspection_time_minutes) for r in rows if r.inspection_time_minutes]
     avg_time = sum(times) / len(times) if times else 18.5
     return InspectionSummaryRead(
-        todays_inspections=today_count or 12,
-        pending_inspection=pending or 5,
-        passed=passed or 28,
-        failed=failed or 3,
-        rejected_lots=rejected or 2,
+        todays_inspections=today_count,
+        pending_inspection=pending,
+        passed=passed,
+        failed=failed,
+        rejected_lots=rejected,
         avg_inspection_time=round(avg_time, 1),
     )
 
@@ -182,9 +182,9 @@ def get_batch_summary(db: Session, tenant_id: int) -> BatchReportSummaryRead:
     scrap_pct = (total_reject / total_prod * 100) if total_prod else 2.8
     rework_pct = (total_rework / total_prod * 100) if total_prod else 3.0
     return BatchReportSummaryRead(
-        total_batches=len(reports) or 86,
-        passed=total_pass or 78,
-        failed=total_fail or 8,
+        total_batches=len(reports),
+        passed=total_pass,
+        failed=total_fail,
         yield_pct=round(yield_pct, 1),
         scrap_pct=round(scrap_pct, 1),
         rework_pct=round(rework_pct, 1),
@@ -223,7 +223,7 @@ def list_batch_enriched(db: Session, tenant_id: int) -> list[BatchReportRead]:
 def get_defect_summary(db: Session, tenant_id: int) -> DefectSummaryRead:
     defects = list(db.scalars(select(Defect).where(Defect.tenant_id == tenant_id)).all())
     return DefectSummaryRead(
-        total_defects=len(defects) or 24,
+        total_defects=len(defects),
         open=sum(1 for d in defects if d.status in ("open", "new")) or 8,
         in_progress=sum(1 for d in defects if d.status == "in_progress") or 6,
         resolved=sum(1 for d in defects if d.status in ("resolved", "closed")) or 10,

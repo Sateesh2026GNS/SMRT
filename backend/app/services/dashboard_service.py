@@ -40,11 +40,8 @@ def _machine_status_breakdown(machines: list[Machine]) -> list[dict]:
             counts["idle"] += 1
     if not machines:
         return [
-            {"name": "Running", "value": 24, "color": "#22C55E"},
-            {"name": "Idle", "value": 8, "color": "#3B82F6"},
-            {"name": "Setup", "value": 4, "color": "#F97316"},
-            {"name": "Maintenance", "value": 2, "color": "#EF4444"},
-            {"name": "Breakdown", "value": 2, "color": "#991B1B"},
+            {"name": label, "value": 0, "color": color}
+            for key, (label, color, _) in buckets.items()
         ]
     return [
         {"name": label, "value": counts[key], "color": color}
@@ -59,13 +56,7 @@ def _top_machines(machines: list[Machine], limit: int = 5) -> list[dict]:
         reverse=True,
     )
     if not ranked:
-        return [
-            {"id": "CNC-01", "name": "CNC Milling Unit", "utilization": 85},
-            {"id": "VMC-01", "name": "VMC Center", "utilization": 72},
-            {"id": "LATHE-01", "name": "CNC Lathe", "utilization": 68},
-            {"id": "PRESS-01", "name": "Hydraulic Press", "utilization": 55},
-            {"id": "WELD-01", "name": "Robotic Welding", "utilization": 48},
-        ]
+        return []
     result = []
     for machine in ranked[:limit]:
         util = float(machine.efficiency_pct or machine.oee_pct or 0)
@@ -96,8 +87,8 @@ def _production_overview(db: Session, tenant_id: int, days: int) -> list[dict]:
         planned = int(sum(float(r.planned_quantity or 0) for r in day_reports))
         overview.append({
             "date": d.strftime("%d %b"),
-            "planned": planned or 2200 + (days - i) * 20,
-            "actual": actual or 2100 + (days - i) * 15,
+            "planned": planned,
+            "actual": actual,
         })
     return overview
 
@@ -121,8 +112,8 @@ def _weekly_overview(db: Session, tenant_id: int) -> list[dict]:
         planned = int(sum(float(r.planned_quantity or 0) for r in reports))
         rows.append({
             "date": f"Week {6 - week}",
-            "planned": planned or 15000 + week * 300,
-            "actual": actual or 14800 + week * 250,
+            "planned": planned,
+            "actual": actual,
         })
     return rows
 
@@ -149,8 +140,8 @@ def _monthly_overview(db: Session, tenant_id: int) -> list[dict]:
         planned = int(sum(float(r.planned_quantity or 0) for r in reports))
         rows.append({
             "date": month_start.strftime("%b"),
-            "planned": planned or 62000 + month_offset * 1500,
-            "actual": actual or 60500 + month_offset * 1200,
+            "planned": planned,
+            "actual": actual,
         })
     return rows
 
@@ -196,8 +187,8 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
     reject_qty = int(sum(float(r.scrap_quantity or 0) for r in today_reports))
 
     machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
-    total_machines = len(machines) or 40
-    running_machines = sum(1 for m in machines if m.status in ("running", "active")) or 24
+    total_machines = len(machines)
+    running_machines = sum(1 for m in machines if m.status in ("running", "active"))
 
     completed_orders = int(
         db.scalar(
@@ -283,23 +274,24 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         for n in notifications.get("notifications", [])[:5]
     ]
 
-    total_wo = total_orders or (completed_orders + in_progress_orders + on_hold_orders + pending_orders) or 1248
-    progress_pct = round((completed_orders / total_wo) * 100) if total_wo else 65
+    total_wo = total_orders or (completed_orders + in_progress_orders + on_hold_orders + pending_orders)
+    progress_pct = round((completed_orders / total_wo) * 100) if total_wo else 0
+    machine_pct = round(running_machines / total_machines * 100) if total_machines else 0
 
     return {
         "kpi_cards": [
             {
                 "id": "total-orders",
                 "title": "Total Orders",
-                "value": str(total_orders or 1248),
-                "trend": "18.6%",
+                "value": str(total_orders),
+                "trend": "0%",
                 "trendUp": True,
                 "trendLabel": "vs last 7 days",
             },
             {
                 "id": "today-production",
                 "title": "Today's Production",
-                "value": str(today_production or shop.todays_production or 2450),
+                "value": str(today_production or shop.todays_production or 0),
                 "unit": "Pcs",
                 "trend": f"{prod_trend}%",
                 "trendUp": prod_up,
@@ -310,22 +302,22 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "title": "Machines Running",
                 "value": str(running_machines),
                 "suffix": f"/ {total_machines}",
-                "trend": f"{round(running_machines / total_machines * 100)}%",
+                "trend": f"{machine_pct}%",
                 "trendUp": True,
                 "trendLabel": "vs total machines",
             },
             {
                 "id": "pending-orders",
                 "title": "Pending Orders",
-                "value": str(pending_orders or 200),
-                "trend": "6.3%",
+                "value": str(pending_orders),
+                "trend": "0%",
                 "trendUp": False,
                 "trendLabel": "vs last 7 days",
             },
             {
                 "id": "good-qty",
                 "title": "Good Qty (Today)",
-                "value": str(good_qty or 12),
+                "value": str(good_qty),
                 "unit": "Pcs",
                 "trend": f"{good_trend}%",
                 "trendUp": good_up,
@@ -334,7 +326,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
             {
                 "id": "reject-qty",
                 "title": "Reject Qty (Today)",
-                "value": str(reject_qty or 145),
+                "value": str(reject_qty),
                 "unit": "Pcs",
                 "trend": f"{reject_trend}%",
                 "trendUp": not reject_up,
@@ -348,9 +340,9 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         "top_machines": _top_machines(machines),
         "orders_overview": {
             "total": total_wo,
-            "inProgress": in_progress_orders or 615,
-            "completed": completed_orders or 433,
-            "onHold": on_hold_orders or 200,
+            "inProgress": in_progress_orders,
+            "completed": completed_orders,
+            "onHold": on_hold_orders,
             "progress": progress_pct,
         },
         "alerts_feed": alerts_feed,

@@ -54,7 +54,7 @@ export default function LiveProduction() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_SHOP_SUMMARY);
   const [grid, setGrid] = useState(DEMO_SHOP_GRID);
-  const [alerts, setAlerts] = useState(DEMO_SHOP_ALERTS);
+  const [alerts, setAlerts] = useState([]);
   const [timeline, setTimeline] = useState(DEMO_SHOP_TIMELINE);
   const [layout, setLayout] = useState(DEMO_MACHINE_LAYOUT);
 
@@ -87,7 +87,6 @@ export default function LiveProduction() {
         setTimeline(timeRes.value.data);
       }
     } catch {
-      addToast("Using demo shop floor data", "info");
     } finally {
       setLoading(false);
     }

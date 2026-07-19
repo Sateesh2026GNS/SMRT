@@ -248,13 +248,13 @@ export default function ProductionSchedule() {
   const [view, setView] = useState("timeline");
   const [dashboard, setDashboard] = useState(DEMO_DASHBOARD);
   const [timeline, setTimeline] = useState(DEMO_TIMELINE);
-  const [shifts, setShifts] = useState(DEMO_SHIFTS);
-  const [liveMachines, setLiveMachines] = useState(DEMO_LIVE_MACHINES);
+  const [shifts, setShifts] = useState([]);
+  const [liveMachines, setLiveMachines] = useState([]);
   const [queue, setQueue] = useState(DEMO_QUEUE);
-  const [materials, setMaterials] = useState(DEMO_MATERIALS);
-  const [conflicts, setConflicts] = useState(DEMO_CONFLICTS);
-  const [bottomKpis, setBottomKpis] = useState(DEMO_BOTTOM_KPIS);
-  const [calendarEvents, setCalendarEvents] = useState(DEMO_CALENDAR_EVENTS);
+  const [materials, setMaterials] = useState([]);
+  const [conflicts, setConflicts] = useState([]);
+  const [bottomKpis, setBottomKpis] = useState([]);
+  const [calendarEvents, setCalendarEvents] = useState([]);
   const [kanban, setKanban] = useState(DEMO_KANBAN);
   const [tableSearch, setTableSearch] = useState("");
 
@@ -306,7 +306,6 @@ export default function ProductionSchedule() {
         setCalendarEvents(calRes.value.data);
       }
     } catch {
-      addToast("Using demo schedule data", "info");
     } finally {
       setLoading(false);
     }

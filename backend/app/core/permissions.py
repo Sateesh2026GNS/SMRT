@@ -72,12 +72,15 @@ def require_admin(current_user: User = Depends(get_current_user)) -> User:
     return current_user
 
 
+MODULE_FORBIDDEN_MESSAGE = "You do not have permission to access this module."
+
+
 def require_permission(module: str):
     def dependency(current_user: User = Depends(get_current_user)) -> User:
         if not user_has_permission(current_user, module):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You do not have permission to access '{module}'.",
+                detail=MODULE_FORBIDDEN_MESSAGE,
             )
         return current_user
 
@@ -89,12 +92,12 @@ def require_action(module: str, action: str):
         if not user_has_permission(current_user, module):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You do not have permission to access '{module}'.",
+                detail=MODULE_FORBIDDEN_MESSAGE,
             )
         if not user_can_action(current_user, module, action):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"You are not allowed to '{action}' in '{module}'.",
+                detail=MODULE_FORBIDDEN_MESSAGE,
             )
         return current_user
 

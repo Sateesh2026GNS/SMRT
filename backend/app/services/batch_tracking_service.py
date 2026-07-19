@@ -26,11 +26,11 @@ def get_batch_summary(db: Session, tenant_id: int) -> BatchSummaryRead:
         if s in ("in_process", "running"):
             counts["running"] += 1
     return BatchSummaryRead(
-        total_batches=len(batches) or 48,
-        running=counts.get("running", 0) or counts.get("in_process", 0) or 12,
-        completed=counts.get("completed", 0) or 28,
-        hold=counts.get("hold", 0) or 3,
-        rejected=counts.get("rejected", 0) or 2,
+        total_batches=len(batches),
+        running=counts.get("running", 0) or counts.get("in_process", 0),
+        completed=counts.get("completed", 0),
+        hold=counts.get("hold", 0),
+        rejected=counts.get("rejected", 0),
         expired=counts.get("expired", 0) or 1,
     )
 

@@ -24,7 +24,7 @@ export default function InvoiceCopyPage() {
   const copyData = useMemo(() => {
     if (!id) return SAMPLE_INVOICE_COPY;
     const mapped = mapDetailToInvoiceCopy(detail, settings || {});
-    return mergeWithSampleIfEmpty(mapped);
+    return mapDetailToInvoiceCopy(detail, settings || {});
   }, [id, detail, settings]);
 
   if (loading) return <Loader label="Loading invoice..." />;

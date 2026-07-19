@@ -30,7 +30,7 @@ export default function BatchQualityReports() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_BATCH_SUMMARY);
-  const [rows, setRows] = useState(DEMO_BATCH_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [resultFilter, setResultFilter] = useState("");
 
@@ -40,9 +40,8 @@ export default function BatchQualityReports() {
       const [sumRes, listRes] = await Promise.allSettled([getBatchSummary(), getBatchEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_BATCH_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_BATCH_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo batch report data", "info");
     } finally {
       setLoading(false);
     }

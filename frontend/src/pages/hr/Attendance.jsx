@@ -26,7 +26,7 @@ export default function Attendance() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_ATT_SUMMARY);
-  const [rows, setRows] = useState(DEMO_ATT_LIST);
+  const [rows, setRows] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [recordDate, setRecordDate] = useState(todayStr());
   const [clockEmployee, setClockEmployee] = useState("");
@@ -43,10 +43,9 @@ export default function Attendance() {
       ]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_ATT_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_ATT_LIST);
+      else setRows([]);
       if (empRes.status === "fulfilled") setEmployees(empRes.value?.data || []);
     } catch {
-      addToast("Using demo attendance data", "info");
     } finally {
       setLoading(false);
     }

@@ -58,7 +58,7 @@ def create_attendance_record(
     db: Session, payload: AttendanceRecordCreate
 ) -> AttendanceRecord:
     rec = AttendanceRecord(**payload.model_dump())
-    capacity = payload.capacity_hours or 8.0
+    capacity = payload.capacity_hours
     if payload.work_hours is not None:
         reg, ot = _calc_work_overtime(payload.work_hours, capacity)
         rec.work_hours = payload.work_hours
@@ -112,7 +112,7 @@ def record_clock_out(
     if rec.clock_in and rec.clock_out:
         delta = rec.clock_out - rec.clock_in
         work_hours = max(0, delta.total_seconds() / 3600 - rec.break_minutes / 60)
-        cap = rec.capacity_hours or 8.0
+        cap = rec.capacity_hours
         reg, ot = _calc_work_overtime(work_hours, cap)
         rec.work_hours = work_hours
         rec.overtime_hours = ot

@@ -133,7 +133,7 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
     return dt.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" }).replace(/ /g, "-");
   };
 
-  const sellerName = companySettings.company_name || companySettings.name || "SMRT Manufacturing Pvt Ltd";
+  const sellerName = companySettings.company_name || companySettings.name || "GNS Insights";
   const sellerGstin = companySettings.gstin || companySettings.gst_number || "36XXXXX0000X1Z0";
 
   return {
@@ -144,7 +144,7 @@ export function mapDetailToInvoiceCopy(detail, companySettings = {}) {
     ackDate: formatDate(inv.issue_date),
     seller: {
       name: sellerName,
-      tagline: companySettings.tagline || "Systematic Manufacturing Real-time Tracking",
+      tagline: companySettings.tagline || "Business Intelligence • Analytics • AI",
       address: [companySettings.address_line1, companySettings.address_line2, companySettings.city, companySettings.state, companySettings.pincode].filter(Boolean).join(", ") || "Hyderabad, Telangana",
       udyam: companySettings.udyam || "",
       gstin: sellerGstin,

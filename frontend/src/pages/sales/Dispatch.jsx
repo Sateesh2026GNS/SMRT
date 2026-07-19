@@ -65,7 +65,7 @@ export default function Dispatch() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_DISPATCH_SUMMARY);
-  const [rows, setRows] = useState(DEMO_DISPATCH_LIST);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
@@ -74,9 +74,8 @@ export default function Dispatch() {
       const [sumRes, listRes] = await Promise.allSettled([getDispatchSummary(), getDispatchEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_DISPATCH_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_DISPATCH_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo dispatch data", "info");
     } finally {
       setLoading(false);
     }

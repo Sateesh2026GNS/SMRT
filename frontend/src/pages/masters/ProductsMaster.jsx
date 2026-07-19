@@ -90,19 +90,9 @@ export default function ProductsMaster() {
     try {
       const res = await getProducts();
       const apiRows = res.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((row, i) => enrichApiProduct(row, i));
-        const demoSkus = new Set(DEMO_PRODUCTS.map((p) => p.sku));
-        const merged = [
-          ...DEMO_PRODUCTS,
-          ...enriched.filter((p) => !demoSkus.has(p.sku)),
-        ];
-        setProducts(merged);
-      } else {
-        setProducts(DEMO_PRODUCTS);
-      }
+      setProducts(apiRows.map((row, i) => enrichApiProduct(row, i)));
     } catch {
-      setProducts(DEMO_PRODUCTS);
+      setProducts([]);
     } finally {
       setLoading(false);
     }

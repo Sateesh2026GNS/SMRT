@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, ShieldCheck, UserCog } from "lucide-react";
+import { Plus, Pencil, Trash2, ShieldCheck, UserCog, KeyRound } from "lucide-react";
 
 import PageHeader from "../../components/common/PageHeader";
 import DataTable from "../../components/common/DataTable";
@@ -15,12 +15,16 @@ import {
   createUser,
   updateUser,
   deleteUser,
+  adminResetUserPassword,
 } from "../../api/adminApi";
 
 const EMPTY_FORM = {
   full_name: "",
   email: "",
   phone: "",
+  employee_id: "",
+  designation: "",
+  department: "",
   password: "",
   is_active: true,
   role_ids: [],
@@ -55,6 +59,7 @@ export default function UserManagement() {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [resettingId, setResettingId] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -86,6 +91,9 @@ export default function UserManagement() {
       full_name: u.full_name || "",
       email: u.email || "",
       phone: u.phone || "",
+      employee_id: u.employee_id || "",
+      designation: u.designation || "",
+      department: u.department || "",
       password: "",
       is_active: u.is_active,
       role_ids: (u.roles || []).map((r) => r.id),
@@ -168,6 +176,19 @@ export default function UserManagement() {
     }
   };
 
+  const handleResetPassword = async (user) => {
+    setResettingId(user.id);
+    try {
+      const { data } = await adminResetUserPassword(user.id);
+      addToast(data?.message || "Password reset link sent to user.", "success");
+    } catch (err) {
+      const detail = err.response?.data?.detail || err.response?.data?.message;
+      addToast(typeof detail === "string" ? detail : "Could not send reset link", "error");
+    } finally {
+      setResettingId(null);
+    }
+  };
+
   const columns = [
     {
       key: "full_name",
@@ -212,6 +233,15 @@ export default function UserManagement() {
       sortable: false,
       render: (r) => (
         <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleResetPassword(r)}
+            disabled={resettingId === r.id}
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50 dark:hover:bg-amber-900/20"
+            title="Send password reset link"
+          >
+            <KeyRound className="h-4 w-4" />
+          </button>
           <button
             type="button"
             onClick={() => openEdit(r)}
@@ -311,6 +341,26 @@ export default function UserManagement() {
               placeholder="Optional"
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Input
+              label="Employee ID"
+              value={form.employee_id}
+              onChange={(e) => setForm((f) => ({ ...f, employee_id: e.target.value }))}
+              placeholder="EMP001"
+            />
+            <Input
+              label="Department"
+              value={form.department}
+              onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
+              placeholder="Production"
+            />
+          </div>
+          <Input
+            label="Designation"
+            value={form.designation}
+            onChange={(e) => setForm((f) => ({ ...f, designation: e.target.value }))}
+            placeholder="Production Manager"
+          />
           <Input
             label={editing ? "New Password" : "Password"}
             type="password"

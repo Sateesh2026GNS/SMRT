@@ -64,7 +64,7 @@ export default function GoodsReceipt() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_GRN_SUMMARY);
-  const [rows, setRows] = useState(DEMO_GRN_LIST);
+  const [rows, setRows] = useState([]);
   const [selected, setSelected] = useState(null);
 
   const load = useCallback(async () => {
@@ -73,9 +73,8 @@ export default function GoodsReceipt() {
       const [sumRes, listRes] = await Promise.allSettled([getGRNSummary(), getGRNEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_GRN_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_GRN_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo GRN data", "info");
     } finally {
       setLoading(false);
     }

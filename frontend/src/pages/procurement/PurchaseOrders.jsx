@@ -27,7 +27,7 @@ export default function PurchaseOrders() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_PO_SUMMARY);
-  const [rows, setRows] = useState(DEMO_PO_LIST);
+  const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -38,9 +38,8 @@ export default function PurchaseOrders() {
       const [sumRes, listRes] = await Promise.allSettled([getPOSummary(), getPurchaseOrdersEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_PO_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_PO_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo purchase order data", "info");
     } finally {
       setLoading(false);
     }

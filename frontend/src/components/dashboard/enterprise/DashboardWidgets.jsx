@@ -1,12 +1,15 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowRight,
+  Loader2,
   Truck,
   Users,
   Zap,
 } from "lucide-react";
 
+import { getRecentLogins } from "../../../api/auditLogsApi";
 import {
   criticalAlerts,
   employeeAttendance,
@@ -379,9 +382,78 @@ export function TodaysSummaryWidget() {
   );
 }
 
+function RecentLoginActivityWidget() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    getRecentLogins(10)
+      .then((res) => {
+        if (active) setItems(res.data?.items || []);
+      })
+      .catch(() => {
+        if (active) setItems([]);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return (
+    <ChartPanel
+      title="Recent Login Activity"
+      action={
+        <Link to="/settings/security" className="text-xs font-semibold text-teal-600 hover:underline">
+          View all
+        </Link>
+      }
+    >
+      {loading ? (
+        <div className="flex h-32 items-center justify-center text-slate-400">
+          <Loader2 className="h-5 w-5 animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="py-8 text-center text-sm text-slate-500">No recent logins yet.</p>
+      ) : (
+        <ul className="space-y-2">
+          {items.map((row) => (
+            <li
+              key={row.id}
+              className="flex items-center justify-between gap-2 border-b border-slate-50 pb-2 last:border-0"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-slate-800">
+                  {row.full_name || row.email || "Unknown"}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {row.role || "—"} · {row.time || row.date || "—"}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                  row.login_status === "Success"
+                    ? "bg-emerald-50 text-emerald-700"
+                    : "bg-red-50 text-red-700"
+                }`}
+              >
+                {row.login_status || "—"}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </ChartPanel>
+  );
+}
+
 export default function DashboardWidgets() {
   return (
     <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+      <RecentLoginActivityWidget />
       <MachineStatusWidget />
       <TopProductsWidget />
       <InventorySummaryWidget />

@@ -24,6 +24,8 @@ def serialize_user(u: User) -> dict:
         "email": u.email,
         "full_name": u.full_name,
         "phone": getattr(u, "phone", None),
+        "employee_id": getattr(u, "employee_id", None),
+        "designation": getattr(u, "designation", None),
         "is_active": u.is_active,
         "tenant_id": u.tenant_id,
         "roles": [{"id": r.id, "name": r.name} for r in u.roles],
@@ -133,20 +135,42 @@ def get_user(db: Session, tenant_id: int, user_id: int) -> dict:
 
 
 def create_user(db: Session, tenant_id: int, payload: UserCreate) -> dict:
+    from app.core.company_email import (
+        MSG_EMAIL_NOT_WITH_COMPANY,
+        MSG_PUBLIC_EMAIL,
+        email_domain,
+        is_public_email_domain,
+        user_email_matches_company,
+    )
+    from app.models.tenant import Tenant
+
     existing = db.scalars(select(User).where(User.email == payload.email)).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="An account with this email already exists",
         )
+    if is_public_email_domain(email_domain(payload.email)):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=MSG_PUBLIC_EMAIL)
+
+    company = db.get(Tenant, tenant_id)
+    if company and company.email and not user_email_matches_company(payload.email, company):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=MSG_EMAIL_NOT_WITH_COMPANY,
+        )
+
     roles = _resolve_roles(db, tenant_id, payload.role_ids)
     user = User(
         tenant_id=tenant_id,
         email=payload.email,
         full_name=payload.full_name,
         phone=payload.phone,
+        employee_id=payload.employee_id,
+        designation=payload.designation,
         is_active=payload.is_active,
         hashed_password=hash_password(payload.password),
+        email_verified=True,
         plant_code=payload.plant_code,
         department=payload.department,
         assigned_machine_id=payload.assigned_machine_id,
@@ -177,6 +201,10 @@ def update_user(
         user.full_name = data["full_name"]
     if "phone" in data:
         user.phone = data["phone"]
+    if "employee_id" in data:
+        user.employee_id = data["employee_id"]
+    if "designation" in data:
+        user.designation = data["designation"]
     if data.get("password"):
         user.hashed_password = hash_password(data["password"])
 
@@ -369,24 +397,30 @@ def log_activity(
     resource: str | None = None,
     resource_id: int | None = None,
     request=None,
+    details: str | None = None,
+    module_name: str | None = None,
 ) -> None:
-    ip = None
-    ua = None
-    if request is not None:
-        ip = request.client.host if request.client else None
-        ua = request.headers.get("user-agent")
-    entry = AccessLog(
-        tenant_id=tenant_id,
-        user_id=user_id,
+    from app.services.audit_log_service import AuditLogService, resolve_module
+    from sqlalchemy.orm import selectinload
+    from sqlalchemy import select
+
+    user = None
+    if user_id is not None:
+        user = db.scalars(
+            select(User)
+            .where(User.id == user_id)
+            .options(selectinload(User.roles), selectinload(User.tenant))
+        ).first()
+    AuditLogService.log(
+        db=db,
+        request=request,
+        current_user=user,
         action=action,
+        module_name=module_name or resolve_module(action, resource),
+        details=details or f"{action} {resource or ''}".strip(),
         resource=resource,
         resource_id=resource_id,
-        ip_address=ip,
-        user_agent=ua,
-        logged_at=datetime.now(timezone.utc),
     )
-    db.add(entry)
-    db.commit()
 
 
 def list_activities(

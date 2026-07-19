@@ -31,20 +31,9 @@ import {
   Zap,
 } from "lucide-react";
 
+import EmptyChart from "../../common/EmptyChart";
 import {
-  alertsFeed,
-  inventoryBlocks,
-  kpiCards,
-  ordersOverview,
-  productionOverview,
-  productionOverviewWeekly,
-  productionOverviewMonthly,
   quickActionsRef,
-  recentWorkOrdersRef,
-  shopFloorStatus,
-  todaysSummaryRef,
-  topMachines,
-  warehouseLocations,
 } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
@@ -100,13 +89,18 @@ const ALERT_TIME_META = [
   { key: "hrsAgo", count: 3 },
 ];
 
-const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
-
-const PRODUCTION_DATA = {
-  Daily: productionOverview,
-  Weekly: productionOverviewWeekly,
-  Monthly: productionOverviewMonthly,
+const KPI_STYLE = {
+  "total-orders": { gradient: "from-blue-600 to-blue-500", iconBg: "bg-white/20" },
+  "today-production": { gradient: "from-emerald-600 to-emerald-500", iconBg: "bg-white/20" },
+  "machines-running": { gradient: "from-violet-600 to-violet-500", iconBg: "bg-white/20" },
+  "pending-orders": { gradient: "from-orange-600 to-orange-500", iconBg: "bg-white/20" },
+  "good-qty": { gradient: "from-teal-600 to-teal-500", iconBg: "bg-white/20" },
+  "reject-qty": { gradient: "from-red-600 to-red-500", iconBg: "bg-white/20" },
 };
+
+const EMPTY_ORDERS = { total: 0, inProgress: 0, completed: 0, onHold: 0, progress: 0 };
+
+const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
 
 const summaryIcons = {
   users: Users,
@@ -131,20 +125,28 @@ const blockIcons = {
   alert: AlertTriangle,
 };
 
-function KpiStrip({ cards = kpiCards }) {
+function KpiStrip({ cards = [] }) {
   const { t } = useTranslation();
+  if (!cards.length) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-10 text-center text-sm text-slate-500">
+        {t("common.noData", "No data available.")}
+      </div>
+    );
+  }
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
       {cards.map((card) => {
         const titleKey = KPI_TITLE_KEYS[card.id];
         const trendKey = TREND_LABEL_KEYS[card.trendLabel];
+        const style = KPI_STYLE[card.id] || KPI_STYLE["total-orders"];
         return (
           <div
             key={card.id}
-            className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${card.gradient} p-4 text-white shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5`}
+            className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${style.gradient} p-4 text-white shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5`}
           >
             <div className="flex items-start gap-3">
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.iconBg}`}>
+              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${style.iconBg}`}>
                 <KpiIcon id={card.id} className="h-6 w-6 text-white" />
               </div>
               <div className="min-w-0 flex-1">
@@ -173,7 +175,8 @@ function KpiStrip({ cards = kpiCards }) {
 function ProductionOverview({ chartSets }) {
   const { t } = useTranslation();
   const [period, setPeriod] = useState("Daily");
-  const chartData = chartSets?.[period] ?? PRODUCTION_DATA[period] ?? productionOverview;
+  const chartData = chartSets?.[period] ?? [];
+  const hasChartData = chartData.length > 0;
   return (
     <CardShell
       title={t("refDashboard.productionOverview")}
@@ -194,6 +197,7 @@ function ProductionOverview({ chartSets }) {
       }
     >
       <div className="h-[260px] w-full">
+        {hasChartData ? (
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} key={period}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
@@ -205,14 +209,24 @@ function ProductionOverview({ chartSets }) {
             <Line type="monotone" dataKey="actual" name={t("refDashboard.actualQty")} stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3, fill: "#22C55E" }} />
           </LineChart>
         </ResponsiveContainer>
+        ) : (
+          <EmptyChart message={t("common.noData", "No data available.")} />
+        )}
       </div>
     </CardShell>
   );
 }
 
-function ShopFloorStatus({ statusData = shopFloorStatus }) {
+function ShopFloorStatus({ statusData = [] }) {
   const { t } = useTranslation();
   const total = statusData.reduce((s, d) => s + d.value, 0);
+  if (!statusData.length) {
+    return (
+      <CardShell title={t("refDashboard.shopFloorStatus")} className="h-full">
+        <EmptyChart message={t("common.noData", "No data available.")} className="min-h-[180px]" />
+      </CardShell>
+    );
+  }
   return (
     <CardShell title={t("refDashboard.shopFloorStatus")} className="h-full">
       <div className="flex flex-col items-center gap-3 sm:flex-row">
@@ -250,8 +264,15 @@ function ShopFloorStatus({ statusData = shopFloorStatus }) {
   );
 }
 
-function TopMachines({ machines = topMachines }) {
+function TopMachines({ machines = [] }) {
   const { t } = useTranslation();
+  if (!machines.length) {
+    return (
+      <CardShell title={t("refDashboard.topMachines")} className="h-full">
+        <p className="py-8 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
+      </CardShell>
+    );
+  }
   return (
     <CardShell title={t("refDashboard.topMachines")} className="h-full">
       <ul className="space-y-3">
@@ -276,7 +297,7 @@ function TopMachines({ machines = topMachines }) {
   );
 }
 
-function OrdersOverview({ overview = ordersOverview }) {
+function OrdersOverview({ overview = EMPTY_ORDERS }) {
   const { t } = useTranslation();
   const stats = [
     { labelKey: "totalOrders", value: overview.total, color: "text-[#2563EB]" },
@@ -307,12 +328,19 @@ function OrdersOverview({ overview = ordersOverview }) {
   );
 }
 
-function InventorySummary() {
+function InventorySummary({ blocks = [], warehouses = [] }) {
   const { t } = useTranslation();
+  if (!blocks.length) {
+    return (
+      <CardShell title={t("refDashboard.inventorySummary")}>
+        <p className="py-8 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
+      </CardShell>
+    );
+  }
   return (
     <CardShell title={t("refDashboard.inventorySummary")}>
       <div className="grid grid-cols-2 gap-3 mb-4">
-        {inventoryBlocks.map((b, i) => {
+        {blocks.map((b, i) => {
           const Icon = blockIcons[b.icon] || Boxes;
           const labelKey = INVENTORY_KEYS[i];
           return (
@@ -332,7 +360,7 @@ function InventorySummary() {
       </div>
       <p className="mb-2 text-xs font-semibold text-slate-600">{t("refDashboard.warehouseLocation")}</p>
       <div className="flex h-3 overflow-hidden rounded-full">
-        {warehouseLocations.map((w, i) => (
+        {warehouses.map((w, i) => (
           <div
             key={w.name}
             style={{ width: `${w.pct}%`, backgroundColor: w.color }}
@@ -341,7 +369,7 @@ function InventorySummary() {
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
-        {warehouseLocations.map((w, i) => (
+        {warehouses.map((w, i) => (
           <span key={w.name} className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full" style={{ backgroundColor: w.color }} />
             {WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name}
@@ -352,35 +380,33 @@ function InventorySummary() {
   );
 }
 
-function AlertsNotifications({ alerts = alertsFeed }) {
+function AlertsNotifications({ alerts = [] }) {
   const { t } = useTranslation();
   return (
     <CardShell
       title={t("refDashboard.alertsNotifications")}
       action={<Link to="/production/work-orders" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
     >
+      {!alerts.length ? (
+        <p className="py-6 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
+      ) : (
       <ul className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
         {alerts.map((a, i) => {
           const Icon = alertIcons[a.icon] || AlertTriangle;
-          const messageKey = ALERT_MESSAGE_KEYS[i];
-          const timeMeta = ALERT_TIME_META[i];
           return (
-            <li key={a.id} className="flex gap-3">
+            <li key={a.id || i} className="flex gap-3">
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${a.color}18`, color: a.color }}>
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm text-slate-700 leading-snug">
-                  {messageKey ? t(`refDashboard.${messageKey}`) : a.message}
-                </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
-                  {timeMeta ? t(`refDashboard.${timeMeta.key}`, { count: timeMeta.count }) : a.time}
-                </p>
+                <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
+                <p className="mt-0.5 text-[11px] text-slate-400">{a.time || "—"}</p>
               </div>
             </li>
           );
         })}
       </ul>
+      )}
     </CardShell>
   );
 }
@@ -415,13 +441,16 @@ function QuickActions() {
   );
 }
 
-function RecentWorkOrders({ workOrders = recentWorkOrdersRef }) {
+function RecentWorkOrders({ workOrders = [] }) {
   const { t } = useTranslation();
   return (
     <CardShell
       title={t("refDashboard.recentWorkOrders")}
       action={<Link to="/production/work-orders" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
     >
+      {!workOrders.length ? (
+        <p className="py-6 text-center text-sm text-slate-500">{t("common.noRecords", "No records found.")}</p>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-left text-sm">
           <thead>
@@ -446,16 +475,24 @@ function RecentWorkOrders({ workOrders = recentWorkOrdersRef }) {
           </tbody>
         </table>
       </div>
+      )}
     </CardShell>
   );
 }
 
-function TodaysSummary() {
+function TodaysSummary({ items = [] }) {
   const { t } = useTranslation();
+  if (!items.length) {
+    return (
+      <CardShell title={t("refDashboard.todaysSummary")}>
+        <p className="py-8 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
+      </CardShell>
+    );
+  }
   return (
     <CardShell title={t("refDashboard.todaysSummary")}>
       <ul className="space-y-3">
-        {todaysSummaryRef.map((item, i) => {
+        {items.map((item, i) => {
           const Icon = summaryIcons[item.icon] || BarChart3;
           const labelKey = SUMMARY_KEYS[i];
           return (
@@ -476,50 +513,44 @@ function TodaysSummary() {
 export default function ReferenceDashboard() {
   const { t } = useTranslation();
   const [apiData, setApiData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
+  const load = () => {
+    setLoading(true);
+    setError(null);
     getErpDashboard()
       .then((res) => setApiData(res.data))
-      .catch(() => setApiData(null));
-  }, []);
+      .catch(() => {
+        setApiData(null);
+        setError("Failed to load dashboard data.");
+      })
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
 
   const kpiCardsLive = useMemo(() => {
-    if (!apiData?.kpi_cards?.length) return kpiCards;
-    const byId = Object.fromEntries(kpiCards.map((c) => [c.id, c]));
+    if (!apiData?.kpi_cards?.length) return [];
     return apiData.kpi_cards.map((k) => ({
-      ...byId[k.id],
       ...k,
-      value: k.value,
-      trend: k.trend,
-      trendUp: k.trendUp,
-      trendLabel: k.trendLabel,
-      unit: k.unit,
-      suffix: k.suffix,
+      value: k.value ?? "0",
     }));
   }, [apiData]);
 
   const chartSets = useMemo(() => {
     if (!apiData) return null;
     return {
-      Daily: apiData.production_overview || productionOverview,
-      Weekly: apiData.production_overview_weekly || productionOverviewWeekly,
-      Monthly: apiData.production_overview_monthly || productionOverviewMonthly,
+      Daily: apiData.production_overview || [],
+      Weekly: apiData.production_overview_weekly || [],
+      Monthly: apiData.production_overview_monthly || [],
     };
   }, [apiData]);
 
-  const alertsLive = useMemo(() => {
-    if (!apiData?.alerts_feed?.length) return alertsFeed;
-    return apiData.alerts_feed.map((a, i) => ({
-      id: a.id || i + 1,
-      message: a.message,
-      time: a.time || "",
-      color: a.color || "#EF4444",
-      icon: a.icon || "alert",
-    }));
-  }, [apiData]);
+  const alertsLive = useMemo(() => apiData?.alerts_feed || [], [apiData]);
 
   const workOrdersLive = useMemo(() => {
-    if (!apiData?.recent_work_orders?.length) return recentWorkOrdersRef;
+    if (!apiData?.recent_work_orders?.length) return [];
     return apiData.recent_work_orders.map((w) => ({
       wo: w.wo,
       product: w.product,
@@ -528,6 +559,19 @@ export default function ReferenceDashboard() {
       due: w.due ? String(w.due).slice(0, 10) : "—",
     }));
   }, [apiData]);
+
+  if (loading) {
+    return <div className="py-16 text-center text-sm text-slate-500">{t("common.loading", "Loading...")}</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center text-sm text-red-700">
+        {error}
+        <button type="button" onClick={load} className="mt-4 text-[#2563EB] font-semibold hover:underline">Retry</button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5 pb-4">
@@ -538,16 +582,16 @@ export default function ReferenceDashboard() {
           <ProductionOverview chartSets={chartSets} />
         </div>
         <div className="xl:col-span-3">
-          <ShopFloorStatus statusData={apiData?.shop_floor_status || shopFloorStatus} />
+          <ShopFloorStatus statusData={apiData?.shop_floor_status || []} />
         </div>
         <div className="xl:col-span-4">
-          <TopMachines machines={apiData?.top_machines || topMachines} />
+          <TopMachines machines={apiData?.top_machines || []} />
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <OrdersOverview overview={apiData?.orders_overview || ordersOverview} />
-        <InventorySummary />
+        <OrdersOverview overview={apiData?.orders_overview || EMPTY_ORDERS} />
+        <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
         <AlertsNotifications alerts={alertsLive} />
       </div>
 
@@ -559,7 +603,7 @@ export default function ReferenceDashboard() {
           <RecentWorkOrders workOrders={workOrdersLive} />
         </div>
         <div className="xl:col-span-4">
-          <TodaysSummary />
+          <TodaysSummary items={apiData?.todays_summary || []} />
         </div>
       </div>
 

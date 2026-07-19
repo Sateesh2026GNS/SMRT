@@ -26,7 +26,7 @@ export default function Employees() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_EMP_SUMMARY);
-  const [rows, setRows] = useState(DEMO_EMP_LIST);
+  const [rows, setRows] = useState([]);
   const [filters, setFilters] = useState(defaultFilters);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -37,9 +37,8 @@ export default function Employees() {
       const [sumRes, listRes] = await Promise.allSettled([getEmployeeSummary(), getEmployeesEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_EMP_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_EMP_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo employee data", "info");
     } finally {
       setLoading(false);
     }

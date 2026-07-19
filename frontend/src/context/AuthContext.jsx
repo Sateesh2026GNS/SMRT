@@ -7,10 +7,13 @@ export const AuthContext = createContext(null);
 
 function normalizeUser(raw) {
   if (!raw || typeof raw !== "object") return null;
+  const fullName = raw.full_name ?? raw.name ?? "User";
   return {
     ...raw,
-    name: raw.full_name ?? raw.name ?? "User",
-    role: raw.role ?? "Operator",
+    full_name: fullName,
+    name: fullName,
+    role: raw.role ?? raw.role_name ?? "Operator",
+    role_name: raw.role_name ?? raw.role ?? "Operator",
     roles: Array.isArray(raw.roles) ? raw.roles : [],
     permissions: Array.isArray(raw.permissions) ? raw.permissions : [],
   };

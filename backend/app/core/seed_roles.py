@@ -10,8 +10,8 @@ def _permissions_for_role(name: str) -> list[str]:
     perms = list(spec.get("modules", []))
     perms.extend(spec.get("actions", []))
     if name == "Admin":
-        return MODULES
-    return perms
+        return list(MODULES)
+    return sorted(set(perms))
 
 
 DEFAULT_ROLES = [
@@ -24,9 +24,10 @@ DEFAULT_ROLES = [
 ]
 
 
-def seed_roles(db, tenant_id: int = 1):
+def seed_roles(db, tenant_id: int = 1, *, commit: bool = True):
     from sqlalchemy import select
 
+    from app.core.seed_permissions import sync_role_permissions
     from app.models.role import Role
 
     existing_roles = {
@@ -50,8 +51,12 @@ def seed_roles(db, tenant_id: int = 1):
         if role:
             role.description = spec["description"]
             role.permissions = spec["permissions"]
-    db.commit()
+    db.flush()
+    sync_role_permissions(db, tenant_id)
+    if commit:
+        db.commit()
 
 
-def seed_roles_for_tenant(db, tenant_id: int):
-    seed_roles(db, tenant_id)
+def seed_roles_for_tenant(db, tenant_id: int, *, commit: bool = False):
+    """Provision roles for a new company. Default commit=False for use inside register TX."""
+    seed_roles(db, tenant_id, commit=commit)

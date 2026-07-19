@@ -43,7 +43,6 @@ export default function MaintenanceDashboard() {
     } catch (e) {
       setError(e.message || "Network error");
       setHub(DEMO_MAINTENANCE_HUB);
-      addToast("Using demo maintenance hub data", "info");
     } finally {
       setLoading(false);
     }

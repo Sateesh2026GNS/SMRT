@@ -64,7 +64,6 @@ export default function ProductionDashboard() {
       const res = await getProductionHub();
       if (res?.data) setHub({ ...DEMO_HUB, ...res.data });
     } catch {
-      addToast("Using demo hub data", "info");
     } finally {
       setLoading(false);
     }

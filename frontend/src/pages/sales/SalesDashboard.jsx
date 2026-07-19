@@ -31,7 +31,6 @@ export default function SalesDashboard() {
       const res = await getSalesHub();
       if (res.data) setHub({ ...DEMO_SALES_HUB, ...res.data });
     } catch {
-      addToast("Using demo sales hub data", "info");
     } finally {
       setLoading(false);
     }

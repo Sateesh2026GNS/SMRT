@@ -37,7 +37,6 @@ export default function ExecutiveDashboard() {
       if (res.data) setData({ ...DEMO_EXECUTIVE, ...res.data });
     } catch {
       setData(DEMO_EXECUTIVE);
-      addToast("Using demo executive dashboard", "info");
     } finally {
       setLoading(false);
     }

@@ -24,7 +24,7 @@ export default function FinishedGoods() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_FG_SUMMARY);
-  const [products, setProducts] = useState(DEMO_FINISHED_GOODS);
+  const [products, setProducts] = useState([]);
   const [search, setSearch] = useState("");
 
   const load = useCallback(async () => {
@@ -33,7 +33,7 @@ export default function FinishedGoods() {
       const [sumRes, listRes] = await Promise.allSettled([getFinishedGoodsSummary(), getFinishedGoods()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_FG_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setProducts(listRes.value.data);
-    } catch { addToast("Using demo finished goods data", "info"); }
+    } catch { }
     finally { setLoading(false); }
   }, [addToast]);
 

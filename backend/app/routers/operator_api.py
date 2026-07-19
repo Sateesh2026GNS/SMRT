@@ -1,6 +1,6 @@
 """Operator REST API — all /api/* endpoints."""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from app.api.auth_deps import get_current_user
@@ -28,25 +28,129 @@ def _svc(db: Session, tenant_id: int) -> OperatorService:
 # ── Authentication ─────────────────────────────────────────────────────────
 
 
-@router.post("/auth/login")
-def api_login(payload: OperatorLoginRequest, db: Session = Depends(get_db)):
+@router.post("/auth/register")
+def api_register(payload: dict, db: Session = Depends(get_db)):
+    """Public registration disabled — companies provisioned by GNS Super Admin."""
+    from fastapi import HTTPException
     from fastapi.responses import JSONResponse
 
-    from app.services.auth_service import authenticate_user, issue_auth_response_data
+    from app.core.company_email import MSG_REGISTRATION_SUCCESS
+    from app.core.config import get_settings
+    from app.schemas.auth import RegisterRequest
+    from app.services.auth_service import register_user
+    from app.services.security_service import create_email_verification
     from app.utils.api_response import error_response
 
-    user = authenticate_user(db, payload.email, payload.password)
-    if not user:
+    cfg = get_settings()
+    if not cfg.allow_public_registration:
         return JSONResponse(
-            status_code=401,
-            content=error_response("Invalid email or password", errors=["authentication_failed"]),
+            status_code=403,
+            content=error_response(
+                "Public company registration is disabled. Contact your GNS administrator.",
+                errors=["registration_disabled"],
+            ),
         )
-    data = issue_auth_response_data(db, user)
+
+    try:
+        req = RegisterRequest.model_validate(payload)
+    except Exception as exc:
+        return JSONResponse(
+            status_code=422,
+            content=error_response("Validation failed", errors=[str(exc)]),
+        )
+    try:
+        user = register_user(
+            db,
+            req.company_name,
+            req.full_name,
+            req.email,
+            req.password,
+            role_name=req.role,
+        )
+    except HTTPException as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(str(exc.detail), errors=[str(exc.detail)]),
+        )
+
+    settings = get_settings()
+    if settings.email_verification_required:
+        raw_token = create_email_verification(db, user)
+        return success_response(
+            "Registration successful. Please verify your email before signing in.",
+            {
+                "email_verification_required": True,
+                "verification_token": raw_token if settings.environment == "development" else None,
+            },
+        )
+
+    return success_response(
+        MSG_REGISTRATION_SUCCESS,
+        {"email_verification_required": False},
+    )
+
+
+@router.post("/auth/login")
+def api_login(
+    payload: OperatorLoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    from fastapi import HTTPException
+    from fastapi.responses import JSONResponse
+
+    from app.services.audit_log_service import AuditLogService
+    from app.services.auth_service import (
+        ROLE_MISMATCH_MESSAGE,
+        assert_user_has_role,
+        find_user_by_email,
+        issue_auth_response_data,
+        login_user,
+    )
+    from app.services.security_service import is_account_locked
+    from app.utils.api_response import error_response
+
+    email = payload.email
+    user = find_user_by_email(db, email)
+    if user and is_account_locked(user):
+        AuditLogService.log_login_failed(db, request=request, email=email, user=user)
+        return JSONResponse(
+            status_code=429,
+            content=error_response("Account temporarily locked. Try again later."),
+        )
+    try:
+        authenticated = login_user(db, email, payload.password)
+        db.refresh(authenticated, ["roles", "tenant"])
+        role = assert_user_has_role(authenticated, payload.role)
+    except HTTPException as exc:
+        detail = str(exc.detail)
+        AuditLogService.log_login_failed(
+            db,
+            request=request,
+            email=email,
+            user=user,
+            details=detail if detail == ROLE_MISMATCH_MESSAGE else None,
+        )
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=error_response(detail, errors=[detail]),
+        )
+    AuditLogService.log_login_success(
+        db, request=request, user=authenticated, role=role
+    )
+    data = issue_auth_response_data(db, authenticated, role_name=role)
     return success_response("Login successful", data)
 
 
 @router.post("/auth/logout")
-def api_logout(current_user: User = Depends(get_current_user)):
+def api_logout(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from app.services.audit_log_service import AuditLogService
+
+    AuditLogService.log_logout(db, request=request, user=current_user)
     return success_response("Logged out successfully. Discard your access token on the client.")
 
 
@@ -55,9 +159,11 @@ def api_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tenant_id = current_user.tenant_id
-    svc = _svc(db, tenant_id)
-    return success_response("Profile retrieved", svc.get_profile(current_user).model_dump())
+    from app.services.auth_service import get_user_with_role
+
+    profile = get_user_with_role(db, current_user)
+    profile["email_verified"] = bool(getattr(current_user, "email_verified", True))
+    return success_response("Profile retrieved", profile)
 
 
 # ── Dashboard ──────────────────────────────────────────────────────────────

@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { login as loginApi } from "../../api/authApi";
-import { ROLES } from "../../config/permissions";
+import { login as loginApi, getApiErrorMessage } from "../../api/authApi";
 import useAuth from "../../hooks/useAuth";
 import AuthSlider from "../../components/auth/AuthSlider";
 import PasswordInput from "../../components/auth/PasswordInput";
+import BrandLogo from "../../components/common/BrandLogo";
+import { ROLES } from "../../config/permissions";
+import { getDashboardPathForRole } from "../../utils/roleRedirect";
+
+const LOGIN_ROLES = ROLES.map((r) => r.name);
 
 const EnvelopeIcon = () => (
   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -18,57 +22,44 @@ const LockIcon = () => (
   </svg>
 );
 
+const RoleIcon = () => (
+  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [demoRole, setDemoRole] = useState("Operator");
+  const [role, setRole] = useState("");
   const [loading, setLoading] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
   const [error, setError] = useState("");
 
-  // Seeded demo accounts (see backend/app/core/seed_users.py)
-  const DEMO_CREDENTIALS = {
-    Admin: { email: "admin@smrt.local", password: "admin123" },
-    "Production Manager": { email: "production@smrt.local", password: "demo123" },
-    "Store Manager": { email: "store@smrt.local", password: "demo123" },
-    "HR Manager": { email: "hr@smrt.local", password: "demo123" },
-    Accountant: { email: "accounts@smrt.local", password: "demo123" },
-    Operator: { email: "operator@smrt.local", password: "demo123" },
-  };
-
-  const handleDemoLogin = async () => {
-    setError("");
-    const creds = DEMO_CREDENTIALS[demoRole] || DEMO_CREDENTIALS.Operator;
-    setDemoLoading(true);
-    try {
-      const data = await loginApi(creds.email, creds.password);
-      login({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
-      navigate("/");
-    } catch (err) {
-      const msg = err.response?.data?.detail;
-      setError(typeof msg === "string" ? msg : "Demo login failed. Is the API running?");
-    } finally {
-      setDemoLoading(false);
-    }
+  const completeLogin = (data) => {
+    login({
+      access_token: data.access_token,
+      refresh_token: data.refresh_token,
+      user: data.user,
+    });
+    const resolvedRole = data.user?.role_name || data.user?.role || role;
+    navigate(getDashboardPathForRole(resolvedRole), { replace: true });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!email.trim() || !password) {
-      setError("Enter email and password");
+    if (!email.trim() || !password || !role) {
+      setError("Company email, password, and role are required.");
       return;
     }
     setLoading(true);
     try {
-      const data = await loginApi(email.trim(), password);
-      login({ access_token: data.access_token, refresh_token: data.refresh_token, user: data.user });
-      navigate("/");
+      const data = await loginApi(email.trim(), password, role);
+      completeLogin(data);
     } catch (err) {
-      const msg = err.response?.data?.detail;
-      setError(typeof msg === "string" ? msg : "Login failed. Is the API running?");
+      setError(getApiErrorMessage(err, "Login failed. Is the API running?"));
     } finally {
       setLoading(false);
     }
@@ -79,12 +70,13 @@ export default function Login() {
       <div className="w-full max-w-4xl">
         <div className="bg-white rounded-3xl shadow-2xl overflow-hidden relative" style={{ minHeight: "480px" }}>
           <div className="flex">
-              {/* Left Panel - Login Form */}
-              <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white">
+            <div className="w-1/2 flex flex-col justify-center items-center p-12 bg-white">
               <div className="text-center mb-8 w-full">
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">SMRT AI ERP</h1>
-                <p className="text-gray-600 text-sm">AI-Powered Manufacturing ERP</p>
-                <p className="text-gray-500 text-xs mt-1">Systematic Manufacturing Real-time Tracking</p>
+                <div className="mb-4 flex justify-center">
+                  <BrandLogo size="xl" />
+                </div>
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">GNS Insights</h1>
+                <p className="text-gray-600 text-sm">Business Intelligence • Analytics • AI</p>
               </div>
 
               {error && (
@@ -95,15 +87,44 @@ export default function Login() {
 
               <form onSubmit={handleSubmit} className="w-full space-y-4">
                 <div className="relative">
-                  <div className="absolute left-4 top-3.5 text-gray-400">
+                  <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 text-gray-400 pointer-events-none">
+                    <RoleIcon />
+                  </div>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    required
+                    aria-label="Role"
+                    className="box-border h-12 w-full min-w-0 rounded-lg border-none bg-gray-100 py-3 pl-12 pr-10 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer"
+                  >
+                    <option value="" disabled>
+                      Select Role *
+                    </option>
+                    {LOGIN_ROLES.map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 z-10 -translate-y-1/2 text-gray-400 pointer-events-none">
                     <EnvelopeIcon />
                   </div>
                   <input
                     type="email"
-                    placeholder="Email"
+                    placeholder="Company Email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 bg-gray-100 border-none rounded-lg text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    autoComplete="username"
+                    className="box-border h-12 w-full min-w-0 rounded-lg border-none bg-gray-100 py-3 pl-12 pr-4 text-sm text-gray-700 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    required
                   />
                 </div>
 
@@ -113,10 +134,13 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   leftIcon={<LockIcon />}
                   autoComplete="current-password"
+                  required
                 />
 
                 <div className="flex justify-between items-center text-xs">
-                  <Link to="/forgot-password" className="text-gray-600 hover:text-teal-600">Forgot Your Password?</Link>
+                  <Link to="/forgot-password" className="text-gray-600 hover:text-teal-600">
+                    Forgot Your Password?
+                  </Link>
                 </div>
 
                 <button
@@ -128,47 +152,21 @@ export default function Login() {
                 </button>
               </form>
 
-              <p className="text-xs text-gray-500 mt-2">API: admin@smrt.local / admin123</p>
+              <p className="mt-6 text-center text-xs text-gray-500">
+                GNS Super Admin?{" "}
+                <Link to="/gns-admin/login" className="font-medium text-teal-600 hover:underline">
+                  Admin Portal
+                </Link>
+              </p>
             </div>
 
-            {/* Right Panel - Image Slider + Register Prompt */}
             <AuthSlider className="w-1/2">
-              <h2 className="text-4xl font-bold mb-4">Hello</h2>
+              <h2 className="text-4xl font-bold mb-4">Welcome</h2>
               <p className="text-center text-sm mb-8 max-w-xs text-teal-50/90">
-                Register with your personal details to use all of site features
+                Sign in with your company email, password, and role to open your dashboard.
               </p>
-              <Link
-                to="/register"
-                className="px-8 py-3 border-2 border-white text-white font-bold uppercase rounded-lg hover:bg-white hover:text-teal-600 transition"
-              >
-                SIGN UP
-              </Link>
             </AuthSlider>
           </div>
-          </div>
-
-        {/* Demo Login Box */}
-        <div className="mt-6 bg-white rounded-2xl p-6 shadow-lg max-w-md">
-          <p className="text-center text-sm font-semibold text-teal-600 mb-3">Quick Login (seeded accounts)</p>
-          <p className="text-xs text-gray-600 text-center mb-3">Select a role to sign in with a real demo account:</p>
-          <select
-            value={demoRole}
-            onChange={(e) => setDemoRole(e.target.value)}
-            className="w-full p-2 border border-gray-300 rounded-lg text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-          >
-            {ROLES.map((r) => (
-              <option key={r.id} value={r.name}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleDemoLogin}
-            disabled={demoLoading}
-            className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold uppercase text-sm rounded-lg transition disabled:opacity-50"
-          >
-            {demoLoading ? "Signing in..." : `Continue as ${demoRole}`}
-          </button>
         </div>
       </div>
     </div>

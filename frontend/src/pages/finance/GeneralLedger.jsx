@@ -23,7 +23,7 @@ export default function GeneralLedger() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_GL_SUMMARY);
-  const [rows, setRows] = useState(DEMO_GL_LIST);
+  const [rows, setRows] = useState([]);
   const [search, setSearch] = useState("");
   const [financialYear, setFinancialYear] = useState("2025-26");
   const [month, setMonth] = useState("All Months");
@@ -36,9 +36,8 @@ export default function GeneralLedger() {
       const [sumRes, listRes] = await Promise.allSettled([getGLSummary(), getGLEnriched()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_GL_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows(DEMO_GL_LIST);
+      else setRows([]);
     } catch {
-      addToast("Using demo general ledger data", "info");
     } finally {
       setLoading(false);
     }

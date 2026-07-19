@@ -26,7 +26,7 @@ const KPI_ICONS = {
 export default function SalesAnalytics() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState(DEMO_SALES);
+  const [data, setData] = useState([]);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [drillTrail, setDrillTrail] = useState(DEMO_SALES.drill_revenue || []);
   const [filters, setFilters] = useState({
@@ -40,11 +40,10 @@ export default function SalesAnalytics() {
       const res = await getSalesAnalytics();
       if (res.data) {
         setData({ ...DEMO_SALES, ...res.data });
-        setDrillTrail(res.data.drill_revenue || DEMO_SALES.drill_revenue);
+        setDrillTrail(res.data.drill_revenue .drill_revenue);
       }
     } catch {
       setData(DEMO_SALES);
-      addToast("Using demo sales analytics", "info");
     } finally {
       setLoading(false);
     }

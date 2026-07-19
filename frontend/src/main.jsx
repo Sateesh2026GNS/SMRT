@@ -5,6 +5,7 @@ import "./i18n";
 import { BrowserRouter } from "react-router-dom";
 
 import App from "./App.jsx";
+import BrandLogo from "./components/common/BrandLogo";
 import ErrorBoundary from "./components/common/ErrorBoundary";
 import { AuthProvider } from "./context/AuthContext.jsx";
 import { SettingsProvider } from "./context/SettingsContext.jsx";
@@ -17,10 +18,13 @@ const LoadingFallback = () => (
     aria-live="polite"
     aria-label="Loading application"
   >
-    <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-teal-100 dark:bg-teal-900/40">
+    <div className="mb-6 rounded-2xl bg-white p-2 shadow-sm dark:bg-slate-800">
+      <BrandLogo size="lg" />
+    </div>
+    <div className="mb-4 flex h-10 w-10 items-center justify-center">
       <div className="h-8 w-8 animate-spin rounded-full border-2 border-teal-600 border-t-transparent dark:border-teal-400" />
     </div>
-    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Loading SMRT…</p>
+    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Loading GNS Insights…</p>
     <p className="ui-hint mt-1 text-center">Preparing your workspace</p>
   </div>
 );

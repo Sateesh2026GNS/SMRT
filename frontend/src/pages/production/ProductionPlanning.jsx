@@ -134,19 +134,10 @@ export default function ProductionPlanning() {
         getProductionPlanningSummary().catch(() => ({ data: null })),
       ]);
       const apiRows = oRes.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((row, i) => enrichApiOrder(row, i));
-        const demoNums = new Set(DEMO_PRODUCTION_ORDERS.map((o) => o.order_number));
-        setOrders([
-          ...DEMO_PRODUCTION_ORDERS,
-          ...enriched.filter((o) => !demoNums.has(o.order_number)),
-        ]);
-      } else {
-        setOrders(DEMO_PRODUCTION_ORDERS);
-      }
+      setOrders(apiRows.map((row, i) => enrichApiOrder(row, i)));
       setApiSummary(sRes.data);
     } catch {
-      setOrders(DEMO_PRODUCTION_ORDERS);
+      setOrders([]);
     } finally {
       setLoading(false);
     }

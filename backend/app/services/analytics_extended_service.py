@@ -46,7 +46,7 @@ def get_production_analytics(db: Session, tenant_id: int, year: int | None = Non
 
     total_out = sum(m["value"] for m in trend)
     planned = round(total_out * 1.08) if total_out else 48_500
-    actual = total_out or 44_820
+    actual = total_out
     efficiency = round(actual / planned * 100, 1) if planned else 92.0
     oee = machine.get("overall_percent") or 78.5
     util = round((machine.get("running", 0) / max(1, machine.get("total_machines", 1))) * 100, 1)
@@ -188,10 +188,10 @@ def get_sales_analytics(db: Session, tenant_id: int, year: int | None = None) ->
         from app.services.sales_extended_service import get_sales_hub, get_so_summary
         hub = get_sales_hub(db, tenant_id)
         so = get_so_summary(db, tenant_id)
-        revenue = hub.monthly_revenue or so.revenue or 8_500_000
-        orders = hub.total_orders or so.total_orders or 120
-        pending = hub.pending_orders or so.pending or 18
-        customers = hub.new_customers or 18
+        revenue = hub.monthly_revenue or so.revenue
+        orders = hub.total_orders or so.total_orders
+        pending = hub.pending_orders or so.pending
+        customers = hub.new_customers
         top_cust = hub.top_customers or []
     except Exception:
         revenue, orders, pending, customers = 8_500_000, 120, 18, 18

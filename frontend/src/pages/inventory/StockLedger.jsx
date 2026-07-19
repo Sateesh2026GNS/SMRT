@@ -32,7 +32,7 @@ export default function StockLedger() {
       const [sumRes, listRes] = await Promise.allSettled([getLedgerSummary(), getStockLedger()]);
       if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_LEDGER_SUMMARY, ...sumRes.value.data });
       if (listRes.status === "fulfilled" && listRes.value?.data?.length) setEntries(listRes.value.data);
-    } catch { addToast("Using demo ledger data", "info"); }
+    } catch { }
     finally { setLoading(false); }
   }, [addToast]);
 

@@ -38,7 +38,7 @@ export default function InventoryDashboard() {
     try {
       const res = await getInventoryHub();
       if (res?.data) setHub({ ...DEMO_INVENTORY_HUB, ...res.data });
-    } catch { addToast("Using demo inventory hub data", "info"); }
+    } catch { }
     finally { setLoading(false); }
   }, [addToast]);
 

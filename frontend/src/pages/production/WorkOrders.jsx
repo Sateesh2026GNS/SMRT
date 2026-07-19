@@ -33,7 +33,6 @@ import {
 } from "../../api/productionApi";
 import {
   DEMO_WO_SUMMARY,
-  DEMO_WORK_ORDERS,
   DEPARTMENTS,
   PRIORITIES,
   SHIFTS,
@@ -149,16 +148,10 @@ export default function WorkOrders() {
         getWorkOrderSummary(poId).catch(() => ({ data: null })),
       ]);
       const apiRows = wRes.data || [];
-      if (apiRows.length > 0) {
-        const enriched = apiRows.map((r, i) => enrichApiWorkOrder(r, i));
-        const demoNums = new Set(DEMO_WORK_ORDERS.map((w) => w.work_order_number));
-        setWorkOrders([...DEMO_WORK_ORDERS, ...enriched.filter((w) => !demoNums.has(w.work_order_number))]);
-      } else {
-        setWorkOrders(DEMO_WORK_ORDERS);
-      }
+      setWorkOrders(apiRows.map((r, i) => enrichApiWorkOrder(r, i)));
       setApiSummary(sRes.data);
     } catch {
-      setWorkOrders(DEMO_WORK_ORDERS);
+      setWorkOrders([]);
     } finally {
       setLoading(false);
     }
