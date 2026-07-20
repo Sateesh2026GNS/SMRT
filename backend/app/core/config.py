@@ -61,9 +61,14 @@ class Settings(BaseSettings):
     # SMS OTP (optional — logs OTP in development when unset)
     sms_api_key: str = ""
 
-    # CORS: comma-separated list of allowed origins
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
-
+    cors_origins: str = (
+    "http://localhost:5174,"
+    "http://127.0.0.1:5174,"
+    "http://localhost:5173,"
+    "http://127.0.0.1:5173,"
+    "http://localhost:3000"
+    )
+    
     # LLM / AI Operator Assistant (OpenAI-compatible API)
     llm_api_key: str = ""
     llm_base_url: str = "https://api.openai.com/v1"
