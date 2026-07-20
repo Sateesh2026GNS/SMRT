@@ -1,0 +1,190 @@
+"""Login audit trail — success, failure, and logout updates."""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+
+from fastapi import HTTPException, status
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.permissions import user_is_admin
+from app.models.security import LoginHistory
+from app.models.user import User
+from app.utils.user_agent import parse_user_agent
+
+logger = logging.getLogger("gns_insights.login_history")
+
+STATUS_SUCCESS = "Success"
+STATUS_FAILED = "Failed"
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _format_row(row: LoginHistory) -> dict:
+    login_at = row.login_at
+    if login_at and login_at.tzinfo is None:
+        login_at = login_at.replace(tzinfo=timezone.utc)
+    logout_at = row.logout_at
+    if logout_at and logout_at.tzinfo is None:
+        logout_at = logout_at.replace(tzinfo=timezone.utc)
+
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "company_id": row.company_id,
+        "full_name": row.full_name,
+        "company_name": row.company_name,
+        "email": row.email,
+        "role": row.role,
+        "ip_address": row.ip_address,
+        "browser": row.browser,
+        "operating_system": row.operating_system,
+        "device_type": row.device_type,
+        "login_status": row.login_status,
+        "login_at": login_at,
+        "logout_at": logout_at,
+        "created_at": row.created_at,
+        "login_date": login_at.strftime("%Y-%m-%d") if login_at else None,
+        "login_time": login_at.strftime("%H:%M:%S") if login_at else None,
+        "logout_time": logout_at.strftime("%H:%M:%S") if logout_at else None,
+    }
+
+
+def record_login_history(
+    db: Session,
+    *,
+    email: str,
+    success: bool,
+    user: User | None = None,
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    role: str | None = None,
+) -> LoginHistory:
+    """Insert a login_history row for success or failure."""
+    parsed = parse_user_agent(user_agent)
+    company_id = None
+    company_name = None
+    full_name = None
+    user_id = None
+    resolved_role = role
+
+    if user is not None:
+        user_id = user.id
+        full_name = user.full_name
+        company_id = user.tenant_id
+        if getattr(user, "tenant", None) is not None:
+            company_name = user.tenant.name
+        else:
+            db.refresh(user, ["tenant"])
+            company_name = user.tenant.name if user.tenant else None
+        if not resolved_role:
+            resolved_role = user.roles[0].name if user.roles else None
+
+    row = LoginHistory(
+        user_id=user_id,
+        company_id=company_id,
+        full_name=full_name,
+        company_name=company_name,
+        email=(email or "").lower().strip(),
+        role=resolved_role,
+        ip_address=ip_address,
+        browser=parsed["browser"],
+        operating_system=parsed["operating_system"],
+        device_type=parsed["device_type"],
+        login_status=STATUS_SUCCESS if success else STATUS_FAILED,
+        login_at=_utcnow(),
+        logout_at=None,
+        user_agent=(user_agent or "")[:512] or None,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    logger.info(
+        "login_history_recorded status=%s email=%s user_id=%s company_id=%s",
+        row.login_status,
+        row.email,
+        row.user_id,
+        row.company_id,
+    )
+    return row
+
+
+def mark_logout(
+    db: Session,
+    *,
+    user_id: int | None = None,
+    email: str | None = None,
+) -> LoginHistory | None:
+    """Set logout_at on the latest open successful session for the user."""
+    stmt = (
+        select(LoginHistory)
+        .where(
+            LoginHistory.login_status == STATUS_SUCCESS,
+            LoginHistory.logout_at.is_(None),
+        )
+        .order_by(LoginHistory.login_at.desc())
+    )
+    if user_id is not None:
+        stmt = stmt.where(LoginHistory.user_id == user_id)
+    elif email:
+        stmt = stmt.where(LoginHistory.email == email.lower().strip())
+    else:
+        return None
+
+    row = db.scalars(stmt).first()
+    if not row:
+        return None
+    row.logout_at = _utcnow()
+    db.commit()
+    db.refresh(row)
+    logger.info("login_history_logout id=%s user_id=%s", row.id, row.user_id)
+    return row
+
+
+def list_for_user(db: Session, user_id: int, *, limit: int = 200) -> list[dict]:
+    rows = db.scalars(
+        select(LoginHistory)
+        .where(LoginHistory.user_id == user_id)
+        .order_by(LoginHistory.login_at.desc())
+        .limit(limit)
+    ).all()
+    return [_format_row(r) for r in rows]
+
+
+def list_for_company(db: Session, company_id: int, *, limit: int = 500) -> list[dict]:
+    rows = db.scalars(
+        select(LoginHistory)
+        .where(LoginHistory.company_id == company_id)
+        .order_by(LoginHistory.login_at.desc())
+        .limit(limit)
+    ).all()
+    return [_format_row(r) for r in rows]
+
+
+def list_visible(db: Session, current_user: User, *, limit: int = 500) -> list[dict]:
+    """Admins see company history; others see only their own."""
+    if user_is_admin(current_user):
+        return list_for_company(db, current_user.tenant_id, limit=limit)
+    return list_for_user(db, current_user.id, limit=limit)
+
+
+def delete_history(db: Session, *, history_id: int, admin: User) -> None:
+    if not user_is_admin(admin):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator privileges are required.",
+        )
+    row = db.get(LoginHistory, history_id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Login history not found.")
+    if row.company_id != admin.tenant_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Cannot delete login history outside your company.",
+        )
+    db.delete(row)
+    db.commit()
