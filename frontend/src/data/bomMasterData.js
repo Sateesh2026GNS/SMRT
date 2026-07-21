@@ -21,13 +21,14 @@ const OFFICE_CHAIR_COMPONENTS = [
 
 export const DEMO_BOMS = [];
 
-export function computeBomSummary(boms) {
+export function computeBomSummary(boms, totalProducts = 0) {
+  const productsWithBom = new Set(boms.map((b) => b.product_name || b.product).filter(Boolean)).size;
   return {
     total: boms.length,
     active: boms.filter((b) => b.status === "active").length,
     draft: boms.filter((b) => b.status === "draft").length,
     inactive: boms.filter((b) => b.status === "inactive").length,
-    withoutBom: 2,
+    withoutBom: Math.max(0, totalProducts - productsWithBom),
     pendingApproval: boms.filter((b) => b.status === "pending_approval" || (b.status === "draft" && b.approval_workflow?.some((s) => s.step === "Submitted" && s.status === "pending"))).length,
   };
 }

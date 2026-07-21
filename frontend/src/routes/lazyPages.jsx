@@ -36,6 +36,8 @@ export const Suppliers = lazy(() => import("../pages/inventory/Suppliers"));
 export const CreateItem = lazy(() => import("../pages/inventory/CreateItem"));
 export const CreateWarehouse = lazy(() => import("../pages/inventory/CreateWarehouse"));
 export const CreateSupplier = lazy(() => import("../pages/inventory/CreateSupplier"));
+
+// HR
 export const HRDashboard = lazy(() => import("../pages/hr/HRDashboard"));
 export const Attendance = lazy(() => import("../pages/hr/Attendance"));
 export const Shifts = lazy(() => import("../pages/hr/Shifts"));
@@ -48,6 +50,12 @@ export const CreatePayroll = lazy(() => import("../pages/hr/CreatePayroll"));
 export const CreatePerformance = lazy(() => import("../pages/hr/CreatePerformance"));
 export const Leave = lazy(() => import("../pages/hr/Leave"));
 export const CreateLeave = lazy(() => import("../pages/hr/CreateLeave"));
+export const AssetManagement = lazy(() => import("../pages/hr/AssetManagement"));
+export const CreateAsset = lazy(() => import("../pages/hr/CreateAsset"));
+export const IncidentReports = lazy(() => import("../pages/hr/IncidentReports"));
+export const CreateIncident = lazy(() => import("../pages/hr/CreateIncident"));
+export const HRDocuments = lazy(() => import("../pages/hr/HRDocuments"));
+
 export const Leads = lazy(() => import("../pages/sales/Leads"));
 export const Quotations = lazy(() => import("../pages/sales/Quotations"));
 export const Dispatch = lazy(() => import("../pages/sales/Dispatch"));
@@ -65,12 +73,24 @@ export const AccountsPayable = lazy(() => import("../pages/finance/AccountsPayab
 export const AccountsReceivable = lazy(() => import("../pages/finance/AccountsReceivable"));
 export const GeneralLedger = lazy(() => import("../pages/finance/GeneralLedger"));
 export const CreatePayment = lazy(() => import("../pages/sales/CreatePayment"));
+
+// Accounts
 export const AccountsDashboard = lazy(() => import("../pages/accounts/AccountsDashboard"));
 export const ProfitLoss = lazy(() => import("../pages/accounts/ProfitLoss"));
 export const ExpenseTracking = lazy(() => import("../pages/accounts/ExpenseTracking"));
 export const TaxReports = lazy(() => import("../pages/accounts/TaxReports"));
 export const RecordIncome = lazy(() => import("../pages/accounts/RecordIncome"));
 export const RecordExpense = lazy(() => import("../pages/accounts/RecordExpense"));
+export const BalanceSheet = lazy(() => import("../pages/accounts/BalanceSheet"));
+export const JournalEntries = lazy(() => import("../pages/accounts/JournalEntries"));
+export const ChartOfAccounts = lazy(() => import("../pages/accounts/ChartOfAccounts"));
+export const TrialBalance = lazy(() => import("../pages/accounts/TrialBalance"));
+export const BudgetActual = lazy(() => import("../pages/accounts/BudgetActual"));
+export const CostAllocation = lazy(() => import("../pages/accounts/CostAllocation"));
+export const FixedAssets = lazy(() => import("../pages/accounts/FixedAssets"));
+export const MultiBranchLedger = lazy(() => import("../pages/accounts/MultiBranchLedger"));
+export const YearClosing = lazy(() => import("../pages/accounts/YearClosing"));
+
 export const PurchaseOrders = lazy(() => import("../pages/procurement/PurchaseOrders"));
 export const CreatePurchaseOrder = lazy(() => import("../pages/procurement/CreatePurchaseOrder"));
 export const VendorManagement = lazy(() => import("../pages/procurement/VendorManagement"));

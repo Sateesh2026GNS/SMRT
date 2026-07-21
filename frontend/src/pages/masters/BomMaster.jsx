@@ -18,6 +18,7 @@ import Loader from "../../components/common/Loader";
 import BomDetailModal, { BomFormModal } from "../../components/masters/BomDetailModal";
 import { useToast } from "../../context/ToastContext";
 import { getBillOfMaterials } from "../../api/bomApi";
+import { getProducts } from "../../api/productsApi";
 import {
   BOM_STATUSES,
   BOM_VERSIONS,
@@ -64,6 +65,7 @@ export default function BomMaster() {
   const { addToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [boms, setBoms] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [selected, setSelected] = useState(null);
   const [formBom, setFormBom] = useState(null);
   const [filters, setFilters] = useState({
@@ -78,9 +80,11 @@ export default function BomMaster() {
   const loadBoms = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getBillOfMaterials();
-      const apiRows = res.data || [];
-      setBoms(groupApiBomRows(apiRows));
+      const [bomRes, prodRes] = await Promise.all([getBillOfMaterials(), getProducts()]);
+      const apiRows = bomRes.data || [];
+      const grouped = groupApiBomRows(apiRows);
+      setBoms(grouped);
+      setTotalProducts((prodRes.data || []).length);
     } catch {
       setBoms([]);
     } finally {
@@ -104,7 +108,7 @@ export default function BomMaster() {
     });
   }, [boms, filters]);
 
-  const summary = useMemo(() => computeBomSummary(filteredBoms), [filteredBoms]);
+  const summary = useMemo(() => computeBomSummary(filteredBoms, totalProducts), [filteredBoms, totalProducts]);
 
   const warehouses = useMemo(() => [...new Set(boms.map((b) => b.warehouse).filter(Boolean))], [boms]);
   const creators = useMemo(() => [...new Set(boms.map((b) => b.created_by).filter(Boolean))], [boms]);

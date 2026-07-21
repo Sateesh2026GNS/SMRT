@@ -145,21 +145,7 @@ export default function Warehouses() {
     });
   }, [warehouses, filters]);
 
-  const summary = useMemo(() => {
-    if (apiSummary && !Object.values(filters).some(Boolean)) {
-      return {
-        total: apiSummary.total_warehouses,
-        active: apiSummary.active_warehouses,
-        inactive: apiSummary.total_warehouses - apiSummary.active_warehouses,
-        primary: apiSummary.primary_warehouse || "—",
-        utilizationPct: apiSummary.storage_utilization_pct,
-        inventoryValue: apiSummary.total_inventory_value,
-        lowStockWarehouses: apiSummary.low_stock_warehouses,
-        pendingTransfers: apiSummary.pending_transfers,
-      };
-    }
-    return computeWarehouseSummary(filtered);
-  }, [apiSummary, filtered, filters]);
+  const summary = useMemo(() => computeWarehouseSummary(filtered), [filtered]);
 
   const exportColumns = [
     { key: "code", label: "Code" },

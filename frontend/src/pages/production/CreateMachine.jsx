@@ -21,7 +21,6 @@ export default function CreateMachine() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    tenant_id: tenantId,
     code: "",
     name: "",
     status: "idle",
@@ -35,14 +34,27 @@ export default function CreateMachine() {
     setSaving(true);
     try {
       await createMachine({
-        ...form,
+        tenant_id: tenantId,
         code: form.code.trim(),
         name: form.name.trim(),
+        status: form.status,
         location: form.location.trim() || null,
+        is_active: form.is_active,
       });
       navigate("/production/machines");
     } catch (err) {
-      setError(err.response?.data?.detail || err.message || "Save failed.");
+      const detail = err.response?.data?.detail || err.response?.data?.message;
+      const status = err.response?.status;
+      if (status === 422) {
+        const errors = err.response?.data?.errors;
+        setError(Array.isArray(errors) ? errors.join(", ") : "Validation error — check all fields.");
+      } else if (status === 409) {
+        setError("A machine with this code already exists.");
+      } else if (detail) {
+        setError(detail);
+      } else {
+        setError("Save failed. Please try again.");
+      }
     } finally {
       setSaving(false);
     }
