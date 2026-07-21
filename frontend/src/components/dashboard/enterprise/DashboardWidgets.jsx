@@ -345,7 +345,7 @@ export function LiveProductionWidget() {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="rounded-xl bg-gradient-to-br from-[#0F172A] to-[#1e3a5f] p-4 text-white">
           <p className="text-xs text-slate-300">Current Output</p>
-          <p className="text-2xl font-bold">{liveProduction.currentOutput.toLocaleString()}</p>
+          <p className="text-2xl font-bold">{Number(liveProduction?.currentOutput ?? 0).toLocaleString()}</p>
           <p className="text-xs text-slate-400">units today</p>
         </div>
         <div className="rounded-xl bg-slate-50 p-4">

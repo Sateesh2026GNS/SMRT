@@ -278,7 +278,7 @@ function OrdersOverview({ overview = EMPTY_ORDERS }) {
         {stats.map((s) => (
           <div key={s.labelKey} className="rounded-xl bg-slate-50 px-3 py-2.5 text-center">
             <p className="text-[10px] font-medium text-slate-500">{t(`refDashboard.${s.labelKey}`)}</p>
-            <p className={`text-xl font-bold tabular-nums ${s.color}`}>{s.value.toLocaleString()}</p>
+            <p className={`text-xl font-bold tabular-nums ${s.color}`}>{Number(s.value ?? 0).toLocaleString()}</p>
           </div>
         ))}
       </div>
@@ -312,11 +312,11 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
           const labelKey = INVENTORY_KEYS[i];
           return (
             <div key={b.label} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3 py-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `${b.color}18`, color: b.color }}>
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg" style={{ backgroundColor: `${b.color || "#2563EB"}18`, color: b.color || "#2563EB" }}>
                 <Icon className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-lg font-bold text-slate-800">{b.count.toLocaleString()}</p>
+                <p className="text-lg font-bold text-slate-800">{Number(b.count ?? b.quantity ?? 0).toLocaleString()}</p>
                 <p className="text-[10px] text-slate-500 leading-tight">
                   {labelKey ? t(`refDashboard.${labelKey}`) : b.label}
                 </p>
@@ -328,13 +328,13 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
       <p className="mb-2 text-xs font-semibold text-slate-600">{t("refDashboard.warehouseLocation")}</p>
       <div className="flex h-3 overflow-hidden rounded-full">
         {warehouses.map((w, i) => (
-          <div key={w.name} style={{ width: `${w.pct}%`, backgroundColor: w.color }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name} />
+          <div key={w.name} style={{ width: `${w.pct || 0}%`, backgroundColor: w.color || "#94A3B8" }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name} />
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
         {warehouses.map((w, i) => (
           <span key={w.name} className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: w.color }} />
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: w.color || "#94A3B8" }} />
             {WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name}
           </span>
         ))}
@@ -551,7 +551,7 @@ export default function ReferenceDashboard() {
       </div>
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-        <OrdersOverview overview={apiData?.orders_overview || EMPTY_ORDERS} />
+        <OrdersOverview overview={{ ...EMPTY_ORDERS, ...(apiData?.orders_overview || {}) }} />
         <InventorySummary blocks={apiData?.inventory_blocks || []} warehouses={apiData?.warehouse_locations || []} />
         <AlertsNotifications alerts={alertsLive} />
       </div>

@@ -260,20 +260,28 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
 
     warehouses = list(db.scalars(select(Warehouse).where(Warehouse.tenant_id == tenant_id)).all())
     warehouse_locations = []
+    wh_qtys = []
     for wh in warehouses[:8]:
         wh_levels = [sl for sl in levels if sl.warehouse_id == wh.id]
+        qty = sum(float(sl.quantity or 0) for sl in wh_levels)
+        wh_qtys.append((wh, qty))
+    total_wh_qty = sum(q for _, q in wh_qtys) or 1.0
+    wh_colors = ["#2563EB", "#22C55E", "#F59E0B", "#A855F7", "#EF4444", "#06B6D4", "#64748B", "#EC4899"]
+    for i, (wh, qty) in enumerate(wh_qtys):
         warehouse_locations.append({
             "id": wh.id,
             "name": wh.name,
             "code": getattr(wh, "code", None),
-            "quantity": sum(float(sl.quantity or 0) for sl in wh_levels),
+            "quantity": qty,
+            "pct": round((qty / total_wh_qty) * 100, 1),
+            "color": wh_colors[i % len(wh_colors)],
         })
 
     inventory_blocks = [
-        {"key": "raw", "label": "Raw Materials", "quantity": int(raw_qty), "value": round(raw_value, 2)},
-        {"key": "wip", "label": "WIP", "quantity": int(wip_qty), "value": 0},
-        {"key": "fg", "label": "Finished Goods", "quantity": int(fg_qty), "value": round(fg_value, 2)},
-        {"key": "low_stock", "label": "Low Stock Items", "quantity": low_stock, "value": 0},
+        {"key": "raw", "label": "Raw Materials", "count": int(raw_qty), "quantity": int(raw_qty), "value": round(raw_value, 2), "color": "#2563EB", "icon": "boxes"},
+        {"key": "wip", "label": "WIP", "count": int(wip_qty), "quantity": int(wip_qty), "value": 0, "color": "#F59E0B", "icon": "cog"},
+        {"key": "fg", "label": "Finished Goods", "count": int(fg_qty), "quantity": int(fg_qty), "value": round(fg_value, 2), "color": "#22C55E", "icon": "package"},
+        {"key": "low_stock", "label": "Low Stock Items", "count": low_stock, "quantity": low_stock, "value": 0, "color": "#EF4444", "icon": "alert"},
     ]
 
     so_today = int(
