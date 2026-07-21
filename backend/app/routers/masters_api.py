@@ -12,7 +12,7 @@ from app.schemas.production import MachineCreate, MachineStatusEventCreate, Mach
 from app.services.machine_service import get_machine_summary
 from app.services.masters_service import MastersService
 from app.services.production_service import (
-    create_machine,
+    create_machine as _create_machine_svc,
     create_machine_status_event,
     list_machine_status_events,
     update_machine_status,
@@ -194,7 +194,7 @@ def create_machine_simple(
 ):
     _, tenant_id = user_tenant
     payload.tenant_id = tenant_id
-    machine = create_machine(db, payload)
+    machine = _create_machine_svc(db, payload)
     return success_response("Machine created", _dump(machine))
 
 

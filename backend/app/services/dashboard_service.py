@@ -183,6 +183,15 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
 
     today_production = int(sum(float(r.produced_quantity or 0) for r in today_reports))
     yesterday_production = int(sum(float(r.produced_quantity or 0) for r in yesterday_reports))
+    # Fallback: sum actual_quantity from today's completed/running work orders
+    if today_production == 0:
+        wo_actual = db.scalar(
+            select(func.sum(WorkOrder.actual_quantity)).where(
+                WorkOrder.tenant_id == tenant_id,
+                WorkOrder.status.in_(("completed", "in_progress", "running", "done")),
+            )
+        )
+        today_production = int(wo_actual or 0)
     good_qty = today_production
     reject_qty = int(sum(float(r.scrap_quantity or 0) for r in today_reports))
 
@@ -287,6 +296,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": "0%",
                 "trendUp": True,
                 "trendLabel": "vs last 7 days",
+                "link": "/production/planning",
             },
             {
                 "id": "today-production",
@@ -296,6 +306,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": f"{prod_trend}%",
                 "trendUp": prod_up,
                 "trendLabel": "vs yesterday",
+                "link": "/production/reports",
             },
             {
                 "id": "machines-running",
@@ -305,6 +316,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": f"{machine_pct}%",
                 "trendUp": True,
                 "trendLabel": "vs total machines",
+                "link": "/production/machines",
             },
             {
                 "id": "pending-orders",
@@ -313,6 +325,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": "0%",
                 "trendUp": False,
                 "trendLabel": "vs last 7 days",
+                "link": "/production/work-orders",
             },
             {
                 "id": "good-qty",
@@ -322,6 +335,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": f"{good_trend}%",
                 "trendUp": good_up,
                 "trendLabel": "vs yesterday",
+                "link": "/production/reports",
             },
             {
                 "id": "reject-qty",
@@ -331,6 +345,7 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
                 "trend": f"{reject_trend}%",
                 "trendUp": not reject_up,
                 "trendLabel": "vs yesterday",
+                "link": "/production/reports",
             },
         ],
         "production_overview": overview,

@@ -213,12 +213,13 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "hr",
         "children": [
+            {"label": "HR Dashboard", "path": "/hr", "module": "hr"},
             {"label": "Employees", "path": "/hr/employees", "module": "hr"},
             {"label": "Attendance", "path": "/hr/attendance", "module": "attendance"},
             {"label": "Leave", "path": "/hr/leave", "module": "hr"},
             {"label": "Payroll", "path": "/hr/payroll", "module": "hr"},
             {"label": "Asset Management", "path": "/hr/assets", "module": "hr"},
-            {"label": "Incident Reports", "path": "/hr/incidents", "module": "hr"},
+            {"label": "Safety & Incidents", "path": "/hr/incidents", "module": "hr"},
             {"label": "HR Documents", "path": "/hr/documents", "module": "hr"},
         ],
     },
@@ -228,6 +229,7 @@ SIDEBAR_MENU_CATALOG = [
         "path": None,
         "module": "accounts",
         "children": [
+            {"label": "Finance Dashboard", "path": "/accounts", "module": "accounts"},
             {"label": "Accounts Payable", "path": "/finance/accounts-payable", "module": "accounts"},
             {"label": "Accounts Receivable", "path": "/finance/accounts-receivable", "module": "accounts"},
             {"label": "Payment Tracking", "path": "/finance/payment-tracking", "module": "accounts"},

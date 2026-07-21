@@ -32,19 +32,12 @@ import {
 } from "lucide-react";
 
 import EmptyChart from "../../common/EmptyChart";
-import {
-  quickActionsRef,
-} from "../../../data/referenceDashboardData";
+import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
 import { userCanAccess } from "../../../config/permissions";
-import {
-  CardShell,
-  KpiIcon,
-  StatusBadge,
-  TrendBadge,
-} from "./ReferenceParts";
+import { CardShell, KpiIcon, StatusBadge, TrendBadge } from "./ReferenceParts";
 
 const tooltipStyle = {
   borderRadius: 10,
@@ -81,14 +74,6 @@ const WAREHOUSE_KEYS = ["mainStore", "productionStore", "fgStore", "others"];
 const QUICK_ACTION_KEYS = ["newWorkOrder", "productionEntry", "materialIssue", "stockTransfer", "qcEntry", "reports"];
 const QUICK_ACTION_MODULES = ["production", "production", "inventory", "inventory", "quality", "analytics"];
 const SUMMARY_KEYS = ["manPower", "workingHours", "powerConsumption", "productionEfficiency", "targetAchievement"];
-const ALERT_MESSAGE_KEYS = ["alertDelayed", "alertMaintenance", "alertLowStock", "alertQuality", "alertPurchase"];
-const ALERT_TIME_META = [
-  { key: "minAgo", count: 10 },
-  { key: "minAgo", count: 25 },
-  { key: "hrAgo", count: 1 },
-  { key: "hrsAgo", count: 2 },
-  { key: "hrsAgo", count: 3 },
-];
 
 const KPI_STYLE = {
   "total-orders": { gradient: "from-blue-600 to-blue-500", iconBg: "bg-white/20" },
@@ -100,31 +85,11 @@ const KPI_STYLE = {
 };
 
 const EMPTY_ORDERS = { total: 0, inProgress: 0, completed: 0, onHold: 0, progress: 0 };
-
 const PERIOD_KEYS = { Daily: "daily", Weekly: "weekly", Monthly: "monthly" };
 
-const summaryIcons = {
-  users: Users,
-  clock: Clock,
-  zap: Zap,
-  gauge: Gauge,
-  target: Target,
-};
-
-const alertIcons = {
-  alert: AlertTriangle,
-  wrench: Wrench,
-  box: Package,
-  check: CheckCircle2,
-  cart: ShoppingCart,
-};
-
-const blockIcons = {
-  boxes: Boxes,
-  cog: Wrench,
-  package: Package,
-  alert: AlertTriangle,
-};
+const summaryIcons = { users: Users, clock: Clock, zap: Zap, gauge: Gauge, target: Target };
+const alertIcons = { alert: AlertTriangle, wrench: Wrench, box: Package, check: CheckCircle2, cart: ShoppingCart };
+const blockIcons = { boxes: Boxes, cog: Wrench, package: Package, alert: AlertTriangle };
 
 function KpiStrip({ cards = [] }) {
   const { t } = useTranslation();
@@ -141,32 +106,33 @@ function KpiStrip({ cards = [] }) {
         const titleKey = KPI_TITLE_KEYS[card.id];
         const trendKey = TREND_LABEL_KEYS[card.trendLabel];
         const style = KPI_STYLE[card.id] || KPI_STYLE["total-orders"];
-        return (
-          <div
-            key={card.id}
-            className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${style.gradient} p-4 text-white shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5`}
-          >
-            <div className="flex items-start gap-3">
-              <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${style.iconBg}`}>
-                <KpiIcon id={card.id} className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-medium text-white/85 leading-tight">
-                  {titleKey ? t(`refDashboard.${titleKey}`) : card.title}
-                </p>
-                <p className="mt-1 text-2xl font-bold tabular-nums leading-none">
-                  {card.value}
-                  {card.unit && <span className="ml-1 text-sm font-semibold">{card.unit}</span>}
-                  {card.suffix && <span className="text-lg font-semibold text-white/80">{card.suffix}</span>}
-                </p>
-                <TrendBadge
-                  up={card.trendUp}
-                  value={card.trend}
-                  label={trendKey ? t(`refDashboard.${trendKey}`) : card.trendLabel}
-                />
-              </div>
+        const cls = `relative overflow-hidden rounded-2xl bg-gradient-to-br ${style.gradient} p-4 text-white shadow-[0_4px_14px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 block`;
+        const inner = (
+          <div className="flex items-start gap-3">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${style.iconBg}`}>
+              <KpiIcon id={card.id} className="h-6 w-6 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium text-white/85 leading-tight">
+                {titleKey ? t(`refDashboard.${titleKey}`) : card.title}
+              </p>
+              <p className="mt-1 text-2xl font-bold tabular-nums leading-none">
+                {card.value}
+                {card.unit && <span className="ml-1 text-sm font-semibold">{card.unit}</span>}
+                {card.suffix && <span className="text-lg font-semibold text-white/80">{card.suffix}</span>}
+              </p>
+              <TrendBadge
+                up={card.trendUp}
+                value={card.trend}
+                label={trendKey ? t(`refDashboard.${trendKey}`) : card.trendLabel}
+              />
             </div>
           </div>
+        );
+        return card.link ? (
+          <Link key={card.id} to={card.link} className={cls}>{inner}</Link>
+        ) : (
+          <div key={card.id} className={cls}>{inner}</div>
         );
       })}
     </div>
@@ -199,17 +165,17 @@ function ProductionOverview({ chartSets }) {
     >
       <div className="h-[260px] w-full">
         {hasChartData ? (
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} key={period}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
-            <Line type="monotone" dataKey="planned" name={t("refDashboard.plannedQty")} stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3, fill: "#3B82F6" }} />
-            <Line type="monotone" dataKey="actual" name={t("refDashboard.actualQty")} stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3, fill: "#22C55E" }} />
-          </LineChart>
-        </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }} key={period}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />
+              <Line type="monotone" dataKey="planned" name={t("refDashboard.plannedQty")} stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3, fill: "#3B82F6" }} />
+              <Line type="monotone" dataKey="actual" name={t("refDashboard.actualQty")} stroke="#22C55E" strokeWidth={2.5} dot={{ r: 3, fill: "#22C55E" }} />
+            </LineChart>
+          </ResponsiveContainer>
         ) : (
           <EmptyChart message={t("common.noData", "No data available.")} />
         )}
@@ -230,11 +196,11 @@ function ShopFloorStatus({ statusData = [] }) {
   }
   return (
     <CardShell title={t("refDashboard.shopFloorStatus")} className="h-full">
-      <div className="flex flex-col items-center gap-3 sm:flex-row">
-        <div className="relative h-[180px] w-[180px] shrink-0">
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative h-[160px] w-[160px] shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={statusData} dataKey="value" cx="50%" cy="50%" innerRadius={55} outerRadius={78} paddingAngle={2}>
+              <Pie data={statusData} dataKey="value" cx="50%" cy="50%" innerRadius={48} outerRadius={68} paddingAngle={2}>
                 {statusData.map((e) => (
                   <Cell key={e.name} fill={e.color} stroke="none" />
                 ))}
@@ -246,16 +212,16 @@ function ShopFloorStatus({ statusData = [] }) {
             <span className="text-2xl font-bold text-[#1E293B]">{total}</span>
           </div>
         </div>
-        <ul className="flex-1 space-y-2 text-sm">
+        <ul className="w-full space-y-2 text-sm">
           {statusData.map((item) => {
             const key = SHOP_FLOOR_KEYS[item.name];
             return (
               <li key={item.name} className="flex items-center justify-between gap-2">
                 <span className="flex items-center gap-2 text-slate-600">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  {key ? t(`refDashboard.${key}`) : item.name}
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span>{key ? t(`refDashboard.${key}`) : item.name}</span>
                 </span>
-                <span className="font-bold text-slate-800">{item.value}</span>
+                <span className="shrink-0 font-bold text-slate-800">{item.value}</span>
               </li>
             );
           })}
@@ -362,11 +328,7 @@ function InventorySummary({ blocks = [], warehouses = [] }) {
       <p className="mb-2 text-xs font-semibold text-slate-600">{t("refDashboard.warehouseLocation")}</p>
       <div className="flex h-3 overflow-hidden rounded-full">
         {warehouses.map((w, i) => (
-          <div
-            key={w.name}
-            style={{ width: `${w.pct}%`, backgroundColor: w.color }}
-            title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name}
-          />
+          <div key={w.name} style={{ width: `${w.pct}%`, backgroundColor: w.color }} title={WAREHOUSE_KEYS[i] ? t(`refDashboard.${WAREHOUSE_KEYS[i]}`) : w.name} />
         ))}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
@@ -391,22 +353,22 @@ function AlertsNotifications({ alerts = [] }) {
       {!alerts.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
       ) : (
-      <ul className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
-        {alerts.map((a, i) => {
-          const Icon = alertIcons[a.icon] || AlertTriangle;
-          return (
-            <li key={a.id || i} className="flex gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${a.color}18`, color: a.color }}>
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
-                <p className="mt-0.5 text-[11px] text-slate-400">{a.time || "—"}</p>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+        <ul className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+          {alerts.map((a, i) => {
+            const Icon = alertIcons[a.icon] || AlertTriangle;
+            return (
+              <li key={a.id || i} className="flex gap-3">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${a.color}18`, color: a.color }}>
+                  <Icon className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-400">{a.time || "—"}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </CardShell>
   );
@@ -452,30 +414,30 @@ function RecentWorkOrders({ workOrders = [] }) {
       {!workOrders.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noRecords", "No records found.")}</p>
       ) : (
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[420px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wide text-slate-400">
-              <th className="pb-2 pr-3 font-semibold">{t("refDashboard.woNo")}</th>
-              <th className="pb-2 pr-3 font-semibold">{t("refDashboard.product")}</th>
-              <th className="pb-2 pr-3 font-semibold">{t("refDashboard.qty")}</th>
-              <th className="pb-2 pr-3 font-semibold">{t("refDashboard.status")}</th>
-              <th className="pb-2 font-semibold">{t("refDashboard.dueDate")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {workOrders.map((wo) => (
-              <tr key={wo.wo} className="border-b border-slate-50 last:border-0">
-                <td className="py-2.5 pr-3 font-semibold text-[#2563EB]">{wo.wo}</td>
-                <td className="py-2.5 pr-3 text-slate-700">{wo.product}</td>
-                <td className="py-2.5 pr-3 tabular-nums">{wo.qty}</td>
-                <td className="py-2.5 pr-3"><StatusBadge status={wo.status} /></td>
-                <td className="py-2.5 text-slate-500 text-xs">{wo.due}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[420px] text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-[11px] uppercase tracking-wide text-slate-400">
+                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.woNo")}</th>
+                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.product")}</th>
+                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.qty")}</th>
+                <th className="pb-2 pr-3 font-semibold">{t("refDashboard.status")}</th>
+                <th className="pb-2 font-semibold">{t("refDashboard.dueDate")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {workOrders.map((wo) => (
+                <tr key={wo.wo} className="border-b border-slate-50 last:border-0">
+                  <td className="py-2.5 pr-3 font-semibold text-[#2563EB]">{wo.wo}</td>
+                  <td className="py-2.5 pr-3 text-slate-700">{wo.product}</td>
+                  <td className="py-2.5 pr-3 tabular-nums">{wo.qty}</td>
+                  <td className="py-2.5 pr-3"><StatusBadge status={wo.status} /></td>
+                  <td className="py-2.5 text-slate-500 text-xs">{wo.due}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </CardShell>
   );
@@ -534,10 +496,7 @@ export default function ReferenceDashboard() {
 
   const kpiCardsLive = useMemo(() => {
     if (!apiData?.kpi_cards?.length) return [];
-    return apiData.kpi_cards.map((k) => ({
-      ...k,
-      value: k.value ?? "0",
-    }));
+    return apiData.kpi_cards.map((k) => ({ ...k, value: k.value ?? "0" }));
   }, [apiData]);
 
   const chartSets = useMemo(() => {

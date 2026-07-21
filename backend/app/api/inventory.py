@@ -99,8 +99,7 @@ def create_warehouse_full_endpoint(
     payload.tenant_id = user.tenant_id
     wh = create_warehouse_extended(db, payload)
     from app.services.warehouse_service import _to_list_read
-
-    return _to_list_read(db, user.tenant_id, wh)
+    return _to_list_read(db, wh)
 
 
 @router.get("/warehouses/summary", response_model=WarehouseSummaryRead)
