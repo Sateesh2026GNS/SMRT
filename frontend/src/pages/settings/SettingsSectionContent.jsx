@@ -20,6 +20,7 @@ import useSettings from "../../context/SettingsContext";
 import { useToast } from "../../context/ToastContext";
 import AuditLogsPanel from "../../components/settings/AuditLogsPanel";
 import LoginHistoryPanel from "../../components/settings/LoginHistoryPanel";
+import AccountOverviewCard from "../../components/settings/AccountOverviewCard";
 import SettingsDeliveryLocation from "./SettingsDeliveryLocation";
 import SettingsDocumentNumberFormat from "./SettingsDocumentNumberFormat";
 import SettingsMyPermissions from "./SettingsMyPermissions";
@@ -1044,6 +1045,14 @@ function HelpSection() {
   );
 }
 
+function MyAccountSection() {
+  return (
+    <PanelShell title="My Account" description="Your live profile, company, and subscription overview.">
+      <AccountOverviewCard />
+    </PanelShell>
+  );
+}
+
 function AboutSection() {
   const { user } = useAuth();
   return (
@@ -1085,6 +1094,7 @@ function SubscriptionSection() {
 export default function SettingsSectionContent({ sectionId }) {
   const map = useMemo(
     () => ({
+      "my-account": MyAccountSection,
       company: CompanySection,
       users: UsersSection,
       security: SecuritySection,

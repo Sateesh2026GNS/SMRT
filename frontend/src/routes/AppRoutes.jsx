@@ -486,6 +486,7 @@ export default function AppRoutes() {
       <Route path="/admin/audit-logs" element={<ProtectedRoute><P.AccessLogs /></ProtectedRoute>} />
       <Route path="/admin/access-logs" element={<Navigate to="/admin/audit-logs" replace />} />
       <Route path="/admin/integrations" element={<ProtectedRoute><P.IntegrationsDashboard /></ProtectedRoute>} />
+      <Route path="/documents" element={<ProtectedRoute><P.DocumentsDashboard /></ProtectedRoute>} />
       <Route path="/documents/purchase" element={<ProtectedRoute><P.PurchaseDocuments /></ProtectedRoute>} />
       <Route path="/documents/production" element={<ProtectedRoute><P.ProductionFiles /></ProtectedRoute>} />
       <Route path="/documents/quality" element={<ProtectedRoute><P.QualityCertificates /></ProtectedRoute>} />
@@ -493,11 +494,12 @@ export default function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><P.SettingsLayout /></ProtectedRoute>}>
         <Route index element={<P.SettingsHome />} />
         <Route path=":sectionId" element={<P.SettingsSectionPage />} />
-        {/* Legacy deep links → section pages keep working via redirects inside SettingsSectionPage */}
+        {/* Legacy deep links → section pages (must not target the same path or it loops) */}
         <Route path="addresses/billing" element={<Navigate to="/settings/company" replace />} />
         <Route path="addresses/delivery" element={<Navigate to="/settings/inventory" replace />} />
         <Route path="accounts/*" element={<Navigate to="/settings/finance" replace />} />
-        <Route path="documents/*" element={<Navigate to="/settings/documents" replace />} />
+        <Route path="documents/:legacySub/*" element={<Navigate to="/settings/documents" replace />} />
+        <Route path="documents/:legacySub" element={<Navigate to="/settings/documents" replace />} />
       </Route>
       <Route path="/masters/products" element={<ProtectedRoute><P.ProductsMaster /></ProtectedRoute>} />
       <Route path="/masters/bom" element={<ProtectedRoute><P.BomMaster /></ProtectedRoute>} />
