@@ -6,6 +6,8 @@ import RouteFallback from "./components/common/RouteFallback";
 import Navbar from "./components/layout/Navbar";
 import Sidebar from "./components/layout/Sidebar";
 import Breadcrumbs from "./components/common/Breadcrumbs";
+import AiChatWidget from "./components/ai/AiChatWidget";
+import useAuth from "./hooks/useAuth";
 
 /** Routes that render without the ERP shell (sidebar + navbar). */
 function isShellLessRoute(pathname) {
@@ -24,9 +26,42 @@ function isShellLessRoute(pathname) {
   return false;
 }
 
+function isOperatorRole(user) {
+  const role = user?.role_name || user?.role || "";
+  const roles = Array.isArray(user?.roles) ? user.roles : [];
+  const names = roles.map((item) => (typeof item === "string" ? item : item?.name || ""));
+  return role.toLowerCase() === "operator" || names.some((name) => name.toLowerCase() === "operator");
+}
+
+function isOperationsRoute(pathname) {
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+  return (
+    normalized === "/" ||
+    normalized === "/operations" ||
+    normalized.startsWith("/operations/") ||
+    normalized === "/factory-monitor" ||
+    normalized.startsWith("/factory-monitor/") ||
+    normalized === "/iot" ||
+    normalized === "/iot/live-operations" ||
+    normalized.startsWith("/iot/live-operations/") ||
+    normalized.startsWith("/iot/")
+  );
+}
+
+export function shouldShowChatbot(user, pathname) {
+  if (!isOperatorRole(user)) return false;
+  if (!isOperationsRoute(pathname)) return false;
+  if (pathname === "/login" || pathname === "/register" || pathname === "/landing" || pathname === "/forgot-password" || pathname === "/reset-password" || pathname === "/verify-email") return false;
+  if (pathname.startsWith("/gns-admin")) return false;
+  if (pathname.startsWith("/settings")) return false;
+  return true;
+}
+
 export default function App() {
   const location = useLocation();
+  const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const showChatbot = shouldShowChatbot(user, location.pathname);
 
   if (isShellLessRoute(location.pathname)) {
     return (
@@ -67,6 +102,7 @@ export default function App() {
               <AppRoutes />
             </Suspense>
           </div>
+          {showChatbot && <AiChatWidget />}
         </main>
       </div>
     </div>

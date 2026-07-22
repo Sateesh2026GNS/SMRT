@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bot, ChevronDown, History, Loader2, Mic, MicOff, Send, Sparkles, X,
+  Bot, ChevronDown, History, Loader2, Send, Sparkles, X,
 } from "lucide-react";
 
 import { useToast } from "../../context/ToastContext";
@@ -14,11 +14,17 @@ import {
 import AiMessageContent from "./AiMessageContent";
 
 const DEFAULT_SUGGESTIONS = [
-  "Today's Job Cards",
-  "Show today's target",
-  "Machine CNC-01 Status",
-  "Clock In",
-  "Low Stock Items",
+  "Today's Work Orders",
+  "Machine Status",
+  "Today's Production",
+  "My Attendance",
+];
+
+const OPERATION_CARDS = [
+  { title: "Work Orders", prompt: "show today's work orders", description: "Live work orders" },
+  { title: "Machine Status", prompt: "machine status", description: "Machine health" },
+  { title: "Today's Production", prompt: "show today's production", description: "Today's output" },
+  { title: "Attendance", prompt: "my attendance", description: "Shift attendance" },
 ];
 
 export default function AiChatWidget() {
@@ -27,14 +33,12 @@ export default function AiChatWidget() {
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [listening, setListening] = useState(false);
   const [messages, setMessages] = useState([]);
   const [conversationId, setConversationId] = useState(null);
   const [suggestions, setSuggestions] = useState(DEFAULT_SUGGESTIONS);
   const [showHistory, setShowHistory] = useState(false);
   const [conversations, setConversations] = useState([]);
   const bottomRef = useRef(null);
-  const recognitionRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -104,32 +108,6 @@ export default function AiChatWidget() {
     setConversationId(null);
     setMessages([]);
     setShowHistory(false);
-  };
-
-  const toggleVoice = () => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      addToast("Voice input is not supported in this browser", "error");
-      return;
-    }
-    if (listening && recognitionRef.current) {
-      recognitionRef.current.stop();
-      setListening(false);
-      return;
-    }
-    const rec = new SpeechRecognition();
-    rec.lang = "en-IN";
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      const transcript = e.results[0][0].transcript;
-      setInput(transcript);
-      setListening(false);
-    };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => setListening(false);
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
   };
 
   const handleNav = (path) => {
@@ -206,17 +184,19 @@ export default function AiChatWidget() {
             {messages.length === 0 && (
               <div className="text-center">
                 <Bot className="mx-auto mb-2 h-10 w-10 text-blue-200" />
-                <p className="text-sm font-medium text-slate-700">How can I help you today?</p>
-                <p className="mt-1 text-xs text-slate-400">Ask about work orders, machines, production, or attendance.</p>
-                <div className="mt-4 flex flex-wrap justify-center gap-2">
-                  {suggestions.slice(0, 4).map((s) => (
+                <p className="text-sm font-medium text-slate-700">Operations Assistant</p>
+                <p className="mt-1 text-xs text-slate-400">Tap a card or ask a production or attendance question.</p>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  {OPERATION_CARDS.map((card) => (
                     <button
-                      key={s}
+                      key={card.prompt}
                       type="button"
-                      onClick={() => sendMessage(s)}
-                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                      onClick={() => sendMessage(card.prompt)}
+                      disabled={loading}
+                      className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-left hover:bg-blue-100 disabled:opacity-50"
                     >
-                      {s}
+                      <p className="text-xs font-semibold text-blue-700">{card.title}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">{card.description}</p>
                     </button>
                   ))}
                 </div>
@@ -281,16 +261,6 @@ export default function AiChatWidget() {
           {/* Input */}
           <div className="border-t border-slate-100 p-3">
             <div className="flex items-end gap-2">
-              <button
-                type="button"
-                onClick={toggleVoice}
-                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${
-                  listening ? "border-red-300 bg-red-50 text-red-600" : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-                title="Voice input"
-              >
-                {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-              </button>
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

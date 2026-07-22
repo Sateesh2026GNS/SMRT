@@ -2,18 +2,25 @@ import { describe, expect, it } from "vitest";
 import { shouldShowChatbot } from "./App";
 
 describe("shouldShowChatbot", () => {
-  it("shows the chatbot only on operator routes for operator users", () => {
-    expect(shouldShowChatbot({ role: "Operator" }, "/operator/dashboard")).toBe(true);
+  it("shows the chatbot for operator users on the operator landing and operations routes", () => {
+    expect(shouldShowChatbot({ role: "Operator" }, "/")).toBe(true);
+    expect(shouldShowChatbot({ role: "Operator" }, "/factory-monitor/live-production")).toBe(true);
+    expect(shouldShowChatbot({ role: "Operator" }, "/factory-monitor/machine-status")).toBe(true);
+    expect(shouldShowChatbot({ role: "Operator" }, "/iot/live-operations")).toBe(true);
+    expect(shouldShowChatbot({ role: "Operator" }, "/operations")).toBe(true);
   });
 
-  it("hides the chatbot outside operator routes", () => {
-    expect(shouldShowChatbot({ role: "Operator" }, "/accounts")).toBe(false);
-    expect(shouldShowChatbot({ role: "Accountant" }, "/operator/dashboard")).toBe(false);
-  });
-
-  it("hides the chatbot for non-operator modules", () => {
+  it("hides the chatbot for non-operator users and other modules", () => {
+    expect(shouldShowChatbot({ role: "Accountant" }, "/iot/live-operations")).toBe(false);
     expect(shouldShowChatbot({ role: "Production Manager" }, "/production/dashboard")).toBe(false);
-    expect(shouldShowChatbot({ role: "HR Manager" }, "/hr/dashboard")).toBe(false);
-    expect(shouldShowChatbot({ role: "Store Manager" }, "/inventory/dashboard")).toBe(false);
+    expect(shouldShowChatbot({ role: "Operator" }, "/production/dashboard")).toBe(false);
+    expect(shouldShowChatbot({ role: "Operator" }, "/hr/dashboard")).toBe(false);
+    expect(shouldShowChatbot({ role: "Operator" }, "/store-manager/dashboard")).toBe(false);
+  });
+
+  it("hides the chatbot on shell-less and admin routes", () => {
+    expect(shouldShowChatbot({ role: "Operator" }, "/login")).toBe(false);
+    expect(shouldShowChatbot({ role: "Operator" }, "/settings")).toBe(false);
+    expect(shouldShowChatbot({ role: "Operator" }, "/gns-admin")).toBe(false);
   });
 });

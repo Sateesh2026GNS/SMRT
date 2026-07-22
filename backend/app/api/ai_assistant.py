@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.auth_deps import get_current_user
 from app.api.deps import get_db
+from app.core.permissions import get_role_names, user_is_admin
 from app.models.user import User
 from app.schemas.ai_assistant import ChatRequest, ChatResponse, ConversationDetail, ConversationSummary
 from app.services.ai_assistant_service import get_conversation, list_conversations, process_chat
@@ -17,6 +18,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ai", tags=["ai-assistant"])
 
 
+def _require_operator_access(user: User) -> User:
+    if user_is_admin(user):
+        raise HTTPException(status_code=403, detail="Operator access is required to use the AI assistant.")
+
+    role_names = {name.lower() for name in get_role_names(user)}
+    if "operator" not in role_names:
+        raise HTTPException(status_code=403, detail="Operator access is required to use the AI assistant.")
+
+    return user
+
+
 @router.post("/chat", response_model=ChatResponse)
 def chat_endpoint(
     payload: ChatRequest,
@@ -24,6 +36,7 @@ def chat_endpoint(
     db: Session = Depends(get_db),
 ):
     """Send a message to the AI Operator Assistant."""
+    _require_operator_access(user)
     result = process_chat(db, user, payload.message.strip(), payload.conversation_id)
     return ChatResponse(**result)
 
@@ -35,6 +48,7 @@ def chat_stream_endpoint(
     db: Session = Depends(get_db),
 ):
     """Stream chat response tokens (final result persisted after stream)."""
+    _require_operator_access(user)
 
     def generate():
         result = process_chat(db, user, payload.message.strip(), payload.conversation_id)
@@ -54,6 +68,7 @@ def list_conversations_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _require_operator_access(user)
     return list_conversations(db, user)
 
 
@@ -63,6 +78,7 @@ def get_conversation_endpoint(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    _require_operator_access(user)
     conv = get_conversation(db, user, conversation_id)
     if not conv:
         raise HTTPException(404, "Conversation not found")
@@ -71,6 +87,7 @@ def get_conversation_endpoint(
 
 @router.get("/suggestions")
 def suggestions_endpoint(user: User = Depends(get_current_user)):
+    _require_operator_access(user)
     from app.services.ai_assistant_service import SUGGESTIONS
 
     return {"suggestions": SUGGESTIONS}

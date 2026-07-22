@@ -15,12 +15,73 @@ from app.models.user import User
 from app.llm.function_registry import TOOL_DEFINITIONS, execute_tool, format_tool_result
 from app.llm.intent_detector import detect_intent
 from app.llm.llm_service import LlmClient
-from app.llm.prompt_templates import API_FAIL_REPLY, OUT_OF_SCOPE_REPLY, SUGGESTIONS, SYSTEM_PROMPT
+from app.services.operator_service import OperatorService
+from app.llm.prompt_templates import (
+    ACCESS_RESTRICTED_MESSAGE,
+    API_FAIL_REPLY,
+    OUT_OF_SCOPE_REPLY,
+    SUGGESTIONS,
+    SYSTEM_PROMPT,
+)
 
 logger = logging.getLogger(__name__)
 
 _cache: dict[str, tuple[float, Any]] = {}
 CACHE_TTL = 45
+
+
+def should_restrict_operator_message(message: str) -> str | None:
+    text = (message or "").strip().lower()
+    if not text:
+        return None
+
+    blocked_terms = (
+        "finance",
+        "sales",
+        "admin",
+        "payroll",
+        "salary",
+        "gst",
+        "profit",
+        "invoice",
+        "vendor",
+        "customer",
+        "quality",
+        "qc",
+        "account",
+        "settings",
+        "inventory",
+        "procurement",
+        "recruit",
+        "expense",
+    )
+    if "maintenance" in text and "machine" in text:
+        return None
+
+    if "maintenance" in text:
+        return None
+    allowed_terms = (
+        "production",
+        "plan",
+        "schedule",
+        "work order",
+        "job card",
+        "machine",
+        "batch",
+        "attendance",
+        "clock",
+        "shop floor",
+        "allocation",
+        "task",
+        "mrp",
+        "material",
+    )
+
+    if any(term in text for term in blocked_terms):
+        return ACCESS_RESTRICTED_MESSAGE
+    if any(term in text for term in allowed_terms):
+        return None
+    return ACCESS_RESTRICTED_MESSAGE
 
 
 def _cache_get(key: str) -> Any | None:
@@ -92,22 +153,38 @@ def _run_tool(db: Session, user: User, tool_name: str, args: dict) -> tuple[dict
 def _process_with_rules(db: Session, user: User, message: str) -> dict:
     intent = detect_intent(message)
     if not intent:
-        lower = message.lower()
-        if any(w in lower for w in ("finance", "payroll", "salary", "gst", "profit", "settings", "user")):
-            return {
-                "message": OUT_OF_SCOPE_REPLY,
-                "navigation": None,
-                "used_tools": [],
-                "source": "rules",
-            }
         return {
-            "message": OUT_OF_SCOPE_REPLY,
+            "message": ACCESS_RESTRICTED_MESSAGE,
             "navigation": None,
             "used_tools": [],
             "source": "rules",
         }
 
     tool_name, args = intent
+    if tool_name == "get_machine_status":
+        svc = OperatorService(db, user.tenant_id)
+        machines = svc.list_machines()
+        if not machines:
+            machines = svc.get_machine_status_summary().get("machines", [])
+        summary_lines = ["**Machine Status**"]
+        for m in machines[:10]:
+            code = m.get("code") or "N/A"
+            name = m.get("name") or ""
+            status = m.get("status") or "Unknown"
+            line = f"- **{code}**"
+            if name:
+                line += f" — {name}"
+            line += f" | Status: {status}"
+            if m.get("location"):
+                line += f" | Location: {m.get('location')}"
+            summary_lines.append(line)
+        return {
+            "message": "\n".join(summary_lines),
+            "navigation": None,
+            "used_tools": [tool_name],
+            "source": "rules",
+        }
+
     result, text = _run_tool(db, user, tool_name, args)
     if not result.get("success") and result.get("error"):
         text = result["error"]
@@ -194,24 +271,36 @@ def process_chat(
     conv = _get_or_create_conversation(db, user, conversation_id, message)
     _save_message(db, conv, "user", message)
 
-    history_rows = list(
-        db.scalars(
-            select(AiMessage)
-            .where(AiMessage.conversation_id == conv.id)
-            .order_by(AiMessage.id.asc())
-        ).all()
-    )
-    history = [{"role": m.role if m.role != "tool" else "assistant", "content": m.content} for m in history_rows[:-1]]
+    restricted_message = should_restrict_operator_message(message)
+    if restricted_message:
+        outcome = {
+            "message": restricted_message,
+            "navigation": None,
+            "used_tools": [],
+            "source": "rules",
+        }
+    else:
+        history_rows = list(
+            db.scalars(
+                select(AiMessage)
+                .where(AiMessage.conversation_id == conv.id)
+                .order_by(AiMessage.id.asc())
+            ).all()
+        )
+        history = [{"role": m.role if m.role != "tool" else "assistant", "content": m.content} for m in history_rows[:-1]]
 
-    client = LlmClient()
-    try:
-        if client.enabled:
-            outcome = _process_with_llm(db, user, message, history)
-        else:
-            outcome = _process_with_rules(db, user, message)
-    except Exception:
-        logger.exception("AI chat processing failed")
-        outcome = {"message": API_FAIL_REPLY, "navigation": None, "used_tools": [], "source": "error"}
+        client = LlmClient()
+        try:
+            detected_intent = detect_intent(message)
+            if detected_intent:
+                outcome = _process_with_rules(db, user, message)
+            elif client.enabled:
+                outcome = _process_with_llm(db, user, message, history)
+            else:
+                outcome = _process_with_rules(db, user, message)
+        except Exception:
+            logger.exception("AI chat processing failed")
+            outcome = {"message": API_FAIL_REPLY, "navigation": None, "used_tools": [], "source": "error"}
 
     _save_message(
         db,

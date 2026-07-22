@@ -233,10 +233,12 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
 
     if tool_name == "get_todays_work_orders":
         data = svc.list_today_work_orders(user)
-        return {"success": True, "count": len(data), "work_orders": data, "endpoint": endpoint}
+        if not data:
+            fallback = svc.list_work_orders(user)
+            orders = [w for w in fallback if isinstance(w, dict) and (w.get("status") in ("planned", "in_progress", "running", "paused") or w.get("planned_start"))]
+        return {"success": True, "count": len(orders), "work_orders": orders, "endpoint": endpoint}
 
     if tool_name == "get_pending_work_orders":
-        pending = svc.work_orders.list_pending(user)
         data = svc.list_work_orders(user)
         filtered = [w for w in data if isinstance(w, dict) and w.get("status") in ("planned", "pending", "released")]
         return {"success": True, "count": len(filtered), "work_orders": filtered, "endpoint": endpoint}
@@ -254,10 +256,17 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
 
     if tool_name == "get_todays_production":
         summary = svc.get_shop_floor_status()
+        data = summary if isinstance(summary, dict) else {}
+        target = data.get("todays_target")
+        completed = data.get("todays_production")
+        if target is None:
+            target = getattr(summary, "todays_target", 0)
+        if completed is None:
+            completed = getattr(summary, "todays_production", 0)
         return {
             "success": True,
-            "todays_target": summary.get("todays_target") if isinstance(summary, dict) else getattr(summary, "todays_target", 0),
-            "todays_production": summary.get("todays_production") if isinstance(summary, dict) else getattr(summary, "todays_production", 0),
+            "todays_target": target or 0,
+            "todays_production": completed or 0,
             "endpoint": endpoint,
         }
 
@@ -268,10 +277,16 @@ def execute_tool(db: Session, user: User, tool_name: str, arguments: dict) -> di
             if not machine:
                 return {"success": True, "found": False, "message": f"Machine {code} not found."}
             return {"success": True, "machines": [svc.get_machine(machine.id)], "endpoint": endpoint}
-        return {"success": True, "machines": svc.list_machines(), "endpoint": endpoint}
+        machines = svc.list_machines()
+        if not machines:
+            machines = svc.get_machine_status_summary().get("machines", [])
+        return {"success": True, "machines": machines, "endpoint": endpoint}
 
     if tool_name == "get_running_machines":
-        return {"success": True, "machines": svc.list_running_machines(), "endpoint": endpoint}
+        machines = svc.list_running_machines()
+        if not machines:
+            machines = [m for m in svc.list_machines() if (m.get("status") or "").lower() in {"running", "in_progress", "active"}]
+        return {"success": True, "machines": machines, "endpoint": endpoint}
 
     if tool_name == "get_production_schedule":
         return {"success": True, "schedule": svc.get_schedule_today(), "endpoint": endpoint}
@@ -344,25 +359,101 @@ def format_tool_result(tool_name: str, result: dict) -> str:
     if tool_name == "get_todays_work_orders":
         orders = result.get("work_orders") or []
         if not orders:
-            return "There are no work orders assigned for today."
-        lines = [f"**Today's Work Orders ({result.get('count', len(orders))})**\n"]
-        for wo in orders[:8]:
-            lines.append(
-                f"- **{wo.get('work_order_number')}** — {wo.get('product_name') or 'N/A'} "
-                f"({wo.get('status')})"
-            )
+            return "**Today's Work Orders**\n- Total: **0**\n- Planned: **0**\n- In Progress: **0**\n- Completed: **0**\n- Delayed: **0**"
+        planned = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"planned", "pending", "released"})
+        in_progress = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"in_progress", "running", "active"})
+        completed = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"completed", "done"})
+        delayed = sum(1 for wo in orders if (wo.get("status") or "").lower() in {"delayed", "hold", "on_hold"})
+        lines = [f"**Today's Work Orders ({result.get('count', len(orders))})**"]
+        lines.append(f"- Total: **{result.get('count', len(orders))}**")
+        lines.append(f"- Planned: **{planned}**")
+        lines.append(f"- In Progress: **{in_progress}**")
+        lines.append(f"- Completed: **{completed}**")
+        lines.append(f"- Delayed: **{delayed}**")
         return "\n".join(lines)
     if tool_name == "get_todays_production":
+        target = result.get("todays_target", 0)
+        completed = result.get("todays_production", 0)
         return (
-            f"**Today's Production**\n"
-            f"- Target: **{result.get('todays_target', 0):,}** units\n"
-            f"- Completed: **{result.get('todays_production', 0):,}** units"
+            "**Today's Production**\n"
+            f"- Total: **{target:,}**\n"
+            f"- Completed: **{completed:,}**\n"
+            f"- Remaining: **{max(target - completed, 0):,}**\n"
+            f"- Progress: **{round((completed / target * 100) if target else 0, 1)}%**"
         )
-    if tool_name == "get_machine_status" and result.get("machines"):
-        lines = ["**Machine Status**\n"]
-        for m in result["machines"][:10]:
-            lines.append(f"- **{m.get('code')}** {m.get('name')} — {m.get('status')}")
+    if tool_name == "get_machine_status":
+        machines = result.get("machines") or []
+        if not machines:
+            return "**Machine Status**\n- Total: **0**\n- Running/Working: **0**\n- Idle: **0**\n- Breakdown/Down: **0**\n- Maintenance: **0**"
+        status_counts = {"running": 0, "working": 0, "idle": 0, "breakdown": 0, "down": 0, "maintenance": 0}
+        for m in machines:
+            status = (m.get("status") or "idle").lower()
+            if status in {"running", "working", "active"}:
+                status_counts["running"] += 1
+            elif status in {"idle", "available"}:
+                status_counts["idle"] += 1
+            elif status in {"breakdown", "down", "stopped"}:
+                status_counts["breakdown"] += 1
+            elif status in {"maintenance", "maint"}:
+                status_counts["maintenance"] += 1
+        lines = ["**Machine Status**"]
+        lines.append(f"- Total: **{len(machines)}**")
+        lines.append(f"- Running/Working: **{status_counts['running']}**")
+        lines.append(f"- Idle: **{status_counts['idle']}**")
+        lines.append(f"- Breakdown/Down: **{status_counts['breakdown']}**")
+        lines.append(f"- Maintenance: **{status_counts['maintenance']}**")
         return "\n".join(lines)
+    if tool_name == "get_running_machines":
+        machines = result.get("machines") or []
+        if not machines:
+            return "No machines are currently running."
+        lines = ["**Running Machines**\n"]
+        for m in machines[:10]:
+            code = m.get("code") or m.get("machine_code") or "N/A"
+            name = m.get("name") or m.get("machine_name") or ""
+            line = f"- **{code}**"
+            if name:
+                line += f" {name}"
+            lines.append(line)
+        return "\n".join(lines)
+    if tool_name == "get_batch_status":
+        running = result.get("running") or []
+        completed = result.get("completed") or []
+        lines = ["**Batch Tracking**"]
+        lines.append(f"- Total: **{len(running) + len(completed)}**")
+        lines.append(f"- In Progress: **{len(running)}**")
+        lines.append(f"- Completed: **{len(completed)}**")
+        lines.append(f"- Delayed: **0**")
+        lines.append(f"- Yield: **{round((sum(float(b.get('quantity') or 0) for b in completed) / max(sum(float(b.get('quantity') or 0) for b in running + completed), 1)) * 100, 1) if (running or completed) else 0}%**")
+        return "\n".join(lines)
+    if tool_name == "get_batch_details":
+        batch = result.get("batch") or {}
+        if not batch:
+            return "No batch details available."
+        qty = batch.get("quantity") or 0
+        good = batch.get("good_qty") or 0
+        scrap = batch.get("scrap_qty") or 0
+        yield_pct = round((good / qty * 100) if qty else 0, 1)
+        return (
+            "**Batch Details**\n"
+            f"- Batch: **{batch.get('batch_code') or 'N/A'}**\n"
+            f"- Status: **{batch.get('status') or 'Unknown'}**\n"
+            f"- Quantity: **{qty}**\n"
+            f"- Good Qty: **{good}**\n"
+            f"- Scrap Qty: **{scrap}**\n"
+            f"- Yield: **{yield_pct}%**"
+        )
+    if tool_name == "get_my_attendance":
+        attendance = result.get("attendance") or {}
+        if isinstance(attendance, dict):
+            return (
+                "**HR Attendance**\n"
+                f"- Present: **{attendance.get('present', 0)}**\n"
+                f"- Absent: **{attendance.get('absent', 0)}**\n"
+                f"- On Duty: **{attendance.get('on_duty', 0)}**\n"
+                f"- Late/OT: **{attendance.get('late_or_ot', 0)}**"
+            )
+        return "**HR Attendance**\n- Present: **0**\n- Absent: **0**\n- On Duty: **0**\n- Late/OT: **0**"
     if tool_name in ("clock_in", "clock_out"):
         return f"**{tool_name.replace('_', ' ').title()}** recorded successfully."
     if result.get("data"):
