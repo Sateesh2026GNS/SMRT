@@ -36,7 +36,7 @@ import { quickActionsRef } from "../../../data/referenceDashboardData";
 import { getErpDashboard } from "../../../api/dashboardApi";
 import useAuth from "../../../hooks/useAuth";
 import useManufacturingRefresh from "../../../hooks/useManufacturingRefresh";
-import { userCanAccess } from "../../../config/permissions";
+import { userCanAccess, isOperator } from "../../../config/permissions";
 import { CardShell, KpiIcon, StatusBadge, TrendBadge } from "./ReferenceParts";
 
 const tooltipStyle = {
@@ -377,6 +377,7 @@ function AlertsNotifications({ alerts = [] }) {
 function QuickActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
+  if (isOperator(user)) return null;
   const visible = quickActionsRef.filter((_, i) => userCanAccess(user, QUICK_ACTION_MODULES[i]));
   if (!visible.length) return null;
   return (

@@ -107,6 +107,13 @@ PERMISSION_MATRIX = {
             "factoryMonitor",
             "attendance",
             "documents",
+            "masters",
+            "inventory",
+            "procurement",
+            "sales",
+            "quality",
+            "accounts",
+            "maintenance",
         ],
         "actions": [
             "production:read",

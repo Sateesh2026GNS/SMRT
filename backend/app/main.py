@@ -247,6 +247,17 @@ def on_startup():
                 conn.execute(text(ddl))
         except Exception:
             pass
+    _product_columns = [
+        "ALTER TABLE products ADD COLUMN min_stock INTEGER NOT NULL DEFAULT 1",
+        "ALTER TABLE products ADD COLUMN max_stock INTEGER NOT NULL DEFAULT 100",
+        "ALTER TABLE products ADD COLUMN current_stock INTEGER NOT NULL DEFAULT 1",
+    ]
+    for ddl in _product_columns:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(ddl))
+        except Exception:
+            pass
     _access_log_columns = [
         "ALTER TABLE access_logs ADD COLUMN company_id INTEGER",
         "ALTER TABLE access_logs ADD COLUMN company_name VARCHAR(255)",

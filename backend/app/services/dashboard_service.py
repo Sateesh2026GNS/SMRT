@@ -181,18 +181,29 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
         ).all()
     )
 
-    today_production = int(sum(float(r.produced_quantity or 0) for r in today_reports))
-    yesterday_production = int(sum(float(r.produced_quantity or 0) for r in yesterday_reports))
-    # Fallback: sum actual_quantity from today's completed/running work orders
-    if today_production == 0:
-        wo_actual = db.scalar(
-            select(func.sum(WorkOrder.actual_quantity)).where(
-                WorkOrder.tenant_id == tenant_id,
-                WorkOrder.status.in_(("completed", "in_progress", "running", "done")),
+    today_started_orders = int(
+        db.scalar(
+            select(func.count(ProductionOrder.id)).where(
+                ProductionOrder.tenant_id == tenant_id,
+                ProductionOrder.start_date.isnot(None),
+                func.date(ProductionOrder.start_date) == today,
+                ProductionOrder.status != "cancelled",
             )
-        )
-        today_production = int(wo_actual or 0)
-    good_qty = today_production
+        ) or 0
+    )
+    yesterday_started_orders = int(
+        db.scalar(
+            select(func.count(ProductionOrder.id)).where(
+                ProductionOrder.tenant_id == tenant_id,
+                ProductionOrder.start_date.isnot(None),
+                func.date(ProductionOrder.start_date) == yesterday,
+                ProductionOrder.status != "cancelled",
+            )
+        ) or 0
+    )
+    today_production = today_started_orders
+    yesterday_production = yesterday_started_orders
+    good_qty = int(sum(float(r.produced_quantity or 0) for r in today_reports))
     reject_qty = int(sum(float(r.scrap_quantity or 0) for r in today_reports))
 
     machines = list(db.scalars(select(Machine).where(Machine.tenant_id == tenant_id)).all())
@@ -414,12 +425,12 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
             {
                 "id": "today-production",
                 "title": "Today's Production",
-                "value": str(today_production or shop.todays_production or 0),
+                "value": str(today_production),
                 "unit": "Pcs",
                 "trend": f"{prod_trend}%",
                 "trendUp": prod_up,
                 "trendLabel": "vs yesterday",
-                "link": "/production/reports",
+                "link": f"/production/planning?date_from={today.isoformat()}&date_to={today.isoformat()}",
             },
             {
                 "id": "machines-running",
