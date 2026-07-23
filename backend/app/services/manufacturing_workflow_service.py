@@ -505,12 +505,37 @@ def complete_work_order_integrated(
             steps=steps,
         )
 
+    _emit_wo_completed(db, tenant_id, wo)
+
     return WorkOrderActionResponse(
         success=True,
         steps=steps,
         work_order=_to_list_read(db, tenant_id, wo),
         message="Work order completed — inventory, QC, and production updated",
     )
+
+
+def _emit_wo_completed(db, tenant_id: int, wo) -> None:
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="work_order_completed",
+            title=f"Work order completed: {wo.work_order_number}",
+            message=f"WO {wo.work_order_number} completed — FG received",
+            severity="medium",
+            link=f"/production/work-orders?id={wo.id}",
+            reference_type="work_order",
+            reference_id=wo.id,
+            created_by="Production",
+        )
+    except Exception:
+        pass
+
+
+# Patch: emit after successful complete — inject into return path above
 
 
 def confirm_sales_order_workflow(
@@ -699,6 +724,23 @@ def ship_sales_order_stock_out(
     so.packed = True
     so.status = "shipped"
     db.commit()
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=tenant_id,
+            alert_type="dispatch_completed",
+            title=f"Dispatch completed: {so.order_number}",
+            message=f"Sales order {so.order_number} shipped — {len(movements)} FG movement(s)",
+            severity="medium",
+            link="/sales/dispatch",
+            reference_type="sales_order",
+            reference_id=so.id,
+            created_by="Dispatch",
+        )
+    except Exception:
+        pass
     return {
         "sales_order_id": so.id,
         "order_number": so.order_number,

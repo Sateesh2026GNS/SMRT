@@ -147,6 +147,20 @@ def create_payroll_record(db: Session, payload: PayrollRecordCreate) -> PayrollR
     return pr
 
 
+def update_payroll_status(db: Session, tenant_id: int, payroll_id: int, new_status: str) -> PayrollRecord | None:
+    pr = db.scalar(
+        select(PayrollRecord).where(
+            PayrollRecord.tenant_id == tenant_id, PayrollRecord.id == payroll_id
+        )
+    )
+    if not pr:
+        return None
+    pr.status = new_status
+    db.commit()
+    db.refresh(pr)
+    return pr
+
+
 def list_payroll(
     db: Session,
     tenant_id: int,
@@ -233,6 +247,23 @@ def create_leave_request(db: Session, payload: LeaveRequestCreate) -> LeaveReque
     db.add(leave)
     db.commit()
     db.refresh(leave)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=leave.tenant_id,
+            alert_type="leave_request",
+            title="Leave request submitted",
+            message=f"Leave request #{leave.id} — {leave.days} day(s)",
+            severity="medium",
+            link="/hr/leave",
+            reference_type="leave_request",
+            reference_id=leave.id,
+            created_by="HR",
+        )
+    except Exception:
+        pass
     return leave
 
 

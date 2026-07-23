@@ -24,9 +24,9 @@ def create_document_endpoint(
     user: User = Depends(require_permission(MODULE)),
     db: Session = Depends(get_db),
 ) -> DocumentRead:
-    payload.tenant_id = user.tenant_id
+    payload.tenant_id = getattr(user, "tenant_id", None) or 1
     if not payload.uploaded_by:
-        payload.uploaded_by = user.full_name
+        payload.uploaded_by = getattr(user, "full_name", None) or user.email
     return create_document(db, payload)
 
 

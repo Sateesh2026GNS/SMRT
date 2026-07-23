@@ -1,19 +1,44 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
-import { Calendar, CheckCircle, Clock, Plus, RefreshCw, XCircle } from "lucide-react";
+import { Award, Calendar, CheckCircle, Clock, Coffee, HeartPulse, Plus, RefreshCw, XCircle, X, Save } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
 import { useToast } from "../../context/ToastContext";
-import { getLeaveEnriched, getLeaveSummary, updateLeaveRequest } from "../../api/hrApi";
-import { DEMO_LEAVE_LIST, DEMO_LEAVE_SUMMARY, LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
+import { getLeaveEnriched, getLeaveSummary, updateLeaveRequest, createLeaveRequest, getEmployeesEnriched } from "../../api/hrApi";
+import { DEMO_LEAVE_SUMMARY, LEAVE_TYPES, statusColor } from "../../data/hrMasterData";
+
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+
+const ALL_LEAVE_TYPES = [
+  { value: "casual", label: "Casual Leave (CL)" },
+  { value: "sick", label: "Sick / Medical Leave (SL)" },
+  { value: "earned", label: "Earned / Privilege Leave (EL/PL)" },
+  { value: "annual", label: "Annual Leave" },
+  { value: "maternity", label: "Maternity Leave" },
+  { value: "paternity", label: "Paternity Leave" },
+  { value: "comp_off", label: "Compensatory Off (Comp-Off)" },
+  { value: "marriage", label: "Marriage Leave" },
+  { value: "bereavement", label: "Bereavement Leave" },
+  { value: "study", label: "Study / Training Leave" },
+  { value: "unpaid", label: "Loss of Pay (LOP) / Unpaid Leave" },
+];
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold text-slate-900">{value}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-3.5 sm:p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
+        </div>
+        {Icon && (
+          <div className={`flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-4.5 w-4.5 sm:h-5 sm:w-5 text-white shrink-0" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -24,21 +49,51 @@ export default function Leave() {
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState(DEMO_LEAVE_SUMMARY);
   const [rows, setRows] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
   const [view, setView] = useState("table");
 
-  const load = useCallback(async () => {
+  // Modal states
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    employee_id: "",
+    leave_type: "casual",
+    start_date: new Date().toISOString().slice(0, 10),
+    end_date: new Date().toISOString().slice(0, 10),
+    reason: "",
+  });
+
+  const load = useCallback(async (isManual = false) => {
     setLoading(true);
     try {
-      const [sumRes, listRes] = await Promise.allSettled([getLeaveSummary(), getLeaveEnriched()]);
-      if (sumRes.status === "fulfilled" && sumRes.value?.data) setSummary({ ...DEMO_LEAVE_SUMMARY, ...sumRes.value.data });
-      if (listRes.status === "fulfilled" && listRes.value?.data?.length) setRows(listRes.value.data);
-      else setRows([]);
+      const [sumRes, listRes, empRes] = await Promise.allSettled([
+        getLeaveSummary(),
+        getLeaveEnriched(),
+        getEmployeesEnriched()
+      ]);
+      let hasError = false;
+      if (sumRes.status === "fulfilled" && sumRes.value?.data) {
+        setSummary({ ...DEMO_LEAVE_SUMMARY, ...sumRes.value.data });
+      }
+      if (listRes.status === "fulfilled" && Array.isArray(listRes.value?.data)) {
+        setRows([...listRes.value.data]);
+      }
+      if (empRes.status === "fulfilled" && Array.isArray(empRes.value?.data)) {
+        setEmployees([...empRes.value.data]);
+      }
     } catch {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    await load();
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -62,6 +117,46 @@ export default function Leave() {
     }
   };
 
+  const handleFormChange = (field, value) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (error) setError("");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.employee_id || !form.start_date || !form.end_date) {
+      setError("Select employee and date range.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await createLeaveRequest({
+        employee_id: Number(form.employee_id),
+        leave_type: form.leave_type,
+        start_date: form.start_date,
+        end_date: form.end_date,
+        reason: form.reason.trim() || null,
+        status: "pending",
+      });
+      addToast("Leave request submitted successfully", "success");
+      setShowCreateModal(false);
+      setForm({
+        employee_id: "",
+        leave_type: "casual",
+        start_date: new Date().toISOString().slice(0, 10),
+        end_date: new Date().toISOString().slice(0, 10),
+        reason: "",
+      });
+      load();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to submit leave request.");
+      addToast("Failed to submit request", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const columns = [
     { key: "employee_name", label: "Employee" },
     { key: "leave_type", label: "Type", render: (r) => <span className="capitalize">{r.leave_type?.replace("_", " ")}</span> },
@@ -78,26 +173,41 @@ export default function Leave() {
     ) : "—" },
   ];
 
-  if (loading) return <Loader label="Loading leave requests..." />;
+  if (loading && rows.length === 0) return <Loader label="Loading leave requests..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Leave Management</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">Leave Management</h1>
           <p className="mt-1 text-sm text-slate-500">Leave calendar, multi-level approval workflow, and balance tracking.</p>
         </div>
-        <Link to="/hr/leave/create" className="ui-btn-primary"><Plus className="h-4 w-4" /> Request Leave</Link>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
+          >
+            <Plus className="h-4 w-4" /> Request Leave
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            <RefreshCw className="h-4 w-4" /> Refresh
+          </button>
+        </div>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 2xl:grid-cols-7">
         <KpiCard label="Pending" value={summary.pending_leave} icon={Clock} color="bg-amber-500" />
         <KpiCard label="Approved" value={summary.approved} icon={CheckCircle} color="bg-green-600" />
         <KpiCard label="Rejected" value={summary.rejected} icon={XCircle} color="bg-red-500" />
         <KpiCard label="Available" value={summary.available_leave} icon={Calendar} color="bg-blue-600" />
-        <KpiCard label="Sick Leave" value={summary.sick_leave} icon={Calendar} color="bg-orange-500" />
-        <KpiCard label="Casual" value={summary.casual_leave} icon={Calendar} color="bg-indigo-600" />
-        <KpiCard label="Earned" value={summary.earned_leave} icon={Calendar} color="bg-teal-600" />
+        <KpiCard label="Sick Leave" value={summary.sick_leave} icon={HeartPulse} color="bg-orange-500" />
+        <KpiCard label="Casual" value={summary.casual_leave} icon={Coffee} color="bg-indigo-600" />
+        <KpiCard label="Earned" value={summary.earned_leave} icon={Award} color="bg-teal-600" />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600">
@@ -118,7 +228,6 @@ export default function Leave() {
           <button type="button" onClick={() => setView("table")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === "table" ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}>Table</button>
           <button type="button" onClick={() => setView("calendar")} className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === "calendar" ? "bg-white text-[#2563EB] shadow-sm" : "text-slate-500"}`}>Calendar</button>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
       </div>
 
       {view === "table" ? (
@@ -127,7 +236,7 @@ export default function Leave() {
         </div>
       ) : (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-900">July 2026 — Leave Calendar</h2>
+          <h2 className="mb-4 font-semibold text-slate-900 font-sans">July 2026 — Leave Calendar</h2>
           <div className="grid grid-cols-7 gap-1 text-center text-xs">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => <div key={d} className="py-2 font-semibold text-slate-500">{d}</div>)}
             {Array.from({ length: 31 }, (_, i) => {
@@ -144,6 +253,118 @@ export default function Leave() {
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {LEAVE_TYPES.map((t) => <span key={t} className="rounded-full bg-slate-100 px-2 py-0.5 text-xs capitalize text-slate-600">{t.replace("_", " ")}</span>)}
+          </div>
+        </div>
+      )}
+
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">Request Leave</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Submit a new employee leave request.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowCreateModal(false)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-xs font-semibold text-rose-700">
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Employee *</label>
+                <select
+                  value={form.employee_id}
+                  onChange={(e) => handleFormChange("employee_id", e.target.value)}
+                  required
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                >
+                  <option value="">Select employee</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.full_name} ({emp.employee_code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Leave Type</label>
+                <select
+                  value={form.leave_type}
+                  onChange={(e) => handleFormChange("leave_type", e.target.value)}
+                  className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100"
+                >
+                  {ALL_LEAVE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Start Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={form.start_date}
+                    onChange={(e) => handleFormChange("start_date", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">End Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={form.end_date}
+                    onChange={(e) => handleFormChange("end_date", e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Reason</label>
+                <textarea
+                  rows={3}
+                  placeholder="Describe reason for leave request..."
+                  value={form.reason}
+                  onChange={(e) => handleFormChange("reason", e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-xl border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? "Saving..." : "Submit Request"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

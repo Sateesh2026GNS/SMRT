@@ -94,6 +94,8 @@ class PayrollListRead(BaseModel):
     pf: float = 0
     esi: float = 0
     tax: float = 0
+    gross_pay: float = 0
+    deductions: float = 0
     net_salary: float = 0
     status: str = "draft"
     period_start: str | None = None

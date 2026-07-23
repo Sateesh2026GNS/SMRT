@@ -55,6 +55,7 @@ from app.services.hr_service import (
     record_clock_in,
     record_clock_out,
     update_leave_request,
+    update_payroll_status,
 )
 from app.schemas.hr_extended import (
     AttendanceListRead,
@@ -186,6 +187,19 @@ def list_payroll_endpoint(
     db: Session = Depends(get_db),
 ):
     return list_payroll(db, tenant_id, employee_id, period_start, period_end)
+
+
+@router.patch("/payroll/{payroll_id}/status", response_model=PayrollRecordRead)
+def update_payroll_status_endpoint(
+    payroll_id: int,
+    status: str = Query(...),
+    tenant_id: int = Depends(tenant_scope(MODULE)),
+    db: Session = Depends(get_db),
+):
+    pr = update_payroll_status(db, tenant_id, payroll_id, status)
+    if not pr:
+        raise HTTPException(status_code=404, detail="Payroll record not found")
+    return pr
 
 
 @router.post("/performance", response_model=PerformanceReviewRead)

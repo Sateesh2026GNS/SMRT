@@ -4,7 +4,7 @@ export default function ProductionDelayAlerts() {
   return (
     <AlertsDashboard
       title="Production Delay Alerts"
-      subtitle="Work orders falling behind schedule."
+      subtitle="Work orders or lines reporting operational delays."
       initialAlertType="production_delay"
     />
   );

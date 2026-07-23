@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import ConfirmationDialog from "../common/ConfirmationDialog";
@@ -93,6 +94,12 @@ export default function NotificationDropdown({
               <li className="px-4 py-3 text-center text-xs text-slate-400">Loading more…</li>
             )}
           </ul>
+
+          <div className="border-t border-slate-100 px-4 py-2.5 text-center">
+            <Link to="/alerts" className="text-xs font-semibold text-[#2563EB] hover:underline">
+              View all alerts
+            </Link>
+          </div>
         </div>
       </div>
 

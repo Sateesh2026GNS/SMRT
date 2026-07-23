@@ -9,10 +9,19 @@ import { DEMO_HR_HUB, HR_FLOW, formatInr } from "../../data/hrMasterData";
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-xl font-bold tabular-nums text-slate-900">{value}</p></div>
-        {Icon && <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}><Icon className="h-5 w-5 text-white" /></div>}
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
+        </div>
+        {Icon && (
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-5 w-5 text-white shrink-0" />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -34,20 +43,32 @@ export default function HRDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    await load();
+  };
 
   useEffect(() => { load(); }, [load]);
 
-  if (loading) return <Loader label="Loading HR dashboard..." />;
+  if (loading && !hub.total_employees) return <Loader label="Loading HR dashboard..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">HR Dashboard</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">HR Dashboard</h1>
           <p className="mt-1 text-sm text-slate-500">Workforce analytics, attendance, leave, payroll, and manufacturing HR insights.</p>
         </div>
-        <button type="button" onClick={load} className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"><RefreshCw className="h-4 w-4" /> Refresh</button>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-blue-300 transition-all"
+        >
+          <RefreshCw className="h-4 w-4 text-slate-600" /> Refresh
+        </button>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -59,57 +80,74 @@ export default function HRDashboard() {
         <KpiCard label="New Joiners" value={hub.new_joiners} icon={Users} color="bg-teal-600" />
       </div>
 
-      <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-[10px] font-medium text-slate-600 sm:text-xs">
+      <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-3.5 text-[11px] font-semibold text-slate-600 shadow-sm">
         {HR_FLOW.map((s, i) => (
-          <span key={s} className="flex items-center gap-1">
-            <span className="rounded bg-white px-1.5 py-0.5 shadow-sm">{s}</span>
-            {i < HR_FLOW.length - 1 && <span className="text-slate-400">↓</span>}
+          <span key={s} className="flex items-center gap-1.5">
+            <span className="rounded-lg border border-slate-200/60 bg-white px-2.5 py-1 text-slate-700 shadow-xs">{s}</span>
+            {i < HR_FLOW.length - 1 && <span className="text-slate-400">→</span>}
           </span>
         ))}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-900">Department Strength</h2>
-          <ul className="space-y-2">
-            {(hub.department_strength || []).map((d) => (
-              <li key={d.name} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm">
-                <span className="font-medium">{d.name}</span>
-                <span className="font-semibold text-[#2563EB]">{d.count}</span>
-              </li>
-            ))}
-          </ul>
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+          <h2 className="mb-4 text-base font-bold text-slate-900 tracking-tight font-sans">Department Strength</h2>
+          {hub.department_strength && hub.department_strength.length > 0 ? (
+            <ul className="space-y-2.5">
+              {hub.department_strength.map((d) => (
+                <li key={d.name} className="flex items-center justify-between rounded-xl bg-slate-50/80 border border-slate-100 px-3.5 py-2.5 text-sm transition-colors hover:bg-slate-100/80">
+                  <span className="font-semibold text-slate-700">{d.name}</span>
+                  <span className="inline-flex items-center justify-center rounded-lg bg-blue-50 px-2.5 py-0.5 text-xs font-extrabold text-[#2563EB]">{d.count}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No department data recorded yet.</p>
+          )}
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-semibold text-slate-900">Shift Utilization</h2>
-          <ul className="space-y-3">
-            {(hub.shift_utilization || []).map((s) => (
-              <li key={s.name}>
-                <div className="mb-1 flex justify-between text-sm"><span className="font-medium">{s.name}</span><span className="text-slate-500">{s.utilization}%</span></div>
-                <div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-[#2563EB]" style={{ width: `${s.utilization}%` }} /></div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-4 font-semibold text-slate-900">Alerts & Notifications</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {(hub.alerts || []).map((a, i) => {
-            const Icon = alertIcons[a.type] || AlertTriangle;
-            return (
-              <div key={i} className="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <p className="text-sm text-amber-900">{a.message}</p>
-              </div>
-            );
-          })}
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+          <h2 className="mb-4 text-base font-bold text-slate-900 tracking-tight font-sans">Shift Utilization</h2>
+          {hub.shift_utilization && hub.shift_utilization.length > 0 ? (
+            <ul className="space-y-3.5">
+              {hub.shift_utilization.map((s) => (
+                <li key={s.name}>
+                  <div className="mb-1.5 flex justify-between text-sm">
+                    <span className="font-semibold text-slate-700">{s.name}</span>
+                    <span className="font-bold text-[#2563EB]">{s.utilization}%</span>
+                  </div>
+                  <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-[#2563EB] transition-all duration-500" style={{ width: `${s.utilization}%` }} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-slate-400 italic">No shift allocation recorded yet.</p>
+          )}
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+        <h2 className="mb-4 text-base font-bold text-slate-900 tracking-tight font-sans">Alerts & Notifications</h2>
+        {hub.alerts && hub.alerts.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {hub.alerts.map((a, i) => {
+              const Icon = alertIcons[a.type] || AlertTriangle;
+              return (
+                <div key={i} className="flex items-start gap-3 rounded-xl border border-amber-200/60 bg-amber-50/80 px-4 py-3 shadow-xs">
+                  <Icon className="mt-0.5 h-4.5 w-4.5 shrink-0 text-amber-600" />
+                  <p className="text-sm font-medium text-amber-900">{a.message}</p>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-slate-400 italic">No active alerts at this time.</p>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <QuickLink to="/hr/employees" label="Employees" />
         <QuickLink to="/hr/attendance" label="Attendance" />
         <QuickLink to="/hr/leave" label="Leave" />
@@ -128,8 +166,9 @@ export default function HRDashboard() {
 
 function QuickLink({ to, label }) {
   return (
-    <Link to={to} className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-[#2563EB] hover:text-[#2563EB]">
-      {label} →
+    <Link to={to} className="group flex items-center justify-between rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-xs hover:border-[#2563EB] hover:text-[#2563EB] transition-all hover:shadow-sm">
+      <span>{label}</span>
+      <span className="transition-transform group-hover:translate-x-1">→</span>
     </Link>
   );
 }

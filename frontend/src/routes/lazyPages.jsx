@@ -132,6 +132,10 @@ export const LowStockAlerts = lazy(() => import("../pages/alerts/LowStockAlerts"
 export const MachineFailureAlerts = lazy(() => import("../pages/alerts/MachineFailureAlerts"));
 export const ProductionDelayAlerts = lazy(() => import("../pages/alerts/ProductionDelayAlerts"));
 export const MaintenanceReminders = lazy(() => import("../pages/alerts/MaintenanceReminders"));
+export const HrAlerts = lazy(() => import("../pages/alerts/HrAlerts"));
+export const SafetyAlerts = lazy(() => import("../pages/alerts/SafetyAlerts"));
+export const QualityAlerts = lazy(() => import("../pages/alerts/QualityAlerts"));
+export const GeneralAlerts = lazy(() => import("../pages/alerts/GeneralAlerts"));
 export const UserManagement = lazy(() => import("../pages/admin/UserManagement"));
 export const RolesPermissions = lazy(() => import("../pages/admin/RolesPermissions"));
 export const AccessLogs = lazy(() => import("../pages/admin/AccessLogs"));

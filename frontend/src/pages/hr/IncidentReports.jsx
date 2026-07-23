@@ -12,15 +12,17 @@ const inputClass =
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
         </div>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-5 w-5 text-white shrink-0" />
           </div>
         )}
       </div>
@@ -28,38 +30,39 @@ function KpiCard({ label, value, icon: Icon, color }) {
   );
 }
 
-const severityBadgeColor = (severity) => {
-  switch (String(severity).toLowerCase()) {
+const severityBadgeColor = (sev) => {
+  switch (String(sev).toLowerCase()) {
     case "critical":
-      return "bg-rose-100 text-rose-700 border-rose-200";
     case "high":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "bg-rose-50 text-rose-700 border-rose-200";
     case "medium":
       return "bg-amber-50 text-amber-700 border-amber-200";
     default:
-      return "bg-green-50 text-green-700 border-green-200";
+      return "bg-blue-50 text-blue-700 border-blue-200";
   }
 };
 
-const statusBadgeColor = (status) => {
-  switch (String(status).toLowerCase()) {
+const statusBadgeColor = (st) => {
+  switch (String(st).toLowerCase()) {
+    case "closed":
     case "resolved":
       return "bg-green-50 text-green-700 border-green-200";
     case "investigating":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+    case "in progress":
+      return "bg-amber-50 text-amber-700 border-amber-200";
     default:
-      return "bg-slate-100 text-slate-700 border-slate-200";
+      return "bg-rose-50 text-rose-700 border-rose-200";
   }
 };
 
-export default function IncidentReports() {
+export default function IncidentReports({ autoOpenCreate }) {
   const { addToast } = useToast();
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [incidents, setIncidents] = useState([]);
-  const [employees, setEmployees] = useState([]);
 
   // Modal form states
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(autoOpenCreate || false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -82,27 +85,21 @@ export default function IncidentReports() {
 
       const stored = localStorage.getItem("smrt_incidents");
       if (stored) {
-        let list = JSON.parse(stored);
-        list = list.filter(
-          (item) =>
-            item.id !== 1 &&
-            item.id !== 2 &&
-            item.id !== 3 &&
-            item.title !== "Minor Forklift Scrape" &&
-            item.title !== "Chemical Spill - Aisle 7" &&
-            item.title !== "Trip Hazard - Extension Cord"
-        );
-        setIncidents(list);
-        localStorage.setItem("smrt_incidents", JSON.stringify(list));
+        setIncidents([...JSON.parse(stored)]);
       } else {
         setIncidents([]);
       }
     } catch (err) {
-      addToast("Failed to load safety incidents", "error");
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    await loadData();
+  };
 
   useEffect(() => {
     loadData();
@@ -207,7 +204,7 @@ export default function IncidentReports() {
           </button>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => window.location.reload()}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh

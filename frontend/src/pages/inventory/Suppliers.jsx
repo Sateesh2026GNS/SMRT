@@ -10,8 +10,6 @@ import EmptyState from "../../components/common/EmptyState";
 import { getSuppliers } from "../../api/inventoryApi";
 import useTenantId from "../../hooks/useTenantId";
 
-
-
 export default function Suppliers() {
   const tenantId = useTenantId();
   const { t } = useTranslation();

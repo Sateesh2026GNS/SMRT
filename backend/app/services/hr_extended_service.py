@@ -29,7 +29,7 @@ def get_employee_summary(db: Session, tenant_id: int) -> EmployeeSummaryRead:
     today = date.today()
     present = int(
         db.scalar(
-            select(func.count(AttendanceRecord.id)).where(
+            select(func.count(AttendanceRecord.employee_id.distinct())).where(
                 AttendanceRecord.tenant_id == tenant_id,
                 AttendanceRecord.record_date == today,
                 AttendanceRecord.clock_in.isnot(None),
@@ -38,7 +38,7 @@ def get_employee_summary(db: Session, tenant_id: int) -> EmployeeSummaryRead:
     )
     on_leave = int(
         db.scalar(
-            select(func.count(LeaveRequest.id)).where(
+            select(func.count(LeaveRequest.employee_id.distinct())).where(
                 LeaveRequest.tenant_id == tenant_id,
                 LeaveRequest.status == "approved",
                 LeaveRequest.start_date <= today,
@@ -60,7 +60,7 @@ def get_employee_summary(db: Session, tenant_id: int) -> EmployeeSummaryRead:
     return EmployeeSummaryRead(
         total_employees=len(emps),
         present_today=present,
-        absent=(len(emps) - present - on_leave) if emps else 32,
+        absent=max(0, len(emps) - present - on_leave) if emps else 0,
         on_leave=on_leave,
         overtime=ot,
         departments=depts,
@@ -81,8 +81,8 @@ def list_employees_enriched(db: Session, tenant_id: int) -> list[EmployeeListRea
             employee_id=e.employee_code,
             full_name=e.full_name,
             department=e.department,
-            designation=getattr(e, "designation", None) or "Operator",
-            shift=getattr(e, "shift_name", None) or "General",
+            designation=getattr(e, "designation", None) or "—",
+            shift=getattr(e, "shift_name", None) or "—",
             reporting_manager=getattr(e, "reporting_manager", None),
             employment_type=getattr(e, "employment_type", None) or "permanent",
             status="active" if e.is_active else "inactive",
@@ -101,9 +101,9 @@ def get_attendance_summary(db: Session, tenant_id: int, record_date: date | None
     records = list(
         db.scalars(select(AttendanceRecord).where(AttendanceRecord.tenant_id == tenant_id, AttendanceRecord.record_date == d)).all()
     )
-    present = sum(1 for r in records if getattr(r, "status", "present") == "present" or r.clock_in)
-    late = sum(1 for r in records if getattr(r, "status", "") == "late")
-    half = sum(1 for r in records if getattr(r, "status", "") == "half_day")
+    present = len({r.employee_id for r in records if getattr(r, "status", "present") == "present" or r.clock_in})
+    late = len({r.employee_id for r in records if getattr(r, "status", "") == "late"})
+    half = len({r.employee_id for r in records if getattr(r, "status", "") == "half_day"})
     ot = sum(float(r.overtime_hours or 0) for r in records)
     wh = sum(float(r.work_hours or 0) for r in records)
     emp_count = int(db.scalar(select(func.count(Employee.id)).where(Employee.tenant_id == tenant_id, Employee.is_active)) or 0)
@@ -114,7 +114,7 @@ def get_attendance_summary(db: Session, tenant_id: int, record_date: date | None
         late=late,
         half_day=half,
         overtime=ot,
-        night_shift=sum(1 for r in records if r.shift_id),
+        night_shift=len({r.employee_id for r in records if r.shift_id}),
         total_working_hours=wh,
     )
 
@@ -151,14 +151,27 @@ def list_attendance_enriched(db: Session, tenant_id: int, record_date: date | No
 
 def get_leave_summary(db: Session, tenant_id: int) -> LeaveSummaryRead:
     leaves = list(db.scalars(select(LeaveRequest).where(LeaveRequest.tenant_id == tenant_id)).all())
+    pending = sum(1 for l in leaves if l.status == "pending")
+    approved = sum(1 for l in leaves if l.status == "approved")
+    rejected = sum(1 for l in leaves if l.status == "rejected")
+    sick = float(sum(1 for l in leaves if (l.leave_type or "").lower() == "sick" and l.status == "approved"))
+    casual = float(sum(1 for l in leaves if (l.leave_type or "").lower() == "casual" and l.status == "approved"))
+    earned = float(sum(1 for l in leaves if (l.leave_type or "").lower() in ("earned", "annual", "privilege") and l.status == "approved"))
+
+    available = float(sum(
+        ((l.end_date - l.start_date).days + 1)
+        for l in leaves
+        if l.status == "pending" and l.start_date and l.end_date
+    )) if leaves else 0.0
+
     return LeaveSummaryRead(
-        pending_leave=sum(1 for l in leaves if l.status == "pending") or 14,
-        approved=sum(1 for l in leaves if l.status == "approved") or 86,
-        rejected=sum(1 for l in leaves if l.status == "rejected") or 8,
-        available_leave=12.0,
-        sick_leave=8.0,
-        casual_leave=6.0,
-        earned_leave=15.0,
+        pending_leave=pending,
+        approved=approved,
+        rejected=rejected,
+        available_leave=available,
+        sick_leave=sick,
+        casual_leave=casual,
+        earned_leave=earned,
     )
 
 
@@ -189,11 +202,12 @@ def list_leave_enriched(db: Session, tenant_id: int) -> list[LeaveListRead]:
 def get_payroll_summary(db: Session, tenant_id: int) -> PayrollSummaryRead:
     records = list(db.scalars(select(PayrollRecord).where(PayrollRecord.tenant_id == tenant_id)).all())
     monthly = sum(float(r.net_pay or 0) for r in records)
-    pending = sum(float(r.net_pay or 0) for r in records if r.status == "draft")
-    processed = sum(float(r.net_pay or 0) for r in records if r.status == "processed")
+    pending = sum(float(r.net_pay or 0) for r in records if (r.status or "").lower() not in ["processed", "paid", "approved"])
+    processed = sum(float(r.net_pay or 0) for r in records if (r.status or "").lower() in ["processed", "paid", "approved"])
     ot_cost = sum(float(r.overtime_pay or 0) for r in records)
-    pf = sum(float(getattr(r, "pf", 0) or 0) for r in records) or monthly * 0.12
-    esi = sum(float(getattr(r, "esi", 0) or 0) for r in records) or monthly * 0.0075
+    pf = sum(float(getattr(r, "pf", 0) or 0) for r in records)
+    esi = sum(float(getattr(r, "esi", 0) or 0) for r in records)
+    tax = sum(float(getattr(r, "tax", 0) or 0) for r in records)
     return PayrollSummaryRead(
         monthly_payroll=monthly,
         pending_salary=pending,
@@ -201,7 +215,7 @@ def get_payroll_summary(db: Session, tenant_id: int) -> PayrollSummaryRead:
         overtime_cost=ot_cost,
         pf=pf,
         esi=esi,
-        professional_tax=2500 * max(len(records), 1),
+        professional_tax=tax,
     )
 
 
@@ -216,9 +230,15 @@ def list_payroll_enriched(db: Session, tenant_id: int) -> list[PayrollListRead]:
     )
     result = []
     for r in records:
-        basic = float(getattr(r, "basic", None) or r.regular_pay or 0)
-        allowance = float(getattr(r, "allowance", None) or 0)
-        bonus = float(getattr(r, "bonus", None) or 0)
+        basic = float(r.basic if r.basic is not None else (r.regular_pay or 0))
+        allowance = float(r.allowance or 0)
+        bonus = float(r.bonus or 0)
+        pf = float(r.pf if r.pf is not None else 0)
+        esi = float(r.esi if r.esi is not None else 0)
+        tax = float(r.tax if r.tax is not None else 0)
+        gross = float(r.gross_pay if r.gross_pay is not None else (basic + float(r.overtime_pay or 0)))
+        deductions = float(r.deductions if r.deductions is not None else (pf + esi + tax))
+        net = float(r.net_pay if r.net_pay is not None else max(0.0, gross - deductions))
         result.append(
             PayrollListRead(
                 id=r.id,
@@ -227,10 +247,12 @@ def list_payroll_enriched(db: Session, tenant_id: int) -> list[PayrollListRead]:
                 allowance=allowance,
                 overtime=float(r.overtime_pay or 0),
                 bonus=bonus,
-                pf=float(getattr(r, "pf", None) or basic * 0.12),
-                esi=float(getattr(r, "esi", None) or basic * 0.0075),
-                tax=float(getattr(r, "tax", None) or 0),
-                net_salary=float(r.net_pay or 0),
+                pf=pf,
+                esi=esi,
+                tax=tax,
+                gross_pay=gross,
+                deductions=deductions,
+                net_salary=net,
                 status=r.status,
                 period_start=r.period_start.isoformat() if r.period_start else None,
                 period_end=r.period_end.isoformat() if r.period_end else None,
@@ -250,6 +272,32 @@ def get_hr_hub(db: Session, tenant_id: int) -> HRHubRead:
         d = e.department or "Unassigned"
         dept_map[d] = dept_map.get(d, 0) + 1
     shifts = list(db.scalars(select(Shift).where(Shift.tenant_id == tenant_id)).all())
+    # Build dynamic alerts
+    alerts = []
+    if leave_sum.pending_leave > 0:
+        alerts.append({"type": "leave", "message": f"{leave_sum.pending_leave} leave requests pending HR approval"})
+    if pay_sum.pending_salary > 0:
+        alerts.append({"type": "payroll", "message": f"Payroll — ₹{pay_sum.pending_salary:,.0f} pending processing"})
+    if att_sum.late > 0:
+        alerts.append({"type": "attendance", "message": f"{att_sum.late} employees late today"})
+
+    shift_emp_map: dict[str, int] = {}
+    for e in emps:
+        s_name = getattr(e, "shift_name", None) or "General"
+        shift_emp_map[s_name] = shift_emp_map.get(s_name, 0) + 1
+
+    total_active_emps = len(emps)
+    shift_util_list = []
+    if shifts:
+        for s in shifts[:4]:
+            emp_cnt = shift_emp_map.get(s.name, 0)
+            util = round((emp_cnt / total_active_emps * 100)) if total_active_emps > 0 else 0
+            shift_util_list.append({"name": s.name, "utilization": util})
+    elif shift_emp_map:
+        for s_name, emp_cnt in list(shift_emp_map.items())[:4]:
+            util = round((emp_cnt / total_active_emps * 100)) if total_active_emps > 0 else 0
+            shift_util_list.append({"name": s_name, "utilization": util})
+
     return HRHubRead(
         total_employees=emp_sum.total_employees,
         present_today=emp_sum.present_today,
@@ -257,18 +305,8 @@ def get_hr_hub(db: Session, tenant_id: int) -> HRHubRead:
         monthly_payroll=pay_sum.monthly_payroll,
         overtime_hours=att_sum.overtime,
         new_joiners=emp_sum.new_joiners,
-        attrition_rate=2.4,
+        attrition_rate=0.0,
         department_strength=[{"name": k, "count": v} for k, v in sorted(dept_map.items(), key=lambda x: -x[1])[:8]],
-        shift_utilization=[{"name": s.name, "utilization": 85} for s in shifts[:4]] or [
-            {"name": "Morning", "utilization": 92},
-            {"name": "General", "utilization": 88},
-            {"name": "Evening", "utilization": 78},
-            {"name": "Night", "utilization": 65},
-        ],
-        alerts=[
-            {"type": "certification", "message": "3 operators — Machine Safety certification expiring"},
-            {"type": "leave", "message": "14 leave requests pending HR approval"},
-            {"type": "payroll", "message": "July payroll — ₹3.2L pending processing"},
-            {"type": "attendance", "message": "12 employees late today"},
-        ],
+        shift_utilization=shift_util_list,
+        alerts=alerts,
     )

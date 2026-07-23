@@ -8,7 +8,11 @@ class EmployeeBase(BaseModel):
     employee_code: str
     full_name: str
     email: str | None = None
+    phone: str | None = None
     department: str | None = None
+    designation: str | None = None
+    shift_name: str | None = None
+    reporting_manager: str | None = None
     hire_date: date | None = None
     hourly_rate: float | None = None
     is_active: bool = True
@@ -73,6 +77,12 @@ class PayrollRecordBase(BaseModel):
     regular_pay: float = 0
     overtime_pay: float = 0
     gross_pay: float = 0
+    pf: float | None = 0
+    esi: float | None = 0
+    tax: float | None = 0
+    basic: float | None = 0
+    allowance: float | None = 0
+    bonus: float | None = 0
     deductions: float = 0
     net_pay: float = 0
     status: str = "draft"

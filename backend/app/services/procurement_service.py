@@ -72,6 +72,23 @@ def create_purchase_order(db: Session, payload: PurchaseOrderCreate) -> Purchase
         po.total_amount = total
     db.commit()
     db.refresh(po)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=po.tenant_id,
+            alert_type="purchase_order_created",
+            title=f"Purchase order: {po.po_number}",
+            message=f"PO {po.po_number} created — ₹{float(po.total_amount or 0):,.2f}",
+            severity="medium",
+            link="/procurement/purchase-orders",
+            reference_type="purchase_order",
+            reference_id=po.id,
+            created_by="Procurement",
+        )
+    except Exception:
+        pass
     return po
 
 
@@ -107,6 +124,23 @@ def create_material_request(db: Session, payload: MaterialRequestCreate) -> Mate
         db.add(mrl)
     db.commit()
     db.refresh(mr)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=mr.tenant_id,
+            alert_type="material_request",
+            title=f"Purchase request: {mr.mr_number}",
+            message=f"Material request {mr.mr_number} created",
+            severity="medium",
+            link=f"/procurement/material-requests?id={mr.id}",
+            reference_type="material_request",
+            reference_id=mr.id,
+            created_by=mr.requested_by or "Procurement",
+        )
+    except Exception:
+        pass
     return mr
 
 
@@ -309,8 +343,35 @@ def approve_goods_receipt_qc(
     db.commit()
     db.refresh(gr)
     try:
+        from app.services.alert_event_service import emit_alert
         from app.services.alert_service import sync_low_stock_alerts
 
+        if (gr.qc_status or "").lower() in ("passed", "pass", "approved"):
+            emit_alert(
+                db,
+                tenant_id=tenant_id,
+                alert_type="qc_passed",
+                title=f"GRN QC passed: {gr.grn_number}",
+                message=f"Goods receipt {gr.grn_number} QC approved — stock posted",
+                severity="low",
+                link="/procurement/goods-receipt",
+                reference_type="goods_receipt",
+                reference_id=gr.id,
+                created_by="Quality",
+            )
+        else:
+            emit_alert(
+                db,
+                tenant_id=tenant_id,
+                alert_type="qc_failed",
+                title=f"GRN QC failed: {gr.grn_number}",
+                message=f"Goods receipt {gr.grn_number} QC rejected",
+                severity="high",
+                link="/quality/inspection",
+                reference_type="goods_receipt",
+                reference_id=gr.id,
+                created_by="Quality",
+            )
         sync_low_stock_alerts(db, tenant_id)
     except Exception:
         pass

@@ -7,7 +7,18 @@ import {
 } from "./notificationService";
 
 export const getAlerts = (params = {}) =>
-  api.get("/alerts", { params: { ...params } });
+  api.get("/alerts", { params: { ...params } }).then((res) => {
+    // Normalize list envelope: { items, total } or legacy array
+    const body = res.data;
+    if (Array.isArray(body)) return { ...res, data: body };
+    if (body?.items) return { ...res, data: body.items, meta: body };
+    if (Array.isArray(body?.data)) return { ...res, data: body.data };
+    return { ...res, data: [] };
+  });
+
+export const markAlertRead = (alertId) => api.put(`/alerts/${alertId}/read`);
+
+export const markAllAlertsRead = () => api.post("/alerts/mark-all-read");
 
 export const getAlert = (alertId) => api.get(`/alerts/${alertId}`);
 

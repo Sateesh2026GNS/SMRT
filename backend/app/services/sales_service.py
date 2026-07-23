@@ -66,6 +66,23 @@ def create_sales_order(db: Session, payload: SalesOrderCreate) -> SalesOrder:
         so.total_amount = total
     db.commit()
     db.refresh(so)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=so.tenant_id,
+            alert_type="sales_order",
+            title=f"New sales order: {so.order_number}",
+            message=f"SO {so.order_number} created — amount ₹{float(so.total_amount or 0):,.2f}",
+            severity="medium",
+            link=f"/sales/orders/{so.id}",
+            reference_type="sales_order",
+            reference_id=so.id,
+            created_by="Sales",
+        )
+    except Exception:
+        pass
     return so
 
 
@@ -335,6 +352,23 @@ def create_invoice(db: Session, payload: InvoiceCreate) -> Invoice:
 
     db.commit()
     db.refresh(inv)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=inv.tenant_id,
+            alert_type="invoice_generated",
+            title=f"Invoice generated: {inv.invoice_number}",
+            message=f"Invoice {inv.invoice_number} — ₹{float(inv.grand_total or 0):,.2f}",
+            severity="medium",
+            link="/sales/invoices",
+            reference_type="invoice",
+            reference_id=inv.id,
+            created_by="Sales",
+        )
+    except Exception:
+        pass
     return inv
 
 
@@ -395,6 +429,24 @@ def create_payment(db: Session, payload: PaymentCreate) -> Payment:
         )
     db.commit()
     db.refresh(p)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        inv_no = inv.invoice_number if inv else str(payload.invoice_id)
+        emit_alert(
+            db,
+            tenant_id=payload.tenant_id,
+            alert_type="payment_received",
+            title=f"Payment received: {inv_no}",
+            message=f"Payment of ₹{float(payload.amount):,.2f} recorded for {inv_no}",
+            severity="low",
+            link="/sales/payments",
+            reference_type="payment",
+            reference_id=p.id,
+            created_by="Finance",
+        )
+    except Exception:
+        pass
     return p
 
 

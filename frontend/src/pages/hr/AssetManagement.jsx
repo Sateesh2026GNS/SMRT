@@ -12,15 +12,17 @@ const inputClass =
 
 function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-1 text-xl font-bold text-slate-900">{value}</p>
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
         </div>
         {Icon && (
-          <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${color}`}>
-            <Icon className="h-5 w-5 text-white" />
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-5 w-5 text-white shrink-0" />
           </div>
         )}
       </div>
@@ -43,14 +45,14 @@ const statusBadgeColor = (status) => {
   }
 };
 
-export default function AssetManagement() {
+export default function AssetManagement({ autoOpenCreate }) {
   const { addToast } = useToast();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [assets, setAssets] = useState([]);
 
   // Modal form states
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(autoOpenCreate || false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
@@ -71,30 +73,24 @@ export default function AssetManagement() {
       const empRes = await getEmployees();
       setEmployees(empRes.data || []);
 
-      // Load assets from localStorage with some nice seed data if empty
+      // Load assets from localStorage
       const stored = localStorage.getItem("smrt_assets");
       if (stored) {
-        let list = JSON.parse(stored);
-        list = list.filter(
-          (item) =>
-            item.id !== 1 &&
-            item.id !== 2 &&
-            item.id !== 3 &&
-            item.name !== "Dell Latitude 5420 Laptop" &&
-            item.name !== "Safety Helmet Class E" &&
-            item.name !== "Mitutoyo Vernier Caliper"
-        );
-        setAssets(list);
-        localStorage.setItem("smrt_assets", JSON.stringify(list));
+        setAssets([...JSON.parse(stored)]);
       } else {
         setAssets([]);
       }
     } catch (err) {
-      addToast("Failed to load assets data", "error");
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    await loadData();
+  };
 
   useEffect(() => {
     loadData();
@@ -213,7 +209,7 @@ export default function AssetManagement() {
           </button>
           <button
             type="button"
-            onClick={loadData}
+            onClick={() => window.location.reload()}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh

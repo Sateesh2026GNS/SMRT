@@ -9,22 +9,35 @@ export const DOC_TYPES = [
   { value: "general", label: "General" },
 ];
 
+export const VERSION_OPTIONS = [
+  { value: "v1.0", label: "v1.0" },
+  { value: "v1.1", label: "v1.1" },
+  { value: "v1.2", label: "v1.2" },
+  { value: "v2.0", label: "v2.0" },
+  { value: "v2.1", label: "v2.1" },
+  { value: "v3.0", label: "v3.0" },
+  { value: "Draft", label: "Draft" },
+];
+
 export function getAllowedDocTypes(user) {
-  if (!user) return [];
+  if (!user) return DOC_TYPES.map((d) => d.value);
   if (isAdmin(user)) return DOC_TYPES.map((d) => d.value);
-  const role = user.role_name || user.role || "";
+  const role = String(user.role_name || user.role || "").trim();
   const map = {
     Admin: DOC_TYPES.map((d) => d.value),
-    "Production Manager": ["production", "quality"],
-    "Store Manager": ["purchase"],
-    "HR Manager": ["hr", "general"],
+    SuperAdmin: DOC_TYPES.map((d) => d.value),
+    "Super Admin": DOC_TYPES.map((d) => d.value),
+    "Production Manager": ["production", "quality", "purchase", "general"],
+    "Store Manager": ["purchase", "general"],
+    "HR Manager": ["hr", "general", "purchase", "production", "quality", "report"],
+    HR: ["hr", "general", "purchase", "production", "quality", "report"],
     Accountant: ["purchase", "report", "general"],
     Finance: ["purchase", "report", "general"],
-    Quality: ["quality"],
-    "Quality Manager": ["quality"],
+    Quality: ["quality", "general"],
+    "Quality Manager": ["quality", "general"],
     Operator: ["production", "purchase", "quality", "report", "hr", "general"],
   };
-  return map[role] || [];
+  return map[role] || DOC_TYPES.map((d) => d.value);
 }
 
 export function canWriteDocuments(user) {

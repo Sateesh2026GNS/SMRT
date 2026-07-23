@@ -353,6 +353,12 @@ def on_startup():
         "ALTER TABLE otp_challenges ADD COLUMN invalidated BOOLEAN DEFAULT 0",
         "ALTER TABLE otp_challenges ADD COLUMN purpose VARCHAR(32) DEFAULT 'super_admin_login'",
         "ALTER TABLE otp_challenges ADD COLUMN last_sent_at DATETIME",
+        "ALTER TABLE alerts ADD COLUMN module VARCHAR(64)",
+        "ALTER TABLE alerts ADD COLUMN link VARCHAR(512)",
+        "ALTER TABLE alerts ADD COLUMN target_role VARCHAR(255)",
+        "ALTER TABLE alerts ADD COLUMN metadata_json TEXT",
+        "ALTER TABLE alerts ADD COLUMN created_by VARCHAR(255)",
+        "ALTER TABLE alerts ADD COLUMN is_read BOOLEAN NOT NULL DEFAULT 0",
     ]
     for ddl in _production_order_columns:
         try:
@@ -415,6 +421,7 @@ app.include_router(alerts_router)
 app.include_router(admin_router)
 app.include_router(company_settings_router)
 app.include_router(documents_router)
+app.include_router(documents_router, prefix="/api")
 app.include_router(dispatch_router)
 app.include_router(factory_monitor_router)
 app.include_router(forecasting_router)

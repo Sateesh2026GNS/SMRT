@@ -24,6 +24,7 @@ export const getPayroll = (params = {}) => api.get("/hr/payroll", { params });
 export const getPayrollSummary = () => api.get("/hr/payroll/summary");
 export const getPayrollEnriched = () => api.get("/hr/payroll/enriched");
 export const createPayroll = (payload) => api.post("/hr/payroll", payload);
+export const updatePayrollStatus = (id, status) => api.patch(`/hr/payroll/${id}/status`, null, { params: { status } });
 
 export const getPerformanceReviews = (_tenantId, employeeId = null) =>
   api.get("/hr/performance", { params: { employee_id: employeeId } });

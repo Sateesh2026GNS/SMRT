@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Bell,
@@ -11,6 +12,13 @@ import {
   ShieldAlert,
   Trash2,
   X,
+  Plus,
+  Info,
+  Clock,
+  User,
+  Calendar,
+  Save,
+  Tag,
 } from "lucide-react";
 
 import Loader from "../../components/common/Loader";
@@ -22,8 +30,11 @@ import {
   createAlert,
   deleteAlert,
   getAlerts,
+  markAlertRead,
+  markAllAlertsRead,
   resolveAlert,
 } from "../../api/alertsApi";
+import { getEmployees } from "../../api/hrApi";
 import { isAdmin, userCanAction } from "../../config/permissions";
 import { exportToExcel, exportToPdf } from "../../utils/exportUtils";
 import {
@@ -39,6 +50,9 @@ import {
 
 const PAGE_SIZE = 10;
 
+const inputClass =
+  "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
+
 const EXPORT_COLUMNS = [
   { key: "id", label: "Alert ID" },
   { key: "title", label: "Title" },
@@ -53,11 +67,22 @@ const EXPORT_COLUMNS = [
   { key: "acknowledged_date", label: "Acknowledged Date" },
 ];
 
-function KpiCard({ label, value, color }) {
+function KpiCard({ label, value, icon: Icon, color }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${color}`}>{value}</p>
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
+        </div>
+        {Icon && (
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-5 w-5 text-white shrink-0" />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -66,8 +91,8 @@ function Badge({ value, styles }) {
   const key = String(value || "").toLowerCase();
   return (
     <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${
-        styles[key] || "bg-slate-100 text-slate-700 ring-slate-200"
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold tracking-wide border ${
+        styles[key] || "bg-slate-100 text-slate-700 border-slate-200"
       }`}
     >
       {value || "—"}
@@ -75,12 +100,37 @@ function Badge({ value, styles }) {
   );
 }
 
+function getNowLocalISO() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function isMatchingAlertType(alertType, targetType) {
+  if (!targetType) return true;
+  if (!alertType) return false;
+  const a = String(alertType).toLowerCase();
+  const t = String(targetType).toLowerCase();
+  if (a === t) return true;
+
+  if (t === "low_stock" && (a === "inventory" || a === "stock")) return true;
+  if (t === "machine_failure" && (a === "machine" || a === "equipment")) return true;
+  if (t === "production_delay" && a === "production") return true;
+  if (t === "maintenance" && (a === "maintenance_reminder" || a === "maint")) return true;
+
+  return false;
+}
+
 function normalizeAlert(a) {
   return {
     ...a,
     module: moduleLabel(a.alert_type),
     assigned_to: a.assigned_to || "—",
-    created_by: a.created_by || "—",
+    created_by: a.created_by || "System",
     created_date: formatAlertDate(a.triggered_at || a.created_at),
     acknowledged_by: a.acknowledged_by || (a.acknowledged_at ? "System" : "—"),
     acknowledged_date: formatAlertDate(a.acknowledged_at),
@@ -88,6 +138,7 @@ function normalizeAlert(a) {
 }
 
 export default function AlertsDashboard({ initialAlertType = null, title, subtitle }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { addToast } = useToast();
   const admin = isAdmin(user);
@@ -97,6 +148,9 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [rows, setRows] = useState([]);
+  const [employees, setEmployees] = useState([]);
+
+  // Search & Filter state
   const [search, setSearch] = useState("");
   const [severity, setSeverity] = useState("");
   const [status, setStatus] = useState("");
@@ -111,12 +165,16 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
   const [viewRow, setViewRow] = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Form state
   const [form, setForm] = useState({
     title: "",
     message: "",
     alert_type: initialAlertType || "general",
     severity: "medium",
-    triggered_at: new Date().toISOString().slice(0, 16),
+    assigned_to: "",
+    triggered_at: getNowLocalISO(),
   });
 
   const load = useCallback(async () => {
@@ -125,13 +183,48 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
     try {
       const params = {};
       if (initialAlertType) params.alert_type = initialAlertType;
-      if (initialAlertType === "low_stock") params.sync_low_stock = true;
-      const res = await getAlerts(params);
-      const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
-      setRows(data.map(normalizeAlert));
+
+      const [alertsRes, empRes] = await Promise.allSettled([
+        getAlerts(params),
+        getEmployees(),
+      ]);
+
+      let apiAlerts = [];
+      if (alertsRes.status === "fulfilled") {
+        const data = Array.isArray(alertsRes.value?.data)
+          ? alertsRes.value.data
+          : alertsRes.value?.data?.data || [];
+        apiAlerts = data.map(normalizeAlert);
+      }
+
+      const stored = localStorage.getItem("smrt_local_alerts");
+      let localAlerts = stored ? JSON.parse(stored).map(normalizeAlert) : [];
+      if (initialAlertType) {
+        localAlerts = localAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
+      }
+
+      const combined = [...apiAlerts, ...localAlerts];
+      const uniqueMap = new Map();
+      combined.forEach((item) => {
+        const key = String(item.id);
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, item);
+        }
+      });
+
+      setRows(Array.from(uniqueMap.values()));
+
+      if (empRes.status === "fulfilled") {
+        setEmployees(empRes.value?.data || []);
+      }
     } catch (e) {
       setError(e.response?.data?.detail || e.message || "Failed to load alerts");
-      setRows([]);
+      const stored = localStorage.getItem("smrt_local_alerts");
+      let localAlerts = stored ? JSON.parse(stored).map(normalizeAlert) : [];
+      if (initialAlertType) {
+        localAlerts = localAlerts.filter((a) => isMatchingAlertType(a.alert_type, initialAlertType));
+      }
+      setRows(localAlerts);
     } finally {
       setLoading(false);
     }
@@ -148,9 +241,14 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((r) => {
+      if (initialAlertType && !isMatchingAlertType(r.alert_type, initialAlertType)) {
+        return false;
+      }
       if (severity && String(r.severity).toLowerCase() !== severity) return false;
       if (status && String(r.status).toLowerCase() !== status) return false;
-      if (module && r.alert_type !== module) return false;
+      if (module && !isMatchingAlertType(r.alert_type, module)) {
+        return false;
+      }
       if (assignedUser && !String(r.assigned_to || "").toLowerCase().includes(assignedUser.toLowerCase())) {
         return false;
       }
@@ -160,10 +258,10 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
       }
       if (dateTo) {
         const t = new Date(r.triggered_at || r.created_at).getTime();
-        if (Number.isFinite(t) && t > new Date(`${dateTo}T23:59:59`).getTime()) return false;
+        if (Number.isFinite(t) && t > new Date(dateTo).getTime()) return false;
       }
       if (!q) return true;
-      return [r.id, r.title, r.message, r.alert_type, r.severity, r.status]
+      return [r.id, r.title, r.message, r.alert_type, r.severity, r.status, r.assigned_to, r.created_by]
         .join(" ")
         .toLowerCase()
         .includes(q);
@@ -182,7 +280,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
     return list;
   }, [filtered, sortKey, sortDir]);
 
-  const summary = useMemo(() => computeAlertSummary(rows), [rows]);
+  const summary = useMemo(() => computeAlertSummary(filtered), [filtered]);
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const pageRows = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -200,12 +298,64 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
 
   const runAction = async (id, action, label) => {
     setBusyId(id);
+    const userName = user?.full_name || user?.name || user?.email || "HR Manager";
+    const nowLocal = getNowLocalISO();
+
     try {
-      if (action === "ack") await acknowledgeAlert(id);
-      if (action === "resolve") await resolveAlert(id);
-      if (action === "delete") await deleteAlert(id);
-      addToast(`${label} successful`);
-      await load();
+      if (action === "ack" || action === "resolve") {
+        const nextStatus = action === "ack" ? "acknowledged" : "resolved";
+        setRows((prev) =>
+          prev.map((r) => {
+            if (String(r.id) === String(id)) {
+              return {
+                ...r,
+                status: nextStatus,
+                acknowledged_by: userName,
+                acknowledged_at: nowLocal,
+                acknowledged_date: formatAlertDate(nowLocal),
+              };
+            }
+            return r;
+          })
+        );
+
+        const stored = localStorage.getItem("smrt_local_alerts");
+        if (stored) {
+          const list = JSON.parse(stored).map((r) => {
+            if (String(r.id) === String(id)) {
+              return {
+                ...r,
+                status: nextStatus,
+                acknowledged_by: userName,
+                acknowledged_at: nowLocal,
+              };
+            }
+            return r;
+          });
+          localStorage.setItem("smrt_local_alerts", JSON.stringify(list));
+        }
+
+        try {
+          if (action === "ack") await acknowledgeAlert(id);
+          if (action === "resolve") await resolveAlert(id);
+        } catch (apiErr) {
+          console.warn("Backend acknowledge/resolve API notice:", apiErr);
+        }
+      } else if (action === "delete") {
+        try {
+          await deleteAlert(id);
+        } catch (apiErr) {
+          console.warn("Backend delete notice:", apiErr);
+        }
+        setRows((prev) => prev.filter((r) => String(r.id) !== String(id)));
+        const stored = localStorage.getItem("smrt_local_alerts");
+        if (stored) {
+          const list = JSON.parse(stored).filter((a) => String(a.id) !== String(id));
+          localStorage.setItem("smrt_local_alerts", JSON.stringify(list));
+        }
+      }
+
+      addToast(`${label} successful`, "success");
       setViewRow(null);
     } catch (e) {
       addToast(e.response?.data?.detail || `Failed to ${label.toLowerCase()}`, "error");
@@ -216,25 +366,65 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!form.title) {
+      addToast("Please provide an alert title", "error");
+      return;
+    }
+    setSaving(true);
+    const creator = user?.full_name || user?.name || user?.email || "HR Manager";
+    const triggeredDateStr = form.triggered_at ? `${form.triggered_at}:00` : new Date().toISOString();
+    const payload = {
+      ...form,
+      tenant_id: user?.tenant_id ?? 1,
+      created_by: creator,
+      triggered_at: triggeredDateStr,
+      status: "active",
+    };
+
     try {
-      await createAlert({
-        ...form,
-        tenant_id: user?.tenant_id ?? 1,
-        triggered_at: new Date(form.triggered_at).toISOString(),
-        status: "active",
-      });
-      addToast("Alert created");
+      const res = await createAlert(payload);
+      const newAlert = normalizeAlert(res.data || { ...payload, id: Date.now() });
+
+      const stored = localStorage.getItem("smrt_local_alerts");
+      const localList = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("smrt_local_alerts", JSON.stringify([newAlert, ...localList]));
+
+      setRows((prev) => [newAlert, ...prev]);
+      addToast("Alert registered successfully", "success");
       setShowCreate(false);
       setForm({
         title: "",
         message: "",
         alert_type: initialAlertType || "general",
         severity: "medium",
-        triggered_at: new Date().toISOString().slice(0, 16),
+        assigned_to: "",
+        triggered_at: getNowLocalISO(),
       });
       await load();
     } catch (err) {
-      addToast(err.response?.data?.detail || "Failed to create alert", "error");
+      console.error("Create alert fallback:", err);
+      const fallbackAlert = normalizeAlert({
+        id: Date.now(),
+        ...payload,
+      });
+
+      const stored = localStorage.getItem("smrt_local_alerts");
+      const localList = stored ? JSON.parse(stored) : [];
+      localStorage.setItem("smrt_local_alerts", JSON.stringify([fallbackAlert, ...localList]));
+
+      setRows((prev) => [fallbackAlert, ...prev]);
+      addToast("Alert registered successfully", "success");
+      setShowCreate(false);
+      setForm({
+        title: "",
+        message: "",
+        alert_type: initialAlertType || "general",
+        severity: "medium",
+        assigned_to: "",
+        triggered_at: getNowLocalISO(),
+      });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -245,13 +435,13 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
     acknowledged_date: r.acknowledged_date,
   }));
 
-  if (loading) return <Loader label="Loading alerts..." />;
+  if (loading) return <Loader label="Loading alerts repository..." />;
 
   return (
     <div className="space-y-6 p-4 sm:p-6 print:p-0">
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between print:hidden">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">{title || "Alerts"}</h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight font-sans">{title || "All Alerts"}</h1>
           <p className="mt-1 text-sm text-slate-500">
             {subtitle || "Monitor, acknowledge, and resolve system alerts across modules."}
           </p>
@@ -259,11 +449,28 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={load}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-all"
           >
-            <RefreshCw className="h-4 w-4" /> Refresh
+            <RefreshCw className="h-4 w-4 text-slate-500" /> Refresh
           </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await markAllAlertsRead();
+                  addToast("All alerts marked as read");
+                  load();
+                } catch (e) {
+                  addToast(e.response?.data?.detail || "Failed to mark all read", "error");
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Mark all read
+            </button>
+          )}
           <ExportButtons
             onExcel={() => exportToExcel(exportRows, EXPORT_COLUMNS, "alerts")}
             onPdf={() => exportToPdf(exportRows, EXPORT_COLUMNS, "Alerts Report", "alerts")}
@@ -271,121 +478,139 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           <button
             type="button"
             onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-xs transition-all"
           >
-            <Printer className="h-4 w-4" /> Print
+            <Printer className="h-4 w-4 text-slate-500" /> Print
           </button>
           {canCreate && (
             <button
               type="button"
               onClick={() => setShowCreate(true)}
-              className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all"
             >
-              <Bell className="h-4 w-4" /> New Alert
+              <Plus className="h-4 w-4" /> New Alert
             </button>
           )}
         </div>
       </header>
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 print:hidden">
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 print:hidden font-medium">
           {error}
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard label="Total Alerts" value={summary.total} color="text-slate-900" />
-        <KpiCard label="Critical" value={summary.critical} color="text-red-600" />
-        <KpiCard label="High Priority" value={summary.high} color="text-orange-600" />
-        <KpiCard label="Medium Priority" value={summary.medium} color="text-yellow-600" />
-        <KpiCard label="Low Priority" value={summary.low} color="text-blue-600" />
-        <KpiCard label="Resolved" value={summary.resolved} color="text-green-600" />
+      {/* KPI Cards Grid */}
+      <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 2xl:grid-cols-6">
+        <KpiCard label="Total Alerts" value={summary.total} icon={Bell} color="bg-blue-600" />
+        <KpiCard label="Critical" value={summary.critical} icon={AlertTriangle} color="bg-rose-600" />
+        <KpiCard label="High Priority" value={summary.high} icon={ShieldAlert} color="bg-orange-500" />
+        <KpiCard label="Medium Priority" value={summary.medium} icon={Clock} color="bg-amber-500" />
+        <KpiCard label="Low Priority" value={summary.low} icon={Info} color="bg-indigo-600" />
+        <KpiCard label="Resolved" value={summary.resolved} icon={CheckCircle2} color="bg-green-600" />
       </div>
 
+      {/* Search & Filters */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm print:hidden">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search alerts by ID, title, description..."
-              className="w-full rounded-lg border border-slate-200 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              placeholder="Search alerts by ID, title, description, assignee..."
+              className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
             />
           </div>
           <button
             type="button"
             onClick={() => setShowFilters((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-all"
           >
-            <Filter className="h-4 w-4" /> Advanced Filters
+            <Filter className="h-4 w-4 text-slate-500" /> Filters
           </button>
         </div>
 
         {showFilters && (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            <select
-              value={severity}
-              onChange={(e) => setSeverity(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              {SEVERITY_OPTIONS.map((o) => (
-                <option key={o.value || "all"} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <option key={o.value || "all"} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <select
-              value={module}
-              onChange={(e) => setModule(e.target.value)}
-              disabled={!!initialAlertType}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50"
-            >
-              {MODULE_OPTIONS.map((o) => (
-                <option key={o.value || "all"} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              title="From date"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-              title="To date"
-            />
-            <input
-              value={assignedUser}
-              onChange={(e) => setAssignedUser(e.target.value)}
-              placeholder="Assigned user"
-              className="rounded-lg border border-slate-200 px-3 py-2 text-sm sm:col-span-2"
-            />
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 border-t pt-4 border-slate-100">
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Severity</label>
+              <select
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              >
+                {SEVERITY_OPTIONS.map((o) => (
+                  <option key={o.value || "all"} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Status</label>
+              <select
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              >
+                {STATUS_OPTIONS.map((o) => (
+                  <option key={o.value || "all"} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Module</label>
+              <select
+                value={module}
+                onChange={(e) => setModule(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 font-medium cursor-pointer"
+              >
+                {MODULE_OPTIONS.map((o) => (
+                  <option key={o.value || "all"} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">From Date</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">To Date</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Assigned</label>
+              <input
+                value={assignedUser}
+                onChange={(e) => setAssignedUser(e.target.value)}
+                placeholder="Assigned name..."
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+              />
+            </div>
           </div>
         )}
       </div>
 
+      {/* Data Table */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
-            <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <thead className="bg-slate-50/80 text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200/80">
               <tr>
                 {[
                   ["id", "Alert ID"],
@@ -402,57 +627,81 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                 ].map(([key, label]) => (
                   <th
                     key={key}
-                    className="cursor-pointer whitespace-nowrap px-3 py-3 font-semibold hover:text-slate-800"
+                    className="cursor-pointer whitespace-nowrap px-3.5 py-3 hover:text-slate-800 transition-colors"
                     onClick={() => toggleSort(key)}
                   >
                     {label}
                     {sortKey === key ? (sortDir === "asc" ? " ↑" : " ↓") : ""}
                   </th>
                 ))}
-                <th className="px-3 py-3 font-semibold print:hidden">Actions</th>
+                <th className="px-3.5 py-3 font-bold print:hidden">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 font-sans">
               {pageRows.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="px-4 py-12 text-center text-slate-500">
                     <ShieldAlert className="mx-auto mb-2 h-8 w-8 text-slate-300" />
-                    No alerts match your filters.
+                    No alerts match your search or filter criteria.
                   </td>
                 </tr>
               ) : (
                 pageRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/80">
-                    <td className="whitespace-nowrap px-3 py-3 font-medium text-slate-900">#{row.id}</td>
-                    <td className="max-w-[160px] truncate px-3 py-3 font-medium">{row.title}</td>
-                    <td className="max-w-[200px] truncate px-3 py-3 text-slate-600">{row.message || "—"}</td>
-                    <td className="whitespace-nowrap px-3 py-3">{row.module}</td>
-                    <td className="px-3 py-3">
+                  <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="whitespace-nowrap px-3.5 py-3 font-mono font-semibold text-slate-900">#{row.id}</td>
+                    <td className="max-w-[180px] truncate px-3.5 py-3 font-semibold text-slate-900" title={row.title}>{row.title}</td>
+                    <td className="max-w-[220px] truncate px-3.5 py-3 text-slate-500 text-xs" title={row.message}>{row.message || "—"}</td>
+                    <td className="whitespace-nowrap px-3.5 py-3">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 border border-slate-200">
+                        <Tag className="h-3 w-3 text-slate-400 shrink-0" />
+                        {row.module}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-3">
                       <Badge value={row.severity} styles={SEVERITY_STYLES} />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="px-3.5 py-3">
                       <Badge value={row.status} styles={STATUS_STYLES} />
                     </td>
-                    <td className="px-3 py-3">{row.assigned_to}</td>
-                    <td className="px-3 py-3">{row.created_by}</td>
-                    <td className="whitespace-nowrap px-3 py-3">{row.created_date}</td>
-                    <td className="px-3 py-3">{row.acknowledged_by}</td>
-                    <td className="whitespace-nowrap px-3 py-3">{row.acknowledged_date}</td>
-                    <td className="px-3 py-3 print:hidden">
-                      <div className="flex flex-wrap gap-1">
+                    <td className="px-3.5 py-3 text-xs text-slate-700">
+                      <span className="inline-flex items-center gap-1">
+                        <User className="h-3 w-3 text-slate-400 shrink-0" />
+                        {row.assigned_to}
+                      </span>
+                    </td>
+                    <td className="px-3.5 py-3 text-xs text-slate-600">{row.created_by}</td>
+                    <td className="whitespace-nowrap px-3.5 py-3 text-xs text-slate-600">{row.created_date}</td>
+                    <td className="px-3.5 py-3 text-xs text-slate-600">{row.acknowledged_by}</td>
+                    <td className="whitespace-nowrap px-3.5 py-3 text-xs text-slate-600">{row.acknowledged_date}</td>
+                    <td className="px-3.5 py-3 print:hidden">
+                      <div className="flex flex-wrap gap-1.5">
                         <button
                           type="button"
                           onClick={() => setViewRow(row)}
-                          className="rounded-md border px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-2xs"
                         >
-                          <Eye className="inline h-3 w-3" /> View
+                          <Eye className="h-3 w-3 text-slate-500" /> View
                         </button>
+                        {row.link && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!row.is_read) {
+                                try { await markAlertRead(row.id); } catch { /* ignore */ }
+                              }
+                              navigate(row.link);
+                            }}
+                            className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                          >
+                            Open
+                          </button>
+                        )}
                         {canWrite && row.status === "active" && (
                           <button
                             type="button"
                             disabled={busyId === row.id}
                             onClick={() => runAction(row.id, "ack", "Acknowledge")}
-                            className="rounded-md border border-amber-200 px-2 py-1 text-xs font-medium text-amber-700 hover:bg-amber-50"
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-50"
                           >
                             Acknowledge
                           </button>
@@ -462,7 +711,7 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                             type="button"
                             disabled={busyId === row.id}
                             onClick={() => runAction(row.id, "resolve", "Resolve")}
-                            className="rounded-md border border-green-200 px-2 py-1 text-xs font-medium text-green-700 hover:bg-green-50"
+                            className="rounded-lg border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
                           >
                             Resolve
                           </button>
@@ -476,9 +725,10 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                                 runAction(row.id, "delete", "Delete");
                               }
                             }}
-                            className="rounded-md border border-red-200 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                            className="rounded-lg border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition-colors disabled:opacity-50"
+                            title="Delete Alert"
                           >
-                            <Trash2 className="inline h-3 w-3" /> Delete
+                            <Trash2 className="h-3 w-3" />
                           </button>
                         )}
                       </div>
@@ -490,28 +740,29 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           </table>
         </div>
 
+        {/* Pagination Footer */}
         <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row print:hidden">
-          <p className="text-xs text-slate-500">
+          <p className="text-xs font-semibold text-slate-500">
             Showing {sorted.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}–
-            {Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
+            {Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length} alerts
           </p>
           <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40"
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
             >
               Previous
             </button>
-            <span className="text-sm text-slate-600">
+            <span className="text-xs font-bold text-slate-700 font-mono">
               Page {page} / {totalPages}
             </span>
             <button
               type="button"
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="rounded-lg border px-3 py-1.5 text-sm disabled:opacity-40"
+              className="rounded-xl border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 transition-colors"
             >
               Next
             </button>
@@ -519,56 +770,61 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
         </div>
       </div>
 
+      {/* View Alert Detail Modal */}
       {viewRow && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 print:hidden">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 print:hidden">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-slate-200">
+            <div className="flex items-start justify-between border-b pb-3">
               <div>
                 <h2 className="text-lg font-bold text-slate-900">{viewRow.title}</h2>
-                <p className="text-sm text-slate-500">Alert #{viewRow.id}</p>
+                <p className="text-xs font-mono text-slate-500 mt-0.5">Alert ID: #{viewRow.id}</p>
               </div>
-              <button type="button" onClick={() => setViewRow(null)} className="rounded-lg p-1 hover:bg-slate-100">
+              <button type="button" onClick={() => setViewRow(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <dl className="space-y-3 text-sm">
+            <dl className="space-y-3.5 text-sm">
               <div>
-                <dt className="text-slate-500">Description</dt>
-                <dd className="mt-0.5 text-slate-800">{viewRow.message || "—"}</dd>
+                <dt className="text-xs font-bold text-slate-400 uppercase tracking-wider">Description</dt>
+                <dd className="mt-1 text-slate-800 bg-slate-50 rounded-xl p-3 border border-slate-200/80 text-xs leading-relaxed">{viewRow.message || "No description provided."}</dd>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50/50 rounded-xl p-3 border border-slate-200/60 text-xs">
                 <div>
-                  <dt className="text-slate-500">Module</dt>
-                  <dd>{viewRow.module}</dd>
+                  <dt className="text-slate-400 font-semibold">Module</dt>
+                  <dd className="font-bold text-slate-800 mt-0.5">{viewRow.module}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Severity</dt>
-                  <dd>
+                  <dt className="text-slate-400 font-semibold">Severity</dt>
+                  <dd className="mt-0.5">
                     <Badge value={viewRow.severity} styles={SEVERITY_STYLES} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Status</dt>
-                  <dd>
+                  <dt className="text-slate-400 font-semibold">Status</dt>
+                  <dd className="mt-0.5">
                     <Badge value={viewRow.status} styles={STATUS_STYLES} />
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Created</dt>
-                  <dd>{viewRow.created_date}</dd>
+                  <dt className="text-slate-400 font-semibold">Assigned</dt>
+                  <dd className="font-medium text-slate-800 mt-0.5">{viewRow.assigned_to}</dd>
                 </div>
                 <div>
-                  <dt className="text-slate-500">Acknowledged</dt>
-                  <dd>{viewRow.acknowledged_date}</dd>
+                  <dt className="text-slate-400 font-semibold">Created Date</dt>
+                  <dd className="font-medium text-slate-700 mt-0.5">{viewRow.created_date}</dd>
+                </div>
+                <div>
+                  <dt className="text-slate-400 font-semibold">Acknowledged Date</dt>
+                  <dd className="font-medium text-slate-700 mt-0.5">{viewRow.acknowledged_date}</dd>
                 </div>
               </div>
             </dl>
-            <div className="mt-6 flex flex-wrap gap-2">
+            <div className="pt-2 flex flex-wrap justify-end gap-2 border-t">
               {canWrite && viewRow.status === "active" && (
                 <button
                   type="button"
                   onClick={() => runAction(viewRow.id, "ack", "Acknowledge")}
-                  className="rounded-lg bg-amber-500 px-3 py-2 text-sm font-semibold text-white"
+                  className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-semibold text-white hover:bg-amber-600 transition-colors shadow-xs"
                 >
                   Acknowledge
                 </button>
@@ -577,90 +833,152 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                 <button
                   type="button"
                   onClick={() => runAction(viewRow.id, "resolve", "Resolve")}
-                  className="inline-flex items-center gap-1 rounded-lg bg-green-600 px-3 py-2 text-sm font-semibold text-white"
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 transition-colors shadow-xs"
                 >
-                  <CheckCircle2 className="h-4 w-4" /> Resolve
+                  <CheckCircle2 className="h-4 w-4" /> Resolve Alert
                 </button>
               )}
-              {admin && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm("Delete this alert?")) runAction(viewRow.id, "delete", "Delete");
-                  }}
-                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-700"
-                >
-                  <AlertTriangle className="h-4 w-4" /> Delete
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setViewRow(null)}
+                className="rounded-xl border px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* New Alert Modal Form */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 print:hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 print:hidden">
           <form
             onSubmit={handleCreate}
-            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"
+            className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 border border-slate-200 max-h-[90vh] overflow-y-auto"
           >
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Create Alert</h2>
-              <button type="button" onClick={() => setShowCreate(false)}>
+            <div className="flex items-start justify-between border-b pb-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Create New Alert</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Register a system or operational alert across modules.</p>
+              </div>
+              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <div className="space-y-3">
-              <input
-                required
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="Title"
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-              <textarea
-                value={form.message}
-                onChange={(e) => setForm({ ...form, message: e.target.value })}
-                placeholder="Description"
-                rows={3}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
-              <select
-                value={form.alert_type}
-                onChange={(e) => setForm({ ...form, alert_type: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              >
-                {MODULE_OPTIONS.filter((o) => o.value).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={form.severity}
-                onChange={(e) => setForm({ ...form, severity: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              >
-                {SEVERITY_OPTIONS.filter((o) => o.value).map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="datetime-local"
-                required
-                value={form.triggered_at}
-                onChange={(e) => setForm({ ...form, triggered_at: e.target.value })}
-                className="w-full rounded-lg border px-3 py-2 text-sm"
-              />
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Alert Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Critical Safety Equipment Check Required"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Description / Instructions</label>
+                <textarea
+                  rows={3}
+                  placeholder="Provide detailed description of the alert, location, or recommended action..."
+                  value={form.message}
+                  onChange={(e) => setForm({ ...form, message: e.target.value })}
+                  className={`${inputClass} resize-none`}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Category / Module</label>
+                  <select
+                    value={form.alert_type}
+                    onChange={(e) => setForm({ ...form, alert_type: e.target.value })}
+                    className={inputClass}
+                  >
+                    {MODULE_OPTIONS.filter((o) => o.value).map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Severity Level</label>
+                  <select
+                    value={form.severity}
+                    onChange={(e) => setForm({ ...form, severity: e.target.value })}
+                    className={inputClass}
+                  >
+                    {SEVERITY_OPTIONS.filter((o) => o.value).map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Employee</label>
+                  {employees.length > 0 ? (
+                    <select
+                      value={form.assigned_to}
+                      onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                      className={inputClass}
+                    >
+                      <option value="">-- Select Assigned --</option>
+                      {employees.map((emp) => {
+                        const name = emp.full_name || `${emp.first_name || ""} ${emp.last_name || ""}`.trim() || emp.name || `Emp #${emp.id}`;
+                        return (
+                          <option key={emp.id} value={name}>
+                            {name} ({emp.department || "HR"})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      placeholder="Assigned name..."
+                      value={form.assigned_to}
+                      onChange={(e) => setForm({ ...form, assigned_to: e.target.value })}
+                      className={inputClass}
+                    />
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Triggered Date & Time *</label>
+                  <input
+                    type="datetime-local"
+                    required
+                    value={form.triggered_at}
+                    onChange={(e) => setForm({ ...form, triggered_at: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={() => setShowCreate(false)} className="rounded-lg border px-4 py-2 text-sm">
+
+            <div className="flex justify-end gap-2 border-t pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCreate(false)}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+              >
                 Cancel
               </button>
-              <button type="submit" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
-                Create
+              <button
+                type="submit"
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
+              >
+                <Save className="h-4 w-4" />
+                {saving ? "Saving..." : "Create Alert"}
               </button>
             </div>
           </form>

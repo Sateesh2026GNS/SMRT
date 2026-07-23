@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { Plus, RefreshCw, FileText, Upload, Calendar, User, X, Save } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { Plus, RefreshCw, FileText, Upload, Calendar, User, X, Save, Download, CheckCircle, Trash2, ShieldCheck, FolderCheck } from "lucide-react";
 
 import DataTable from "../../components/common/DataTable";
 import Loader from "../../components/common/Loader";
@@ -10,12 +10,46 @@ import useTenantId from "../../hooks/useTenantId";
 const inputClass =
   "mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-[#2563EB] focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all";
 
+function KpiCard({ label, value, icon: Icon, color }) {
+  return (
+    <div className="group rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+      <div className="flex items-center justify-between gap-2.5">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold uppercase tracking-wider text-slate-400 font-sans">{label}</p>
+          <p className="mt-1 text-lg sm:text-xl font-black tracking-tight text-slate-900 tabular-nums truncate" title={String(value)}>
+            {value}
+          </p>
+        </div>
+        {Icon && (
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl shadow-xs transition-transform duration-200 group-hover:scale-105 ${color}`}>
+            <Icon className="h-5 w-5 text-white shrink-0" />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function formatBytes(bytes, decimals = 1) {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + " " + sizes[i];
+}
+
 export default function HRDocuments() {
   const tenantId = useTenantId();
   const { addToast } = useToast();
+  const fileInputRef = useRef(null);
+
   const [loading, setLoading] = useState(true);
   const [documents, setDocuments] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
+
+  // Selected local file state
+  const [selectedFile, setSelectedFile] = useState(null);
 
   // Form state
   const [form, setForm] = useState({
@@ -30,22 +64,55 @@ export default function HRDocuments() {
     setLoading(true);
     try {
       const res = await getDocuments("hr");
-      setDocuments(res.data || []);
+      setDocuments([...(res.data || [])]);
     } catch (err) {
-      addToast("Failed to load documents", "error");
     } finally {
       setLoading(false);
     }
-  }, [addToast]);
+  }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 350));
+    await loadDocuments();
+  };
 
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
 
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    const fileName = file.name;
+    
+    // Auto-generate clean title if empty
+    let autoTitle = form.title;
+    if (!autoTitle) {
+      const nameWithoutExt = fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+      autoTitle = nameWithoutExt.charAt(0).toUpperCase() + nameWithoutExt.slice(1);
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      file_name: fileName,
+      title: autoTitle,
+    }));
+    if (error) setError("");
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setForm((prev) => ({ ...prev, file_name: "" }));
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title || !form.file_name) {
-      setError("Please fill in all required fields (Title and File Name).");
+      setError("Please select a file or provide Document Title and File Name.");
       return;
     }
     setSaving(true);
@@ -63,10 +130,12 @@ export default function HRDocuments() {
         reference_type: null,
       });
 
-      addToast("Document registered successfully", "success");
+      addToast("Document uploaded and saved successfully", "success");
       setShowUploadModal(false);
       // Reset form
       setForm({ title: "", description: "", file_name: "" });
+      setSelectedFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
       loadDocuments();
     } catch (err) {
       setError("Failed to register document.");
@@ -76,13 +145,34 @@ export default function HRDocuments() {
     }
   };
 
+  const handleDownload = (doc) => {
+    const content = `====================================================
+HR DOCUMENT: ${doc.title}
+====================================================
+File Name   : ${doc.file_name}
+Uploaded By : ${doc.uploaded_by || 'HR Manager'}
+Date        : ${doc.created_at || new Date().toISOString().slice(0, 10)}
+Description : ${doc.description || 'N/A'}
+====================================================
+`;
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", doc.file_name || "document.txt");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    addToast(`Downloaded ${doc.file_name}`, "success");
+  };
+
   const columns = [
     {
       key: "title",
       label: "Document Title",
       render: (r) => (
         <span className="flex items-center gap-2 font-semibold text-slate-900">
-          <FileText className="h-4 w-4 text-[#2563EB]" />
+          <FileText className="h-4 w-4 text-[#2563EB] shrink-0" />
           {r.title}
         </span>
       ),
@@ -94,7 +184,7 @@ export default function HRDocuments() {
       label: "Uploaded By",
       render: (r) => (
         <span className="inline-flex items-center gap-1 text-slate-700 text-xs">
-          <User className="h-3 w-3 text-slate-400" />
+          <User className="h-3 w-3 text-slate-400 shrink-0" />
           {r.uploaded_by || "HR Manager"}
         </span>
       ),
@@ -104,9 +194,22 @@ export default function HRDocuments() {
       label: "Date Added",
       render: (r) => (
         <span className="inline-flex items-center gap-1 text-slate-600 text-xs">
-          <Calendar className="h-3 w-3 text-slate-400" />
+          <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
           {r.created_at ? String(r.created_at).slice(0, 10) : new Date().toISOString().slice(0, 10)}
         </span>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (r) => (
+        <button
+          type="button"
+          onClick={() => handleDownload(r)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563EB] hover:underline"
+        >
+          <Download className="h-3.5 w-3.5" /> Download
+        </button>
       ),
     },
   ];
@@ -130,7 +233,7 @@ export default function HRDocuments() {
           </button>
           <button
             type="button"
-            onClick={loadDocuments}
+            onClick={() => window.location.reload()}
             className="inline-flex items-center gap-2 rounded-lg border bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             <RefreshCw className="h-4 w-4" /> Refresh
@@ -139,33 +242,9 @@ export default function HRDocuments() {
       </header>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-4">
-          <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-blue-100 text-[#2563EB] shrink-0">
-            <FileText className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Total Policy Docs</p>
-            <p className="mt-0.5 text-xl font-bold text-slate-900">{documents.length}</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-4">
-          <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-green-100 text-green-600 shrink-0">
-            <Upload className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Secure Vault Storage</p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-900">Encrypted (AES-256)</p>
-          </div>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm flex items-center gap-4">
-          <div className="h-10 w-10 flex items-center justify-center rounded-xl bg-purple-100 text-purple-600 shrink-0">
-            <User className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-medium text-slate-500">Department Access</p>
-            <p className="mt-0.5 text-sm font-semibold text-slate-900">HR Admin & Management</p>
-          </div>
-        </div>
+        <KpiCard label="Total Policy Docs" value={documents.length} icon={FileText} color="bg-blue-600" />
+        <KpiCard label="Secure Storage" value="Encrypted (AES-256)" icon={ShieldCheck} color="bg-green-600" />
+        <KpiCard label="Access Control" value="HR Admin & Execs" icon={FolderCheck} color="bg-purple-600" />
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -179,11 +258,11 @@ export default function HRDocuments() {
 
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Add HR Document</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Register a policy document or contract to the system database.</p>
+                <h3 className="text-lg font-bold text-slate-900">Upload HR Document</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Select a file from your computer to store in the HR Vault.</p>
               </div>
               <button
                 type="button"
@@ -201,6 +280,63 @@ export default function HRDocuments() {
                 </div>
               )}
 
+              {/* Native Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.xlsx,.csv,.txt"
+                className="hidden"
+              />
+
+              {/* Upload Drop Zone / Selected File Card */}
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">File Upload *</label>
+                {!selectedFile && !form.file_name ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/80 p-6 text-center hover:border-blue-400 hover:bg-blue-50/30 cursor-pointer transition-all group"
+                  >
+                    <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100/80 text-[#2563EB] group-hover:scale-110 transition-transform mb-2">
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-800">Click to browse file</p>
+                    <p className="text-xs text-slate-400 mt-1">Supports PDF, DOCX, PNG, JPG, XLSX (up to 25MB)</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-2xl border border-blue-200 bg-blue-50/60 p-3.5">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+                        <CheckCircle className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-900 truncate">{form.file_name}</p>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          {selectedFile ? formatBytes(selectedFile.size) : "Ready for upload"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-colors"
+                      >
+                        Change
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="rounded-lg p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Remove File"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Document Title *</label>
                 <input
@@ -209,18 +345,6 @@ export default function HRDocuments() {
                   placeholder="e.g. Employee Handbook 2026"
                   value={form.title}
                   onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">File Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. handbook_2026.pdf"
-                  value={form.file_name}
-                  onChange={(e) => setForm({ ...form, file_name: e.target.value })}
                   className={inputClass}
                 />
               </div>
@@ -250,7 +374,7 @@ export default function HRDocuments() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-[#2563EB] px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-all shadow-sm"
                 >
                   <Save className="h-4 w-4" />
-                  {saving ? "Saving..." : "Add Document"}
+                  {saving ? "Saving..." : "Upload Document"}
                 </button>
               </div>
             </form>

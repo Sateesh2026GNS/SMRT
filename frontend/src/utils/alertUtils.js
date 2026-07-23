@@ -15,11 +15,12 @@ export const STATUS_OPTIONS = [
 
 export const MODULE_OPTIONS = [
   { value: "", label: "All modules" },
-  { value: "low_stock", label: "Inventory" },
-  { value: "machine_failure", label: "Production" },
+  { value: "hr", label: "HR & Personnel" },
+  { value: "safety", label: "Safety & Incident" },
+  { value: "low_stock", label: "Inventory / Stock" },
+  { value: "machine_failure", label: "Machine / Equipment" },
   { value: "production_delay", label: "Production Delay" },
   { value: "maintenance", label: "Maintenance" },
-  { value: "maintenance_reminder", label: "Maintenance Reminder" },
   { value: "quality", label: "Quality" },
   { value: "general", label: "General" },
 ];
@@ -44,12 +45,35 @@ export function moduleLabel(alertType) {
 export function formatAlertDate(value) {
   if (!value) return "—";
   try {
-    return new Date(value).toLocaleString(undefined, {
+    const raw = String(value).trim();
+    if (raw.includes("AM") || raw.includes("PM")) return raw;
+
+    let d;
+    if (raw.endsWith("Z") || raw.includes("+") || (raw.includes("-") && raw.lastIndexOf("-") > 10)) {
+      d = new Date(raw);
+    } else if (raw.includes("T")) {
+      const [datePart, timePart] = raw.split("T");
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute] = (timePart || "00:00").split(":").map(Number);
+      d = new Date(year, month - 1, day, hour, minute);
+    } else if (raw.includes(" ")) {
+      const [datePart, timePart] = raw.split(" ");
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute] = (timePart || "00:00").split(":").map(Number);
+      d = new Date(year, month - 1, day, hour, minute);
+    } else {
+      d = new Date(raw);
+    }
+
+    if (!d || isNaN(d.getTime())) return String(value);
+
+    return d.toLocaleString("en-US", {
       day: "2-digit",
       month: "short",
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: true,
     });
   } catch {
     return "—";

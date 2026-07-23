@@ -10,7 +10,7 @@ import {
 } from "../api/notificationService";
 import useAuth from "./useAuth";
 
-const POLL_MS = 60_000;
+const POLL_MS = 30_000;
 const PAGE_SIZE = 20;
 
 function applyListData(setNotifications, setCount, setHasMore, setPage, data, append = false) {
@@ -180,7 +180,12 @@ export default function useNotifications() {
   useEffect(() => {
     refresh();
     if (!isAuthenticated) return undefined;
-    const id = setInterval(refreshCount, POLL_MS);
+    // Phase 1: poll unread + soft list so bell stays current.
+    // Phase 2: swap interval for WebSocket without changing consumers.
+    const id = setInterval(() => {
+      refreshCount();
+      refresh();
+    }, POLL_MS);
     return () => clearInterval(id);
   }, [refresh, refreshCount, isAuthenticated]);
 
