@@ -39,8 +39,10 @@ def _normalize_plan(raw: str | None) -> str | None:
     key = raw.strip().lower()
     mapping = {
         "trial": "Trial",
+        "free": "Free",
         "growth": "Growth",
         "scale": "Scale",
+        "dominate": "Dominate",
         "enterprise": "Enterprise",
         "basic": "Growth",
         "pro": "Scale",

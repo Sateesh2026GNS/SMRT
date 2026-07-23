@@ -99,6 +99,7 @@ class PlatformCompanyService:
             email_domain,
             is_public_email_domain,
         )
+        from app.services.audit_service import write_audit_log
 
         for email in (payload.company_email, payload.admin_email):
             if is_public_email_domain(email_domain(email)):
@@ -107,14 +108,45 @@ class PlatformCompanyService:
                     detail=MSG_PUBLIC_EMAIL,
                 )
 
-        existing_email = self.db.scalars(
-            select(User).where(User.email == payload.admin_email)
-        ).first()
-        if existing_email:
+        admin_email = payload.admin_email.strip().lower()
+        company_email = payload.company_email.strip().lower()
+        mobile = payload.mobile_number.strip()
+        gstin = (payload.gst_number or None)
+
+        existing_admin = self.db.scalars(select(User).where(User.email == admin_email)).first()
+        if existing_admin:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Admin email is already registered.",
             )
+
+        existing_company_email = self.db.scalars(
+            select(Tenant).where(Tenant.email == company_email)
+        ).first()
+        if existing_company_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Company email is already registered to another company.",
+            )
+
+        existing_mobile = self.db.scalars(
+            select(Tenant).where(Tenant.phone == mobile)
+        ).first()
+        if existing_mobile:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Mobile number is already registered to another company.",
+            )
+
+        if gstin:
+            existing_gst = self.db.scalars(
+                select(Tenant).where(Tenant.gst_number == gstin)
+            ).first()
+            if existing_gst:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="GST Number is already registered to another company.",
+                )
 
         base_name = payload.company_name.strip()[:255]
         slug_base = _slugify(payload.company_name)
@@ -132,27 +164,37 @@ class PlatformCompanyService:
             slug = f"{slug_base}-{n}"
             display_name = f"{base_name} ({n})"[:255]
 
-        trial_expires = datetime.now(timezone.utc) + timedelta(days=payload.trial_days)
-        temp_password = payload.password
+        plan = payload.subscription_plan.strip().lower()
+        is_trial = plan == "trial"
+        trial_days = int(payload.trial_days or 0) if is_trial else 0
+        trial_expires = (
+            datetime.now(timezone.utc) + timedelta(days=trial_days) if is_trial else None
+        )
+        billing_cycle = (payload.billing_cycle or ("forever" if is_trial else "yearly")).lower()
+
+        # Auto-generate secure temporary password unless Super Admin provided one
+        temp_password = payload.password or _generate_temp_password(14)
+        company_status = "trial" if is_trial else "active"
+        license_status = "trial" if is_trial else "active"
 
         try:
             tenant = Tenant(
                 name=display_name,
                 slug=slug,
-                email=payload.company_email.strip().lower(),
-                phone=payload.mobile_number.strip(),
+                email=company_email,
+                phone=mobile,
                 address=payload.address.strip(),
                 city=payload.city.strip(),
                 state=payload.state.strip(),
                 country=payload.country.strip(),
                 pin_code=payload.pin_code.strip(),
-                gst_number=(payload.gst_number or "").strip() or None,
-                status="active",
-                subscription=payload.subscription_plan.strip().lower(),
-                trial_status=True,
-                trial_days=payload.trial_days,
+                gst_number=gstin,
+                status=company_status,
+                subscription=plan,
+                trial_status=is_trial,
+                trial_days=trial_days if is_trial else None,
                 trial_expires_at=trial_expires,
-                license_status="active",
+                license_status=license_status,
             )
             self.db.add(tenant)
             self.db.flush()
@@ -168,9 +210,9 @@ class PlatformCompanyService:
 
             admin_user = User(
                 tenant_id=tenant.id,
-                email=payload.admin_email.strip().lower(),
+                email=admin_email,
                 full_name=payload.admin_name.strip(),
-                phone=payload.mobile_number.strip(),
+                phone=mobile,
                 hashed_password=hash_password(temp_password),
                 is_active=True,
                 email_verified=True,
@@ -183,9 +225,9 @@ class PlatformCompanyService:
 
             license_row = CompanyLicense(
                 tenant_id=tenant.id,
-                plan=payload.subscription_plan.strip(),
-                status="active",
-                max_users=50,
+                plan=plan,
+                status=license_status,
+                max_users=50 if plan != "dominate" else 500,
                 issued_at=datetime.now(timezone.utc),
                 expires_at=trial_expires,
             )
@@ -194,9 +236,9 @@ class PlatformCompanyService:
             settings_row = CompanySettings(
                 tenant_id=tenant.id,
                 company_name=display_name,
-                email=payload.company_email.strip().lower(),
-                phone=payload.mobile_number.strip(),
-                gstin=(payload.gst_number or "").strip() or None,
+                email=company_email,
+                phone=mobile,
+                gstin=gstin,
                 address_line1=payload.address.strip(),
                 city=payload.city.strip(),
                 state=payload.state.strip(),
@@ -204,31 +246,75 @@ class PlatformCompanyService:
             )
             self.db.add(settings_row)
 
+            self.db.flush()
+
+            try:
+                write_audit_log(
+                    self.db,
+                    tenant_id=tenant.id,
+                    company_id=tenant.id,
+                    company_name=display_name,
+                    action="company_provisioned",
+                    full_name="GNS Super Admin",
+                    email="platform",
+                    role="GNS Super Admin",
+                    details=(
+                        f"Created company {tenant.company_code} ({display_name}); "
+                        f"plan={plan}; billing={billing_cycle}; admin={admin_email}"
+                    ),
+                    module_name="platform",
+                    commit=False,
+                )
+            except Exception:
+                pass
+
             self.db.commit()
             self.db.refresh(tenant)
 
             company_id = tenant.company_code
-            send_company_welcome_email(
-                to=payload.admin_email.strip().lower(),
-                company_name=display_name,
-                login_email=payload.admin_email.strip().lower(),
-                temporary_password=temp_password,
-                company_id=company_id,
-            )
+            try:
+                send_company_welcome_email(
+                    to=admin_email,
+                    company_name=display_name,
+                    login_email=admin_email,
+                    temporary_password=temp_password,
+                    company_id=company_id,
+                    subscription_plan=plan,
+                    trial_expires_at=trial_expires.isoformat() if trial_expires else None,
+                    billing_cycle=billing_cycle,
+                )
+            except Exception:
+                # Company already committed — surface password in API response for Super Admin
+                pass
 
             return {
                 "company": serialize_company(self.db, tenant),
                 "company_id": company_id,
-                "admin_email": payload.admin_email.strip().lower(),
+                "admin_email": admin_email,
                 "temporary_password": temp_password,
-                "message": "Company created. Login details sent to company admin email.",
+                "subscription_plan": plan,
+                "billing_cycle": billing_cycle,
+                "trial_expires_at": trial_expires,
+                "message": (
+                    "Company created successfully. Login details were emailed to the company admin "
+                    "(temporary password also shown below for Super Admin handover)."
+                ),
             }
+        except HTTPException:
+            self.db.rollback()
+            raise
         except IntegrityError:
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Could not create company. Please try again.",
+                detail="Could not create company due to a conflict. Please check email, GST, or mobile.",
             )
+        except Exception as exc:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Company provisioning failed and was rolled back: {exc}",
+            ) from exc
 
     def update_company(self, tenant_id: int, payload: UpdateCompanyRequest) -> dict:
         tenant = self._get_tenant_or_404(tenant_id)
@@ -251,23 +337,53 @@ class PlatformCompanyService:
         if payload.pin_code is not None:
             tenant.pin_code = payload.pin_code.strip()
         if payload.subscription_plan is not None:
-            tenant.subscription = payload.subscription_plan.strip().lower()
+            plan = payload.subscription_plan.strip().lower()
+            tenant.subscription = plan
+            license_row = self.db.scalars(
+                select(CompanyLicense).where(CompanyLicense.tenant_id == tenant_id)
+            ).first()
+            if license_row:
+                license_row.plan = plan
         if payload.trial_days is not None:
             tenant.trial_days = payload.trial_days
             tenant.trial_expires_at = datetime.now(timezone.utc) + timedelta(
                 days=payload.trial_days
             )
         if payload.status is not None:
-            tenant.status = payload.status.strip().lower()
+            new_status = payload.status.strip().lower()
+            tenant.status = new_status
+            tenant.license_status = new_status
+            tenant.trial_status = new_status == "trial"
+            license_row = self.db.scalars(
+                select(CompanyLicense).where(CompanyLicense.tenant_id == tenant_id)
+            ).first()
+            if license_row:
+                license_row.status = new_status
+            if new_status in {"suspended", "expired", "cancelled", "deleted"}:
+                users = self.db.scalars(select(User).where(User.tenant_id == tenant_id)).all()
+                for u in users:
+                    if new_status == "deleted":
+                        u.is_active = False
         self.db.commit()
         self.db.refresh(tenant)
         return serialize_company(self.db, tenant)
 
     def activate_company(self, tenant_id: int) -> dict:
         tenant = self._get_tenant_or_404(tenant_id)
-        tenant.status = "active"
-        tenant.trial_status = True
-        tenant.license_status = "active"
+        was_deleted = (tenant.status or "").lower() == "deleted"
+        plan = (tenant.subscription or "").lower()
+        tenant.status = "trial" if plan == "trial" else "active"
+        tenant.trial_status = plan == "trial"
+        tenant.license_status = "trial" if plan == "trial" else "active"
+        license_row = self.db.scalars(
+            select(CompanyLicense).where(CompanyLicense.tenant_id == tenant_id)
+        ).first()
+        if license_row:
+            license_row.status = tenant.license_status
+        # Only restore users when recovering from soft-delete
+        if was_deleted:
+            for u in self.db.scalars(select(User).where(User.tenant_id == tenant_id)).all():
+                u.is_active = True
         self.db.commit()
         return serialize_company(self.db, tenant)
 
@@ -276,6 +392,11 @@ class PlatformCompanyService:
         tenant.status = "suspended"
         tenant.trial_status = False
         tenant.license_status = "suspended"
+        license_row = self.db.scalars(
+            select(CompanyLicense).where(CompanyLicense.tenant_id == tenant_id)
+        ).first()
+        if license_row:
+            license_row.status = "suspended"
         self.db.commit()
         return serialize_company(self.db, tenant)
 
@@ -286,7 +407,17 @@ class PlatformCompanyService:
                 detail="Cannot delete the platform default tenant.",
             )
         tenant = self._get_tenant_or_404(tenant_id)
-        self.db.delete(tenant)
+        # Soft-delete: retain audit trail; block login access
+        tenant.status = "deleted"
+        tenant.trial_status = False
+        tenant.license_status = "deleted"
+        license_row = self.db.scalars(
+            select(CompanyLicense).where(CompanyLicense.tenant_id == tenant_id)
+        ).first()
+        if license_row:
+            license_row.status = "deleted"
+        for u in self.db.scalars(select(User).where(User.tenant_id == tenant_id)).all():
+            u.is_active = False
         self.db.commit()
 
     def reset_company_admin_password(self, tenant_id: int, new_password: str) -> dict:

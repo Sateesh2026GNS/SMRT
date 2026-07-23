@@ -66,6 +66,24 @@ def register_failed_login(db: Session, user: User | None, email: str) -> None:
         user.locked_until = _utcnow() + timedelta(minutes=settings.lockout_minutes)
         logger.warning("Account locked for user_id=%s until %s", user.id, user.locked_until)
     db.commit()
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=user.tenant_id,
+            alert_type="login_failure",
+            title="Login failure",
+            message=f"Failed login for {email} (attempt {user.failed_login_attempts})",
+            severity="high" if user.failed_login_attempts >= settings.max_login_attempts else "medium",
+            link="/admin/access-logs",
+            reference_type="user",
+            reference_id=user.id,
+            created_by="Security",
+            metadata={"email": email, "attempts": user.failed_login_attempts},
+        )
+    except Exception:
+        pass
 
 
 def clear_login_failures(db: Session, user: User) -> None:

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Bell,
@@ -29,6 +30,8 @@ import {
   createAlert,
   deleteAlert,
   getAlerts,
+  markAlertRead,
+  markAllAlertsRead,
   resolveAlert,
 } from "../../api/alertsApi";
 import { getEmployees } from "../../api/hrApi";
@@ -135,6 +138,7 @@ function normalizeAlert(a) {
 }
 
 export default function AlertsDashboard({ initialAlertType = null, title, subtitle }) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { addToast } = useToast();
   const admin = isAdmin(user);
@@ -450,6 +454,23 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
           >
             <RefreshCw className="h-4 w-4 text-slate-500" /> Refresh
           </button>
+          {canWrite && (
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await markAllAlertsRead();
+                  addToast("All alerts marked as read");
+                  load();
+                } catch (e) {
+                  addToast(e.response?.data?.detail || "Failed to mark all read", "error");
+                }
+              }}
+              className="inline-flex items-center gap-2 rounded-lg border bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Mark all read
+            </button>
+          )}
           <ExportButtons
             onExcel={() => exportToExcel(exportRows, EXPORT_COLUMNS, "alerts")}
             onPdf={() => exportToPdf(exportRows, EXPORT_COLUMNS, "Alerts Report", "alerts")}
@@ -661,6 +682,20 @@ export default function AlertsDashboard({ initialAlertType = null, title, subtit
                         >
                           <Eye className="h-3 w-3 text-slate-500" /> View
                         </button>
+                        {row.link && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              if (!row.is_read) {
+                                try { await markAlertRead(row.id); } catch { /* ignore */ }
+                              }
+                              navigate(row.link);
+                            }}
+                            className="rounded-md border border-blue-200 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50"
+                          >
+                            Open
+                          </button>
+                        )}
                         {canWrite && row.status === "active" && (
                           <button
                             type="button"

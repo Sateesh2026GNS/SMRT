@@ -246,15 +246,24 @@ def send_company_welcome_email(
     login_email: str,
     temporary_password: str,
     company_id: str,
+    subscription_plan: str | None = None,
+    trial_expires_at: str | None = None,
+    billing_cycle: str | None = None,
 ) -> None:
     s = _settings()
     login_url = f"{s.frontend_base_url.rstrip('/')}/login"
     subject = f"Welcome to GNS Insights — {company_name}"
+    plan_line = f"Subscription Plan: {(subscription_plan or 'trial').title()}\n"
+    billing_line = f"Billing Cycle: {(billing_cycle or '—').title()}\n" if billing_cycle else ""
+    trial_line = f"Trial Expiry: {trial_expires_at}\n" if trial_expires_at else ""
     body = (
         f"Hello,\n\n"
         f"Your company has been provisioned on GNS Insights ERP.\n\n"
         f"Company Name: {company_name}\n"
         f"Company ID: {company_id}\n"
+        f"{plan_line}"
+        f"{billing_line}"
+        f"{trial_line}"
         f"Login Email: {login_email}\n"
         f"Temporary Password: {temporary_password}\n"
         f"Login URL: {login_url}\n\n"

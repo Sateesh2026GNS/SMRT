@@ -15,6 +15,30 @@ def create_quality_inspection(db: Session, payload: QualityInspectionCreate) -> 
     db.add(qi)
     db.commit()
     db.refresh(qi)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        result = (getattr(qi, "result", None) or getattr(qi, "status", "") or "").lower()
+        if result in ("fail", "failed", "rejected"):
+            atype, sev = "qc_failed", "high"
+        elif result in ("rework", "rework_required"):
+            atype, sev = "rework_required", "medium"
+        else:
+            atype, sev = "qc_passed", "low"
+        emit_alert(
+            db,
+            tenant_id=qi.tenant_id,
+            alert_type=atype,
+            title=f"Quality inspection: {atype.replace('_', ' ')}",
+            message=qi.notes or f"Inspection #{qi.id} — {result or 'recorded'}",
+            severity=sev,
+            link="/quality/inspection",
+            reference_type="quality_inspection",
+            reference_id=qi.id,
+            created_by="Quality",
+        )
+    except Exception:
+        pass
     return qi
 
 

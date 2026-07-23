@@ -1,0 +1,64 @@
+"""Indian GSTIN validation helpers."""
+
+from __future__ import annotations
+
+import re
+
+# 2 digit state + 10 char PAN + entity + Z + checksum
+_GSTIN_RE = re.compile(
+    r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$"
+)
+
+_GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def normalize_gstin(value: str | None) -> str | None:
+    if value is None:
+        return None
+    cleaned = re.sub(r"\s+", "", str(value).strip().upper())
+    return cleaned or None
+
+
+def validate_gstin(value: str | None, *, required: bool = False) -> str | None:
+    """
+    Validate Indian GSTIN format + checksum.
+    Returns normalized GSTIN or None if empty and not required.
+    Raises ValueError on invalid format.
+    """
+    gstin = normalize_gstin(value)
+    if not gstin:
+        if required:
+            raise ValueError("GST Number is required")
+        return None
+    if len(gstin) != 15:
+        raise ValueError("GST Number must be exactly 15 characters")
+    if not _GSTIN_RE.match(gstin):
+        raise ValueError("Invalid GST Number format")
+    # Checksum (mod 36)
+    total = 0
+    for i, ch in enumerate(gstin[:14]):
+        code = _GSTIN_CHARS.index(ch)
+        product = code * (1 if i % 2 == 0 else 2)
+        total += (product // 36) + (product % 36)
+    check = (36 - (total % 36)) % 36
+    if _GSTIN_CHARS[check] != gstin[14]:
+        raise ValueError("Invalid GST Number checksum")
+    return gstin
+
+
+def normalize_indian_mobile(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if digits.startswith("91") and len(digits) == 12:
+        digits = digits[2:]
+    if len(digits) != 10 or digits[0] not in "6789":
+        raise ValueError("Mobile Number must be a valid 10-digit Indian number")
+    return digits
+
+
+def normalize_indian_pin(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) != 6:
+        raise ValueError("PIN Code must be a 6-digit Indian postal code")
+    if digits[0] == "0":
+        raise ValueError("PIN Code cannot start with 0")
+    return digits

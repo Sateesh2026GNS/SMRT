@@ -4,8 +4,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
+from app.utils.gst import normalize_gstin, normalize_indian_mobile, normalize_indian_pin, validate_gstin
 from app.utils.password import validate_password_strength
 from app.utils.sanitize import sanitize_email_local_part, sanitize_text
+
+VALID_PLANS = frozenset({"trial", "growth", "scale", "dominate", "enterprise"})
+VALID_BILLING_CYCLES = frozenset({"monthly", "quarterly", "yearly", "annual", "forever"})
+VALID_COMPANY_STATUSES = frozenset(
+    {"trial", "active", "suspended", "expired", "cancelled", "deleted"}
+)
 
 
 def _normalize_email(value: str) -> str:
@@ -73,12 +80,14 @@ class CreateCompanyRequest(BaseModel):
     address: str = Field(..., min_length=1, max_length=512)
     city: str = Field(..., min_length=1, max_length=128)
     state: str = Field(..., min_length=1, max_length=128)
-    country: str = Field(..., min_length=1, max_length=128)
+    country: str = Field(default="India", min_length=1, max_length=128)
     pin_code: str = Field(..., min_length=4, max_length=16)
-    subscription_plan: str = Field(..., min_length=1, max_length=64)
-    trial_days: int = Field(default=5, ge=0, le=365)
-    password: str = Field(..., min_length=8, max_length=128)
-    confirm_password: str = Field(..., min_length=8, max_length=128)
+    subscription_plan: str = Field(default="trial", min_length=1, max_length=64)
+    trial_days: int | None = Field(default=7, ge=0, le=365)
+    billing_cycle: str | None = Field(default=None, max_length=32)
+    # Optional — if omitted, a secure temporary password is generated
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    confirm_password: str | None = Field(default=None, min_length=8, max_length=128)
 
     @field_validator("company_name", "admin_name", "address", "city", "state", "country")
     @classmethod
@@ -93,16 +102,80 @@ class CreateCompanyRequest(BaseModel):
     def validate_emails(cls, value: str) -> str:
         return _normalize_email(value)
 
+    @field_validator("mobile_number")
+    @classmethod
+    def validate_mobile(cls, value: str) -> str:
+        return normalize_indian_mobile(value)
+
+    @field_validator("pin_code")
+    @classmethod
+    def validate_pin(cls, value: str) -> str:
+        return normalize_indian_pin(value)
+
+    @field_validator("gst_number")
+    @classmethod
+    def validate_gst(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        return validate_gstin(value)
+
+    @field_validator("subscription_plan")
+    @classmethod
+    def validate_plan(cls, value: str) -> str:
+        plan = (value or "").strip().lower()
+        if plan not in VALID_PLANS:
+            raise ValueError(
+                f"Invalid plan. Allowed: {', '.join(sorted(VALID_PLANS))}"
+            )
+        return plan
+
+    @field_validator("billing_cycle")
+    @classmethod
+    def validate_billing(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        cycle = value.strip().lower()
+        if cycle == "annual":
+            cycle = "yearly"
+        if cycle not in VALID_BILLING_CYCLES:
+            raise ValueError("Invalid billing cycle")
+        return cycle
+
     @field_validator("password")
     @classmethod
-    def validate_password(cls, value: str) -> str:
+    def validate_password(cls, value: str | None) -> str | None:
+        if value is None or value == "":
+            return None
         validate_password_strength(value)
         return value
 
     @model_validator(mode="after")
-    def passwords_match(self):
-        if self.password != self.confirm_password:
-            raise ValueError("Password and confirm password do not match")
+    def validate_trial_and_passwords(self):
+        plan = (self.subscription_plan or "").lower()
+        if plan == "trial":
+            days = self.trial_days if self.trial_days is not None else 7
+            if days < 7 or days > 30:
+                raise ValueError("Trial Days must be between 7 and 30 for Trial plans")
+            self.trial_days = days
+            if not self.billing_cycle:
+                self.billing_cycle = "forever"
+        else:
+            # Paid plans: trial days not applicable
+            self.trial_days = 0
+            if not self.billing_cycle:
+                defaults = {
+                    "growth": "quarterly",
+                    "scale": "yearly",
+                    "dominate": "yearly",
+                    "enterprise": "yearly",
+                }
+                self.billing_cycle = defaults.get(plan, "yearly")
+
+        if self.password or self.confirm_password:
+            if not self.password or not self.confirm_password:
+                raise ValueError("Password and confirm password are both required when setting a password")
+            if self.password != self.confirm_password:
+                raise ValueError("Password and confirm password do not match")
         return self
 
 
@@ -119,6 +192,23 @@ class UpdateCompanyRequest(BaseModel):
     subscription_plan: str | None = Field(None, max_length=64)
     trial_days: int | None = Field(None, ge=0, le=365)
     status: str | None = Field(None, max_length=32)
+
+    @field_validator("gst_number")
+    @classmethod
+    def validate_gst(cls, value: str | None) -> str | None:
+        if value is None or not str(value).strip():
+            return None
+        return validate_gstin(value)
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        status = value.strip().lower()
+        if status not in VALID_COMPANY_STATUSES:
+            raise ValueError(f"Invalid status. Allowed: {', '.join(sorted(VALID_COMPANY_STATUSES))}")
+        return status
 
 
 class ResetCompanyPasswordRequest(BaseModel):
@@ -167,3 +257,6 @@ class CreateCompanyResponse(BaseModel):
     admin_email: str
     temporary_password: str
     message: str
+    subscription_plan: str | None = None
+    trial_expires_at: datetime | None = None
+    billing_cycle: str | None = None

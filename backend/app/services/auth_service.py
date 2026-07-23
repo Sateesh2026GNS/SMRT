@@ -60,7 +60,7 @@ ROLE_MISMATCH_MESSAGE = (
 
 
 def build_access_token_for_user(user: User, *, role_name: str | None = None) -> str:
-    """JWT claims: user_id, company_id, email, full_name, role (+ legacy aliases)."""
+    """JWT claims: user_id, company_id, role, subscription_plan, license_status."""
     roles = list(getattr(user, "roles", None) or [])
     role = None
     if role_name:
@@ -69,9 +69,13 @@ def build_access_token_for_user(user: User, *, role_name: str | None = None) -> 
         role = roles[0] if roles else None
     resolved_role = role.name if role else (role_name or "Operator")
     company_name = None
+    subscription_plan = None
+    license_status = None
     tenant = getattr(user, "tenant", None)
     if tenant is not None:
         company_name = tenant.name
+        subscription_plan = getattr(tenant, "subscription", None)
+        license_status = getattr(tenant, "license_status", None)
     return create_access_token(
         {
             "sub": str(user.id),
@@ -84,6 +88,8 @@ def build_access_token_for_user(user: User, *, role_name: str | None = None) -> 
             "role": resolved_role,
             "role_id": role.id if role else None,
             "role_name": resolved_role,
+            "subscription_plan": subscription_plan,
+            "license_status": license_status,
         }
     )
 

@@ -1,7 +1,15 @@
-import { useState } from "react";
-import { Info, Check, Eye, Phone, GitCompare } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { Info, Check, Eye, Phone, GitCompare, X } from "lucide-react";
 
-const PLANS = [
+import { useToast } from "../../context/ToastContext";
+import {
+  activateTrial,
+  contactSales,
+  getSubscription,
+  getSubscriptionPlan,
+} from "../../api/settingsApi";
+
+const FALLBACK_PLANS = [
   { id: "free", name: "FREE", price: "₹0", billing: null },
   { id: "growth", name: "GROWTH", price: "₹36,000", billing: "Billed Quarterly Only" },
   { id: "scale", name: "SCALE", price: "₹1,50,000", billing: "Billed Annually Only" },
@@ -15,8 +23,131 @@ const FREE_PLAN_FEATURES = [
   "10+ Reports and Business Intelligence",
 ];
 
+function formatExpiry(iso) {
+  if (!iso) return null;
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
+  } catch {
+    return null;
+  }
+}
+
+function Modal({ open, title, onClose, children, wide }) {
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <div
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-800 ${
+          wide ? "max-w-3xl" : "max-w-lg"
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-700">
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700" aria-label="Close">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsMySubscription() {
+  const { addToast } = useToast();
   const [showDetails, setShowDetails] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [activating, setActivating] = useState(false);
+  const [submittingContact, setSubmittingContact] = useState(false);
+  const [subscription, setSubscription] = useState(null);
+  const [plans, setPlans] = useState(FALLBACK_PLANS);
+  const [viewPlan, setViewPlan] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [contactMessage, setContactMessage] = useState("");
+  const [contactPlan, setContactPlan] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getSubscription();
+      const data = res.data;
+      if (data) {
+        setSubscription(data);
+        if (Array.isArray(data.plans) && data.plans.length) {
+          setPlans(data.plans);
+        }
+      }
+    } catch (e) {
+      addToast(e.response?.data?.detail || e.response?.data?.message || "Failed to load subscription", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [addToast]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const trialActive = Boolean(subscription?.trial_active);
+  const canActivate = Boolean(subscription?.can_activate_trial);
+  const activePlanName = subscription?.plan_name || subscription?.subscription_plan || "Free Plan";
+  const activePrice = subscription?.price || "₹0";
+  const activeBilling = subscription?.billing_label || "Free forever";
+  const activeFeatures = subscription?.features?.length ? subscription.features : FREE_PLAN_FEATURES;
+  const expiryLabel = formatExpiry(subscription?.trial_expires_at);
+
+  const handleActivateTrial = async () => {
+    if (!canActivate || activating) return;
+    setActivating(true);
+    try {
+      const res = await activateTrial();
+      if (res.data) setSubscription(res.data);
+      addToast(res.message || "Trial activated successfully", "success");
+      await load();
+    } catch (e) {
+      addToast(e.response?.data?.detail || e.response?.data?.message || "Failed to activate trial", "error");
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const handleViewPlan = async (planId) => {
+    setViewLoading(true);
+    setViewPlan(null);
+    try {
+      const res = await getSubscriptionPlan(planId);
+      setViewPlan(res.data || plans.find((p) => p.id === planId) || null);
+    } catch (e) {
+      const fallback = plans.find((p) => p.id === planId);
+      if (fallback) setViewPlan(fallback);
+      else addToast(e.response?.data?.detail || "Failed to load plan details", "error");
+    } finally {
+      setViewLoading(false);
+    }
+  };
+
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setSubmittingContact(true);
+    try {
+      const res = await contactSales({
+        message: contactMessage.trim() || undefined,
+        preferred_plan: contactPlan || undefined,
+      });
+      addToast(res.message || res.data?.message || "Your request was sent. Our team will contact you shortly.", "success");
+      setShowContact(false);
+      setContactMessage("");
+      setContactPlan("");
+    } catch (err) {
+      addToast(err.response?.data?.detail || "Failed to submit request", "error");
+    } finally {
+      setSubmittingContact(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -32,17 +163,21 @@ export default function SettingsMySubscription() {
       <div className="mb-6 flex flex-col gap-4 rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-800 dark:bg-green-900/20 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-green-800 dark:text-green-400">
-            Free Trial (5 days)
+            Free Trial ({subscription?.trial_days || 5} days)
           </h2>
           <p className="mt-1 text-sm text-green-700 dark:text-green-500">
-            Unlock all the features on GNS Insights with just one click!
+            {trialActive && expiryLabel
+              ? `Trial is active until ${expiryLabel}. Unlock all features during the trial window.`
+              : "Unlock all the features on GNS Insights with just one click!"}
           </p>
         </div>
         <button
           type="button"
-          className="shrink-0 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700"
+          onClick={handleActivateTrial}
+          disabled={!canActivate || activating || loading}
+          className="shrink-0 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Activate Trial
+          {activating ? "Activating…" : trialActive ? "Trial Active" : "Activate Trial"}
         </button>
       </div>
 
@@ -67,14 +202,14 @@ export default function SettingsMySubscription() {
           <>
             <div className="mb-4 flex flex-wrap items-center gap-3">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                Free Plan (₹0/year)
+                {loading ? "Loading…" : `${activePlanName} (${activePrice}/year)`}
               </h3>
               <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-900/40 dark:text-green-400">
-                Free forever
+                {activeBilling}
               </span>
             </div>
             <ul className="space-y-2">
-              {FREE_PLAN_FEATURES.map((feature) => (
+              {activeFeatures.map((feature) => (
                 <li key={feature} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                   <Check className="h-4 w-4 shrink-0 text-green-600" />
                   {feature}
@@ -86,11 +221,11 @@ export default function SettingsMySubscription() {
       </div>
 
       {/* Compare Plans and Pricing */}
-      <h2 className="mb-4 text-base font-semibold text-slate-800 dark:text-slate-100">
+      <h2 id="compare-plans" className="mb-4 text-base font-semibold text-slate-800 dark:text-slate-100">
         Compare Plans and Pricing
       </h2>
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {PLANS.map((plan) => (
+        {plans.map((plan) => (
           <div
             key={plan.id}
             className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/50"
@@ -101,15 +236,17 @@ export default function SettingsMySubscription() {
             <p className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">
               {plan.price}
             </p>
-            {plan.billing && (
+            {(plan.billing || plan.billing_label) && (
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-500">
-                {plan.billing}
+                {plan.billing || plan.billing_label}
               </p>
             )}
             <button
               type="button"
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700/50"
-              title="View details"
+              onClick={() => handleViewPlan(plan.id)}
+              disabled={viewLoading}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-700/50"
+              title={`View ${plan.name} details`}
             >
               <Eye className="h-4 w-4" />
               View
@@ -122,6 +259,7 @@ export default function SettingsMySubscription() {
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
+          onClick={() => setShowContact(true)}
           className="flex items-center gap-2 rounded-lg bg-green-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-700"
         >
           <Phone className="h-4 w-4" />
@@ -129,12 +267,141 @@ export default function SettingsMySubscription() {
         </button>
         <button
           type="button"
+          onClick={() => {
+            setShowCompare(true);
+            document.getElementById("compare-plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
           className="flex items-center gap-2 rounded-lg bg-green-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-green-800"
         >
           <GitCompare className="h-4 w-4" />
           Compare All Plans
         </button>
       </div>
+
+      {/* Plan details modal */}
+      <Modal
+        open={Boolean(viewPlan) || viewLoading}
+        title={viewPlan ? `${viewPlan.name} plan` : "Plan details"}
+        onClose={() => setViewPlan(null)}
+      >
+        {viewLoading && !viewPlan ? (
+          <p className="text-sm text-slate-500">Loading plan…</p>
+        ) : viewPlan ? (
+          <div className="space-y-4">
+            <div>
+              <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{viewPlan.price}</p>
+              <p className="mt-1 text-sm text-slate-500">
+                {viewPlan.billing_label || viewPlan.billing || (viewPlan.billing_cycle === "forever" ? "Free forever" : viewPlan.billing_cycle)}
+              </p>
+            </div>
+            <ul className="space-y-2">
+              {(viewPlan.features || []).map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                  <Check className="h-4 w-4 shrink-0 text-green-600" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setContactPlan(viewPlan.id);
+                  setViewPlan(null);
+                  setShowContact(true);
+                }}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+              >
+                Talk to an expert
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewPlan(null)}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* Compare all plans modal */}
+      <Modal open={showCompare} title="Compare All Plans" onClose={() => setShowCompare(false)} wide>
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-600">
+                <th className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">Feature</th>
+                {plans.map((p) => (
+                  <th key={p.id} className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-200">
+                    {p.name}
+                    <div className="text-xs font-normal text-slate-500">{p.price}</div>
+                    <div className="text-[11px] font-normal text-slate-400">{p.billing || p.billing_label || "—"}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from(
+                new Set(plans.flatMap((p) => p.features || []))
+              ).map((feature) => (
+                <tr key={feature} className="border-b border-slate-100 dark:border-slate-700">
+                  <td className="px-3 py-2 text-slate-700 dark:text-slate-300">{feature}</td>
+                  {plans.map((p) => (
+                    <td key={p.id} className="px-3 py-2 text-center">
+                      {(p.features || []).includes(feature) ? (
+                        <Check className="mx-auto h-4 w-4 text-green-600" />
+                      ) : (
+                        <span className="text-slate-300">—</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Modal>
+
+      {/* Contact sales dialog */}
+      <Modal open={showContact} title="Talk to an expert" onClose={() => setShowContact(false)}>
+        <form onSubmit={handleContactSubmit} className="space-y-4">
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Tell us what you need. We’ll reach out using your account email.
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Preferred plan</label>
+            <select
+              value={contactPlan}
+              onChange={(e) => setContactPlan(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+            >
+              <option value="">Any / not sure</option>
+              {plans.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-400">Message</label>
+            <textarea
+              value={contactMessage}
+              onChange={(e) => setContactMessage(e.target.value)}
+              rows={4}
+              placeholder="I want to discuss upgrading my plan…"
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={submittingContact}
+            className="w-full rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
+          >
+            {submittingContact ? "Sending…" : "Submit request"}
+          </button>
+        </form>
+      </Modal>
     </div>
   );
 }
