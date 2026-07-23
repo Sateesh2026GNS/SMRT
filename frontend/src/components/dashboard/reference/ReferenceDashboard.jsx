@@ -348,7 +348,7 @@ function AlertsNotifications({ alerts = [] }) {
   return (
     <CardShell
       title={t("refDashboard.alertsNotifications")}
-      action={<Link to="/production/work-orders" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
+      action={<Link to="/alerts" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
     >
       {!alerts.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noData", "No data available.")}</p>
@@ -356,8 +356,8 @@ function AlertsNotifications({ alerts = [] }) {
         <ul className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
           {alerts.map((a, i) => {
             const Icon = alertIcons[a.icon] || AlertTriangle;
-            return (
-              <li key={a.id || i} className="flex gap-3">
+            const inner = (
+              <>
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${a.color}18`, color: a.color }}>
                   <Icon className="h-4 w-4" />
                 </div>
@@ -365,6 +365,15 @@ function AlertsNotifications({ alerts = [] }) {
                   <p className="text-sm text-slate-700 leading-snug">{a.message}</p>
                   <p className="mt-0.5 text-[11px] text-slate-400">{a.time || "—"}</p>
                 </div>
+              </>
+            );
+            return (
+              <li key={a.id || i}>
+                {a.link ? (
+                  <Link to={a.link} className="flex gap-3 rounded-lg p-1 -m-1 hover:bg-slate-50">{inner}</Link>
+                ) : (
+                  <div className="flex gap-3">{inner}</div>
+                )}
               </li>
             );
           })}
@@ -409,7 +418,7 @@ function RecentWorkOrders({ workOrders = [] }) {
   return (
     <CardShell
       title={t("refDashboard.recentWorkOrders")}
-      action={<Link to="/production/work-orders" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
+      action={<Link to="/alerts" className="text-xs font-semibold text-[#2563EB] hover:underline">{t("common.viewAll")}</Link>}
     >
       {!workOrders.length ? (
         <p className="py-6 text-center text-sm text-slate-500">{t("common.noRecords", "No records found.")}</p>

@@ -1,13 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
   Building2,
   CheckCircle2,
   CreditCard,
-  Eye,
-  EyeOff,
-  KeyRound,
+  Loader2,
   UserRound,
 } from "lucide-react";
 
@@ -23,6 +21,51 @@ const PLANS = [
   { id: "enterprise", label: "Enterprise" },
 ];
 
+const BILLING_CYCLES = [
+  { id: "monthly", label: "Monthly" },
+  { id: "quarterly", label: "Quarterly" },
+  { id: "yearly", label: "Yearly" },
+];
+
+const INDIAN_STATES = [
+  "Andaman and Nicobar Islands",
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chandigarh",
+  "Chhattisgarh",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Delhi",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jammu and Kashmir",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Ladakh",
+  "Lakshadweep",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Puducherry",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+];
+
 const EMPTY = {
   company_name: "",
   company_email: "",
@@ -36,43 +79,157 @@ const EMPTY = {
   country: "India",
   pin_code: "",
   subscription_plan: "trial",
-  trial_days: 5,
-  password: "",
-  confirm_password: "",
+  trial_days: 7,
+  billing_cycle: "forever",
 };
 
 const inputClass =
-  "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20";
+  "w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 transition focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:bg-slate-50 disabled:text-slate-500";
+
+function formatApiError(detail) {
+  if (!detail) return "Failed to create company.";
+  if (typeof detail === "string") return detail;
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        const loc = Array.isArray(item.loc) ? item.loc.filter((p) => p !== "body").join(".") : "";
+        const msg = item.msg || item.message || "Invalid value";
+        return loc ? `${loc}: ${msg}` : msg;
+      })
+      .join(" · ");
+  }
+  if (typeof detail === "object" && detail.msg) return detail.msg;
+  return "Failed to create company.";
+}
+
+function clientValidate(form, isTrial) {
+  if (!form.company_name.trim()) return "Company Name is required.";
+  if (!form.company_email.trim()) return "Company Email is required.";
+  if (!form.admin_name.trim()) return "Admin Name is required.";
+  if (!form.admin_email.trim()) return "Admin Email is required.";
+  const mobile = form.mobile_number.replace(/\D/g, "");
+  if (mobile.length !== 10 || !/^[6-9]/.test(mobile)) {
+    return "Mobile Number must be a valid 10-digit Indian number.";
+  }
+  if (!form.address.trim()) return "Address is required.";
+  if (!form.city.trim()) return "City is required.";
+  if (!form.state.trim()) return "State is required.";
+  if (!form.country.trim()) return "Country is required.";
+  const pin = form.pin_code.replace(/\D/g, "");
+  if (pin.length !== 6 || pin.startsWith("0")) {
+    return "PIN Code must be a valid 6-digit Indian postal code.";
+  }
+  if (form.gst_number.trim()) {
+    const gst = form.gst_number.replace(/\s+/g, "").toUpperCase();
+    if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst)) {
+      return "GST Number format is invalid.";
+    }
+  }
+  if (isTrial) {
+    const days = Number(form.trial_days);
+    if (!Number.isFinite(days) || days < 7 || days > 30) {
+      return "Trial Days must be between 7 and 30.";
+    }
+  } else if (!form.billing_cycle) {
+    return "Billing Cycle is required for paid plans.";
+  }
+  return "";
+}
 
 function CreateCompanyForm() {
   const [form, setForm] = useState(EMPTY);
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
   const [result, setResult] = useState(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
-  const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+  const isIndia = form.country.trim().toLowerCase() === "india";
+  const isTrial = form.subscription_plan === "trial";
+
+  const set = (key) => (e) => {
+    const value = e.target.value;
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (key === "subscription_plan") {
+        if (value === "trial") {
+          next.trial_days = next.trial_days >= 7 && next.trial_days <= 30 ? next.trial_days : 7;
+          next.billing_cycle = "forever";
+        } else {
+          next.trial_days = 0;
+          next.billing_cycle =
+            next.billing_cycle && next.billing_cycle !== "forever"
+              ? next.billing_cycle
+              : "yearly";
+        }
+      }
+      return next;
+    });
+    setFieldErrors((prev) => ({ ...prev, [key]: undefined }));
+    setError("");
+  };
+
+  const steps = useMemo(
+    () => [
+      "Validating company details",
+      "Checking duplicates",
+      "Creating company & admin",
+      "Assigning subscription & license",
+      "Sending welcome email",
+    ],
+    []
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (form.password !== form.confirm_password) {
-      setError("Password and confirm password do not match.");
+    setFieldErrors({});
+
+    const localError = clientValidate(form, isTrial);
+    if (localError) {
+      setError(localError);
       return;
     }
+
     setLoading(true);
+    setProgress(steps[0]);
+    const progressTimers = steps.slice(1).map((label, idx) =>
+      setTimeout(() => setProgress(label), (idx + 1) * 450)
+    );
+
     try {
-      const data = await createCompany({
-        ...form,
-        trial_days: Number(form.trial_days),
-        gst_number: form.gst_number || null,
-      });
+      const payload = {
+        company_name: form.company_name.trim(),
+        company_email: form.company_email.trim(),
+        admin_name: form.admin_name.trim(),
+        admin_email: form.admin_email.trim(),
+        mobile_number: form.mobile_number.trim(),
+        gst_number: form.gst_number.trim() || null,
+        address: form.address.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        country: form.country.trim(),
+        pin_code: form.pin_code.trim(),
+        subscription_plan: form.subscription_plan,
+        billing_cycle: isTrial ? "forever" : form.billing_cycle,
+        trial_days: isTrial ? Number(form.trial_days) : 0,
+      };
+      const data = await createCompany(payload);
       setResult(data);
     } catch (err) {
       const detail = err.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Failed to create company.");
+      setError(formatApiError(detail));
+      if (Array.isArray(detail)) {
+        const mapped = {};
+        detail.forEach((item) => {
+          const key = Array.isArray(item.loc) ? item.loc[item.loc.length - 1] : null;
+          if (typeof key === "string") mapped[key] = item.msg || "Invalid";
+        });
+        setFieldErrors(mapped);
+      }
     } finally {
+      progressTimers.forEach(clearTimeout);
+      setProgress("");
       setLoading(false);
     }
   };
@@ -91,18 +248,38 @@ function CreateCompanyForm() {
 
             <div className="mt-6 space-y-3 rounded-xl bg-slate-50 p-4 text-left text-sm">
               <Row label="Company ID" value={result.company_id} mono />
+              <Row label="Company" value={result.company?.company_name} />
               <Row label="Admin Email" value={result.admin_email} />
+              <Row label="Plan" value={(result.subscription_plan || "—").toString()} />
+              {result.billing_cycle ? (
+                <Row label="Billing" value={String(result.billing_cycle)} />
+              ) : null}
+              {result.trial_expires_at ? (
+                <Row
+                  label="Trial Expiry"
+                  value={new Date(result.trial_expires_at).toLocaleString()}
+                />
+              ) : null}
               <Row label="Temporary Password" value={result.temporary_password} mono />
             </div>
 
             <p className="mt-4 text-xs text-slate-500">
-              Login details have been emailed to the company admin.
+              A secure temporary password was generated and emailed to the company admin.
+              Share the credentials above only if email delivery fails.
             </p>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+              {result.company?.id ? (
+                <Link
+                  to={`/gns-admin/companies/${result.company.id}`}
+                  className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+                >
+                  View Company
+                </Link>
+              ) : null}
               <Link
                 to="/gns-admin"
-                className="rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700"
+                className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Back to Dashboard
               </Link>
@@ -111,6 +288,8 @@ function CreateCompanyForm() {
                 onClick={() => {
                   setResult(null);
                   setForm(EMPTY);
+                  setError("");
+                  setFieldErrors({});
                 }}
                 className="rounded-lg border border-slate-200 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
@@ -140,26 +319,66 @@ function CreateCompanyForm() {
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">Create New Company</h2>
           <p className="mt-1 text-sm text-slate-500">
             Provision a tenant, company admin account, subscription, and license.
+            Company ID and admin password are generated automatically.
           </p>
         </div>
 
         {error && (
-          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
             {error}
           </div>
         )}
 
-        <form id="create-company-form" onSubmit={handleSubmit} className="space-y-5">
+        {loading && (
+          <div className="mb-5 flex items-center gap-3 rounded-xl border border-teal-200 bg-teal-50 px-4 py-3 text-sm text-teal-800">
+            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+            <span>{progress || "Provisioning company…"}</span>
+          </div>
+        )}
+
+        <form id="create-company-form" onSubmit={handleSubmit} className="space-y-5" noValidate>
           <Section
             icon={Building2}
             title="Company Details"
             subtitle="Legal and contact information for the tenant organization."
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Company Name" required value={form.company_name} onChange={set("company_name")} placeholder="Acme Manufacturing Pvt Ltd" />
-              <Field label="Company Email" type="email" required value={form.company_email} onChange={set("company_email")} placeholder="admin@company.com" />
-              <Field label="Mobile Number" required value={form.mobile_number} onChange={set("mobile_number")} placeholder="9876543210" />
-              <Field label="GST Number" value={form.gst_number} onChange={set("gst_number")} placeholder="Optional" />
+              <Field
+                label="Company Name"
+                required
+                value={form.company_name}
+                onChange={set("company_name")}
+                placeholder="Acme Manufacturing Pvt Ltd"
+                disabled={loading}
+                error={fieldErrors.company_name}
+              />
+              <Field
+                label="Company Email"
+                type="email"
+                required
+                value={form.company_email}
+                onChange={set("company_email")}
+                placeholder="ops@company.com"
+                disabled={loading}
+                error={fieldErrors.company_email}
+              />
+              <Field
+                label="Mobile Number"
+                required
+                value={form.mobile_number}
+                onChange={set("mobile_number")}
+                placeholder="9876543210"
+                disabled={loading}
+                error={fieldErrors.mobile_number}
+              />
+              <Field
+                label="GST Number"
+                value={form.gst_number}
+                onChange={set("gst_number")}
+                placeholder="22AAAAA0000A1Z5"
+                disabled={loading}
+                error={fieldErrors.gst_number}
+              />
               <div className="sm:col-span-2">
                 <label className="mb-1.5 block text-sm font-medium text-slate-700">
                   Address <span className="text-red-500">*</span>
@@ -170,31 +389,106 @@ function CreateCompanyForm() {
                   required
                   rows={2}
                   placeholder="Street, area, landmark"
+                  disabled={loading}
                   className={`${inputClass} resize-none`}
                 />
+                {fieldErrors.address ? (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.address}</p>
+                ) : null}
               </div>
-              <Field label="City" required value={form.city} onChange={set("city")} />
-              <Field label="State" required value={form.state} onChange={set("state")} />
-              <Field label="Country" required value={form.country} onChange={set("country")} />
-              <Field label="PIN Code" required value={form.pin_code} onChange={set("pin_code")} />
+              <Field
+                label="City"
+                required
+                value={form.city}
+                onChange={set("city")}
+                disabled={loading}
+                error={fieldErrors.city}
+              />
+              {isIndia ? (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    State <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.state}
+                    onChange={set("state")}
+                    required
+                    disabled={loading}
+                    className={inputClass}
+                  >
+                    <option value="">Select state</option>
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                  {fieldErrors.state ? (
+                    <p className="mt-1 text-xs text-red-600">{fieldErrors.state}</p>
+                  ) : null}
+                </div>
+              ) : (
+                <Field
+                  label="State"
+                  required
+                  value={form.state}
+                  onChange={set("state")}
+                  disabled={loading}
+                  error={fieldErrors.state}
+                />
+              )}
+              <Field
+                label="Country"
+                required
+                value={form.country}
+                onChange={set("country")}
+                disabled={loading}
+                error={fieldErrors.country}
+              />
+              <Field
+                label="PIN Code"
+                required
+                value={form.pin_code}
+                onChange={set("pin_code")}
+                placeholder="500001"
+                disabled={loading}
+                error={fieldErrors.pin_code}
+              />
             </div>
           </Section>
 
           <Section
             icon={UserRound}
             title="Company Admin"
-            subtitle="First administrator who will manage users for this company."
+            subtitle="First administrator who will manage users for this company. A secure temporary password is generated automatically."
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Admin Name" required value={form.admin_name} onChange={set("admin_name")} placeholder="Full name" />
-              <Field label="Admin Email" type="email" required value={form.admin_email} onChange={set("admin_email")} placeholder="admin@company.com" />
+              <Field
+                label="Admin Name"
+                required
+                value={form.admin_name}
+                onChange={set("admin_name")}
+                placeholder="Full name"
+                disabled={loading}
+                error={fieldErrors.admin_name}
+              />
+              <Field
+                label="Admin Email"
+                type="email"
+                required
+                value={form.admin_email}
+                onChange={set("admin_email")}
+                placeholder="admin@company.com"
+                disabled={loading}
+                error={fieldErrors.admin_email}
+              />
             </div>
           </Section>
 
           <Section
             icon={CreditCard}
             title="Subscription"
-            subtitle="Choose the plan and trial window for this company."
+            subtitle="Choose the plan. Trial days apply only to Trial; paid plans use a billing cycle."
           >
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
@@ -206,6 +500,7 @@ function CreateCompanyForm() {
                   onChange={set("subscription_plan")}
                   className={inputClass}
                   required
+                  disabled={loading}
                 >
                   {PLANS.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -214,55 +509,54 @@ function CreateCompanyForm() {
                   ))}
                 </select>
               </div>
-              <Field
-                label="Trial Days"
-                type="number"
-                min={0}
-                max={365}
-                required
-                value={form.trial_days}
-                onChange={set("trial_days")}
-              />
-            </div>
-          </Section>
 
-          <Section
-            icon={KeyRound}
-            title="Admin Password"
-            subtitle="Temporary password shared with the company admin after creation."
-          >
-            <div className="grid gap-4 sm:grid-cols-2">
-              <PasswordField
-                label="Password"
-                required
-                value={form.password}
-                onChange={set("password")}
-                visible={showPassword}
-                onToggle={() => setShowPassword((v) => !v)}
-              />
-              <PasswordField
-                label="Confirm Password"
-                required
-                value={form.confirm_password}
-                onChange={set("confirm_password")}
-                visible={showConfirm}
-                onToggle={() => setShowConfirm((v) => !v)}
-              />
+              {isTrial ? (
+                <Field
+                  label="Trial Days"
+                  type="number"
+                  min={7}
+                  max={30}
+                  required
+                  value={form.trial_days}
+                  onChange={set("trial_days")}
+                  disabled={loading}
+                  error={fieldErrors.trial_days}
+                  hint="Minimum 7, maximum 30 days"
+                />
+              ) : (
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Billing Cycle <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={form.billing_cycle}
+                    onChange={set("billing_cycle")}
+                    className={inputClass}
+                    required
+                    disabled={loading}
+                  >
+                    {BILLING_CYCLES.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </Section>
         </form>
       </main>
 
-      {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <p className="hidden text-xs text-slate-500 sm:block">
-            Company ID and login credentials will be emailed to the admin.
+            Company ID (GNS-#####) and temporary password are generated server-side.
           </p>
           <div className="flex w-full gap-2 sm:w-auto">
             <Link
               to="/gns-admin"
-              className="flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex-none"
+              className={`flex-1 rounded-lg border border-slate-200 px-4 py-2.5 text-center text-sm font-medium text-slate-700 hover:bg-slate-50 sm:flex-none ${loading ? "pointer-events-none opacity-50" : ""}`}
             >
               Cancel
             </Link>
@@ -270,9 +564,16 @@ function CreateCompanyForm() {
               type="submit"
               form="create-company-form"
               disabled={loading}
-              className="flex-1 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:opacity-50 sm:flex-none"
+              className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
             >
-              {loading ? "Creating…" : "Create Company"}
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating…
+                </>
+              ) : (
+                "Create Company"
+              )}
             </button>
           </div>
         </div>
@@ -300,7 +601,7 @@ function Section({ icon: Icon, title, subtitle, children }) {
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="flex items-start gap-3 border-b border-slate-100 bg-slate-50/80 px-5 py-4">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-50 text-teal-700">
-          <Icon className="h-4.5 w-4.5 h-4 w-4" />
+          <Icon className="h-4 w-4" />
         </div>
         <div>
           <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
@@ -312,7 +613,7 @@ function Section({ icon: Icon, title, subtitle, children }) {
   );
 }
 
-function Field({ label, required, className = "", ...props }) {
+function Field({ label, required, className = "", error, hint, ...props }) {
   return (
     <div className={className}>
       <label className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -320,36 +621,8 @@ function Field({ label, required, className = "", ...props }) {
         {required ? <span className="text-red-500"> *</span> : null}
       </label>
       <input {...props} required={required} className={inputClass} />
-    </div>
-  );
-}
-
-function PasswordField({ label, required, value, onChange, visible, onToggle }) {
-  return (
-    <div>
-      <label className="mb-1.5 block text-sm font-medium text-slate-700">
-        {label}
-        {required ? <span className="text-red-500"> *</span> : null}
-      </label>
-      <div className="relative">
-        <input
-          type={visible ? "text" : "password"}
-          value={value}
-          onChange={onChange}
-          required={required}
-          autoComplete="new-password"
-          className={`${inputClass} pr-11`}
-          placeholder="••••••••"
-        />
-        <button
-          type="button"
-          onClick={onToggle}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-          aria-label={visible ? "Hide password" : "Show password"}
-        >
-          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
-      </div>
+      {hint ? <p className="mt-1 text-xs text-slate-500">{hint}</p> : null}
+      {error ? <p className="mt-1 text-xs text-red-600">{error}</p> : null}
     </div>
   );
 }
@@ -359,7 +632,7 @@ function Row({ label, value, mono }) {
     <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
       <span className="text-slate-500">{label}</span>
       <span className={`font-medium text-slate-900 ${mono ? "font-mono text-xs" : ""}`}>
-        {value}
+        {value ?? "—"}
       </span>
     </div>
   );

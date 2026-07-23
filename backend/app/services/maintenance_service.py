@@ -20,6 +20,23 @@ def create_maintenance_record(db: Session, payload: MaintenanceRecordCreate) -> 
     db.add(mr)
     db.commit()
     db.refresh(mr)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=mr.tenant_id,
+            alert_type="machine_service_completed",
+            title="Machine service recorded",
+            message=getattr(mr, "notes", None) or f"Maintenance record #{mr.id}",
+            severity="low",
+            link="/maintenance",
+            reference_type="maintenance_record",
+            reference_id=mr.id,
+            created_by="Maintenance",
+        )
+    except Exception:
+        pass
     return mr
 
 
@@ -33,6 +50,23 @@ def create_preventive_maintenance(db: Session, payload: PreventiveMaintenanceCre
     db.add(pm)
     db.commit()
     db.refresh(pm)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=pm.tenant_id,
+            alert_type="preventive_maintenance_due",
+            title="Preventive maintenance scheduled",
+            message=getattr(pm, "description", None) or f"PM record #{pm.id}",
+            severity="medium",
+            link="/maintenance/preventive",
+            reference_type="preventive_maintenance",
+            reference_id=pm.id,
+            created_by="Maintenance",
+        )
+    except Exception:
+        pass
     return pm
 
 
@@ -46,6 +80,23 @@ def create_breakdown_report(db: Session, payload: BreakdownReportCreate) -> Brea
     db.add(br)
     db.commit()
     db.refresh(br)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=br.tenant_id,
+            alert_type="machine_breakdown",
+            title="Machine breakdown reported",
+            message=getattr(br, "description", None) or f"Breakdown report #{br.id}",
+            severity="critical",
+            link="/alerts/machine-failure",
+            reference_type="breakdown_report",
+            reference_id=br.id,
+            created_by="Maintenance",
+        )
+    except Exception:
+        pass
     return br
 
 

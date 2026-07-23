@@ -116,6 +116,23 @@ def create_work_order(db: Session, payload: WorkOrderCreate, assigned_user_id: i
     db.add(work_order)
     db.commit()
     db.refresh(work_order)
+    try:
+        from app.services.alert_event_service import emit_alert
+
+        emit_alert(
+            db,
+            tenant_id=work_order.tenant_id,
+            alert_type="work_order_created",
+            title=f"Work order created: {work_order.work_order_number}",
+            message=f"WO {work_order.work_order_number} planned qty {work_order.planned_quantity}",
+            severity="medium",
+            link=f"/production/work-orders?id={work_order.id}",
+            reference_type="work_order",
+            reference_id=work_order.id,
+            created_by="Production",
+        )
+    except Exception:
+        pass
     return work_order
 
 

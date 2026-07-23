@@ -384,17 +384,43 @@ def get_erp_dashboard(db: Session, tenant_id: int, user: User | None = None) -> 
             "due": wo.planned_end.isoformat() if wo.planned_end else None,
         })
 
-    notifications = get_user_notifications(db, user) if user else {"notifications": []}
-    alerts_feed = [
-        {
-            "id": n.get("id"),
-            "message": n.get("title") or n.get("message"),
-            "time": n.get("triggered_at"),
-            "color": "#EF4444" if n.get("severity") == "high" else "#3B82F6",
-            "icon": "alert",
+    alerts_feed = []
+    try:
+        from app.services.alert_service import list_alerts as list_tenant_alerts
+
+        alert_rows, _, _ = list_tenant_alerts(
+            db, tenant_id, status="active", user=user, page=1, page_size=5
+        )
+        severity_colors = {
+            "critical": "#EF4444",
+            "high": "#F97316",
+            "medium": "#3B82F6",
+            "low": "#22C55E",
         }
-        for n in notifications.get("notifications", [])[:5]
-    ]
+        alerts_feed = [
+            {
+                "id": a.id,
+                "message": a.title or a.message,
+                "time": a.triggered_at.isoformat() if a.triggered_at else None,
+                "color": severity_colors.get((a.severity or "").lower(), "#3B82F6"),
+                "icon": "alert",
+                "link": a.link or "/alerts",
+            }
+            for a in alert_rows
+        ]
+    except Exception:
+        notifications = get_user_notifications(db, user) if user else {"notifications": []}
+        alerts_feed = [
+            {
+                "id": n.get("id"),
+                "message": n.get("title") or n.get("message"),
+                "time": n.get("created_at"),
+                "color": "#3B82F6",
+                "icon": "alert",
+                "link": n.get("action_url") or "/alerts",
+            }
+            for n in notifications.get("notifications", [])[:5]
+        ]
 
     total_wo = total_orders or (completed_orders + in_progress_orders + on_hold_orders + pending_orders)
     progress_pct = round((completed_orders / total_wo) * 100) if total_wo else 0

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.auth_deps import get_current_user
@@ -8,11 +9,17 @@ from app.models.user import User
 from app.schemas.company_settings import CompanySettingsRead, CompanySettingsUpdate
 from app.services import company_settings_service
 from app.services.account_overview_service import get_account_overview
+from app.services import subscription_service
 from app.utils.api_response import success_response
 
 router = APIRouter(prefix="/settings", tags=["Settings"])
 
 MODULE = "admin"
+
+
+class SalesInquiryRequest(BaseModel):
+    message: str | None = Field(None, max_length=2000)
+    preferred_plan: str | None = Field(None, max_length=64)
 
 
 @router.get("/account-overview")
@@ -23,6 +30,58 @@ def get_account_overview_endpoint(
     """Live profile, subscription, and session details for the JWT user."""
     data = get_account_overview(db, user)
     return success_response("Account overview retrieved", data)
+
+
+@router.get("/subscription")
+def get_subscription_endpoint(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Current subscription, trial status, and plan catalog for the tenant."""
+    data = subscription_service.get_current_subscription(db, user)
+    return success_response("Subscription retrieved", data)
+
+
+@router.get("/subscription/plans")
+def list_plans_endpoint(
+    user: User = Depends(get_current_user),
+) -> dict:
+    data = subscription_service.list_subscription_plans()
+    return success_response("Plans retrieved", data)
+
+
+@router.get("/subscription/plans/{plan_id}")
+def get_plan_endpoint(
+    plan_id: str,
+    user: User = Depends(get_current_user),
+) -> dict:
+    data = subscription_service.get_plan_details(plan_id)
+    return success_response("Plan details retrieved", data)
+
+
+@router.post("/subscription/activate-trial")
+def activate_trial_endpoint(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Activate free trial on the signed-in user's company (tenants + company_licenses)."""
+    data = subscription_service.activate_trial(db, user)
+    return success_response("Trial activated successfully", data)
+
+
+@router.post("/subscription/contact-sales")
+def contact_sales_endpoint(
+    payload: SalesInquiryRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    data = subscription_service.submit_sales_inquiry(
+        db,
+        user,
+        message=payload.message,
+        preferred_plan=payload.preferred_plan,
+    )
+    return success_response(data.get("message") or "Inquiry submitted", data)
 
 
 @router.get("/company", response_model=CompanySettingsRead)
