@@ -105,7 +105,7 @@ export default function Navbar({ onMenuClick }) {
           </div>
         </div>
 
-        <div className="order-3 w-full lg:order-none lg:flex-1 lg:max-w-xl">
+        <div className="order-3 w-full lg:order-none lg:flex-1 lg:max-w-2xl">
           <GlobalSearch />
         </div>
 
